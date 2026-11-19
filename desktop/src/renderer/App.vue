@@ -12,7 +12,7 @@ import TerminalPane from './components/TerminalPane.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
-import { ingestEvent, layout, notify, resetActivity, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
+import { ingestEvent, layout, markSpoken, notify, resetActivity, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
 import { writeTo } from './terminals'
 
 const showNew = ref(false)
@@ -55,6 +55,7 @@ onMounted(async () => {
     ev.onSessionView((v) => upsertSession(v as SessionView)),
     ev.onActivity((e) => ingestEvent(e as AnyAgentEvent)),
     ev.onAudioState((s) => { store.audio = s }),
+    ev.onSpoken((p) => markSpoken(p.sessionId, p.eventId)),
     ev.onNotice((n) => notify(n.level, n.message)),
     ev.onSettings((s) => { store.settings = s as typeof store.settings }),
     ev.onConfirmQuit(() => { store.confirmQuit = true }),
@@ -95,14 +96,10 @@ async function quit() {
     <SessionSidebar @select="select" @create="showNew = true" @settings="showSettings = true" />
     <ResizeHandle label="Resize sessions panel" @resize="resizeSidebar" @reset="resetSidebar" />
     <main class="center">
-      <SessionToolbar @settings="showSessionSettings = true" />
-      <TerminalPane />
-      <footer class="statusbar">
-        <span :class="store.status.db ? 'ok' : 'bad'">● MySQL</span>
-        <span :class="store.status.stt ? 'ok' : 'bad'">● STT</span>
-        <span :class="store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'">● TTS {{ store.status.tts && !store.status.ttsReady ? '(warming up)' : '' }}</span>
-        <span v-if="store.audio.speakingSessionId" class="speaking">🔊 speaking · {{ store.audio.queued }} queued</span>
-      </footer>
+      <section class="terminal-card">
+        <SessionToolbar @settings="showSessionSettings = true" />
+        <TerminalPane />
+      </section>
     </main>
     <template v-if="store.showActivity">
       <ResizeHandle label="Resize activity panel" @resize="resizeActivity" @reset="resetActivity" />

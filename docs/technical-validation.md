@@ -84,5 +84,5 @@ Bugs found and fixed through this testing: IPC handlers registered after the win
 - Claude `PermissionRequest`, `Notification`, `AskUserQuestion`, `StopFailure`, `PostToolUseFailure` payloads live
   (implemented from the official docs, unit-tested with synthetic payloads).
 - Codex hooks (trust flow), Codex permission detection, `codex resume` live, Codex App Server (docs only; not used).
-- Multi-session background speaking with real audio, global mute, replay button, VS Code button, window-focus transitions.
+- Multi-session background speaking with real audio, global mute, the listen-again buttons in Activity, VS Code button, window-focus transitions.
 - AppImage/deb artifacts (only `electron-builder --linux dir` was built and launched), macOS, GPU profile.

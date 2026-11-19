@@ -18,6 +18,7 @@ export const schemas = {
   }),
   start: z.object({ id: Id, cols: z.number().int().min(2).max(1000), rows: z.number().int().min(2).max(500) }),
   id: z.object({ id: Id }),
+  listen: z.object({ id: Id, text: z.string().min(1).max(8000), ref: z.string().min(1).max(64) }),
   rename: z.object({ id: Id, title: z.string().min(1).max(160) }),
   archive: z.object({ id: Id, archived: z.boolean() }),
   mute: z.object({ id: Id, muted: z.boolean() }),

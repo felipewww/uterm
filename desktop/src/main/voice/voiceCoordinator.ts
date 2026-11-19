@@ -15,26 +15,38 @@ export interface VoiceDeps {
   play(audio: Uint8Array, speed: number, requestId: string): Promise<void>
   stopPlayback(): void
   onSpoken(sessionId: string, eventId: string, voiceId: string, priority: number, text: string): void
-  onState(state: { speakingSessionId: string | null; queued: number }): void
+  onState(state: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }): void
   onError(message: string): void
 }
 
 /** Connects normalised events to the global audio queue through the deterministic VoicePolicy. */
 export class VoiceCoordinator {
   readonly queue: AudioQueue
-  private lastSpoken = new Map<string, string>()
+  /** Recently synthesized chunks (in memory only), so listening again to a message is instant. */
+  private audioCache = new Map<string, Uint8Array>()
+  private static readonly CACHE_MAX = 80
 
   constructor(private d: VoiceDeps) {
     this.queue = new AudioQueue({
       maxItems: d.settings().queueMaxItems,
-      synthesize: (t, v, s) => d.synthesize(t, v, s),
+      synthesize: (t, v, s) => this.synthesizeCached(t, v, s),
       play: (audio, req) => d.play(audio, this.speedFor(req.sessionId), req.id),
       stopPlayback: () => d.stopPlayback(),
       revalidate: (req) => this.revalidate(req.sessionId, req.kind, !!req.force),
       onChange: (s) => d.onState(s),
-      onSpoken: (req, text) => { this.lastSpoken.set(req.sessionId, req.text); d.onSpoken(req.sessionId, req.eventId, req.voiceProfileId, req.priority, text) },
+      onSpoken: (req, text) => { if (!req.dedupeKey.startsWith('listen:')) d.onSpoken(req.sessionId, req.eventId, req.voiceProfileId, req.priority, text) },
       onError: (_r, err) => d.onError(`Voice playback failed: ${err.message}`)
     })
+  }
+
+  private async synthesizeCached(text: string, voiceId: string, signal: AbortSignal): Promise<Uint8Array> {
+    const key = `${voiceId}\u0000${text}`
+    const hit = this.audioCache.get(key)
+    if (hit) { this.audioCache.delete(key); this.audioCache.set(key, hit); return hit } // refresh LRU position
+    const audio = await this.d.synthesize(text, voiceId, signal)
+    this.audioCache.set(key, audio)
+    while (this.audioCache.size > VoiceCoordinator.CACHE_MAX) this.audioCache.delete(this.audioCache.keys().next().value as string)
+    return audio
   }
 
   private speedFor(sessionId: string): number {
@@ -48,11 +60,11 @@ export class VoiceCoordinator {
     const settings = this.d.settings()
     if (settings.globalMute) return { speak: false }
     if (!s) return { speak: force } // voice previews have no session
-    if (this.d.isMuted(sessionId)) return { speak: false }
+    if (!force && this.d.isMuted(sessionId)) return { speak: false } // an explicit "listen" works on a muted session
     const fg = isForeground(sessionId, this.d.focus())
     const mode = effectiveMode(s, settings, fg)
     if (!force && !modeAllows(mode, kind)) return { speak: false }
-    return { speak: true, prefix: fg ? undefined : `${s.title}.` }
+    return { speak: true, prefix: fg || force ? undefined : `${s.title}.` }
   }
 
   onEvent(e: AnyAgentEvent): void {
@@ -75,13 +87,17 @@ export class VoiceCoordinator {
   /** Selected session or window focus changed: queued audio is re-judged immediately. */
   focusChanged(): void { this.queue.reevaluate() }
 
-  replay(sessionId: string): boolean {
+  /**
+   * The user pressed "listen" on an activity message: speak it again (same speech preparation as live speech).
+   * `ref` is the activity item id, so the UI can show which message is playing. Not recorded as a new spoken message.
+   */
+  listen(sessionId: string, text: string, ref: string): boolean {
     const s = this.d.getSession(sessionId)
-    const text = this.lastSpoken.get(sessionId)
-    if (!s || !text) return false
+    const spoken = prepareSpeech(text, { maxChars: this.d.settings().speechMaxChars })
+    if (!s || !spoken) return false
     this.queue.enqueue({
-      sessionId, eventId: randomUUID(), dedupeKey: `replay:${randomUUID()}`, voiceProfileId: this.voiceFor(s),
-      text, kind: 'final', priority: 1, ttlMs: 60_000, force: true
+      sessionId, eventId: ref, dedupeKey: `listen:${randomUUID()}`, voiceProfileId: this.voiceFor(s),
+      text: spoken, kind: 'final', priority: 1, ttlMs: 60_000, force: true
     })
     return true
   }
@@ -93,7 +109,4 @@ export class VoiceCoordinator {
       text, kind: 'question', priority: 1, ttlMs: 60_000, force: true
     })
   }
-
-  seedLastSpoken(sessionId: string, text: string): void { this.lastSpoken.set(sessionId, text) }
-  hasReplay(sessionId: string): boolean { return this.lastSpoken.has(sessionId) }
 }

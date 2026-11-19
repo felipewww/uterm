@@ -5,6 +5,8 @@ import { DEFAULT_SETTINGS, type AppSettings, type ServiceStatus, type SessionVie
 export interface ActivityItem {
   id: string; at: number; kind: 'prompt' | 'progress' | 'tool' | 'question' | 'permission' | 'error' | 'final' | 'attention'
   text: string
+  /** the app spoke this message aloud */
+  spoken?: boolean
 }
 export interface Notice { id: number; level: 'info' | 'warn' | 'error'; message: string }
 export interface AgentInfo { installed: boolean; version?: string }
@@ -19,7 +21,7 @@ export const store = reactive({
   agents: {} as Record<string, AgentInfo>,
   capabilities: {} as Record<string, { notes: string[] }>,
   voices: [{ id: 'default', name: 'Default' }] as VoiceProfile[],
-  audio: { speakingSessionId: null as string | null, queued: 0 },
+  audio: { speakingSessionId: null as string | null, speakingEventId: null as string | null, queued: 0 },
   notices: [] as Notice[],
   confirmQuit: false,
   showActivity: true
@@ -81,8 +83,18 @@ export function ingestEvent(e: AnyAgentEvent): void {
   if (list.length > 300) list.splice(0, list.length - 300)
 }
 
-export function ingestHistory(sessionId: string, rows: Array<{ type: string; payload: Record<string, unknown>; at: number }>): void {
+export function ingestHistory(sessionId: string, rows: Array<{ id?: string; type: string; payload: Record<string, unknown>; at: number; spoken?: boolean }>): void {
   if ((store.activity[sessionId]?.length ?? 0) > 0) return
-  const fake = rows.map((r, i) => toActivity({ id: `h${i}-${r.at}`, sessionId, nativeSessionId: null, agent: 'claude', type: r.type, timestamp: r.at, turnId: null, payload: r.payload } as AnyAgentEvent)).filter(Boolean) as ActivityItem[]
-  store.activity[sessionId] = fake
+  const items = rows.map((r, i) => {
+    const item = toActivity({ id: r.id ?? `h${i}-${r.at}`, sessionId, nativeSessionId: null, agent: 'claude', type: r.type, timestamp: r.at, turnId: null, payload: r.payload } as AnyAgentEvent)
+    if (item && r.spoken) item.spoken = true
+    return item
+  }).filter(Boolean) as ActivityItem[]
+  store.activity[sessionId] = items
+}
+
+/** The app just spoke this event aloud: mark its activity item. */
+export function markSpoken(sessionId: string, eventId: string): void {
+  const item = store.activity[sessionId]?.find((x) => x.id === eventId)
+  if (item) item.spoken = true
 }

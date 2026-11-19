@@ -15,7 +15,7 @@ export interface AudioRequest {
   expiresAt: number
   cancelled: boolean
   requeued?: boolean
-  /** Explicit user action (replay): bypasses the communication mode, not mute-all. */
+  /** Explicit user action (listen): bypasses the communication mode and per-session mute, not mute-all. */
   force?: boolean
 }
 
@@ -27,7 +27,7 @@ export interface QueueDeps {
   stopPlayback(): void
   /** Re-evaluates the voice policy right before synthesis/playback. */
   revalidate(req: AudioRequest): { speak: boolean; prefix?: string }
-  onChange?(state: { speakingSessionId: string | null; queued: number }): void
+  onChange?(state: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }): void
   onSpoken?(req: AudioRequest, spokenText: string): void
   onError?(req: AudioRequest, err: Error): void
   now?(): number
@@ -55,6 +55,7 @@ export class AudioQueue {
   get queuedCount(): number { return this.queue.length }
   get speakingSessionId(): string | null { return this.current?.req.sessionId ?? null }
   get speakingRequest(): AudioRequest | null { return this.current?.req ?? null }
+  get speakingEventId(): string | null { return this.current?.req.eventId ?? null }
 
   enqueue(n: NewAudioRequest): AudioRequest | null {
     if (this.seen.includes(n.dedupeKey)) return null // never play the same content twice
@@ -149,7 +150,7 @@ export class AudioQueue {
   }
 
   private emit(): void {
-    this.deps.onChange?.({ speakingSessionId: this.speakingSessionId, queued: this.queue.length })
+    this.deps.onChange?.({ speakingSessionId: this.speakingSessionId, speakingEventId: this.speakingEventId, queued: this.queue.length })
   }
 
   private async pump(): Promise<void> {

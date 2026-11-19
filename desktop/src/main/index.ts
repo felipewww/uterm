@@ -107,7 +107,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       send('audio:play', { requestId, data: copy, speed })
     }),
     stopPlayback: () => { send('audio:stop'); for (const done of [...pendingAudio.values()]) done() },
-    onSpoken: (sid, eid, vid, prio, text) => { void eventStore?.recordSpoken(sid, eid, vid, prio, text).catch(() => undefined) },
+    onSpoken: (sid, eid, vid, prio, text) => { send('activity:spoken', { sessionId: sid, eventId: eid }); void eventStore?.recordSpoken(sid, eid, vid, prio, text).catch(() => undefined) },
     onState: (s) => {
       const prev = speakingSessionId
       speakingSessionId = s.speakingSessionId
@@ -184,7 +184,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     return sessions.sendText(requireSession(a.id), a.text, { auto: a.auto, force: a.force })
   })
   ipcMain.handle('voice:stop', () => { voice.queue.cancelAll() })
-  ipcMain.handle('voice:replay', (_e, p) => voice.replay(requireSession(parse(schemas.id, p).id)))
+  ipcMain.handle('voice:listen', (_e, p) => { const a = parse(schemas.listen, p); return voice.listen(requireSession(a.id), a.text, a.ref) })
   ipcMain.handle('voice:preview', (_e, p) => { voice.preview(parse(schemas.voicePreview, p).voiceId, 'Hello, this is how I sound when I give you an update.') })
   ipcMain.handle('audio:ended', (_e, p) => { pendingAudio.get(parse(schemas.audioEnded, p).requestId)?.() })
 

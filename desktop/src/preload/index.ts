@@ -36,7 +36,7 @@ const api = {
     send: (p: unknown) => call('voice:send', p),
     recording: (p: unknown) => call('voice:recording', p),
     stopPlayback: () => call('voice:stop'),
-    replay: (p: unknown) => call('voice:replay', p),
+    listen: (p: unknown) => call('voice:listen', p),
     preview: (p: unknown) => call('voice:preview', p),
     list: () => call('voices:list'),
     create: (name: string, wav: ArrayBuffer) => ipcRenderer.invoke('voices:create', { name, wav }),
@@ -53,7 +53,8 @@ const api = {
     onActivity: (cb: (p: unknown) => void) => on('activity:event', cb),
     onAudioPlay: (cb: (p: { requestId: string; data: ArrayBuffer; speed: number }) => void) => on('audio:play', cb),
     onAudioStop: (cb: () => void) => on('audio:stop', cb),
-    onAudioState: (cb: (p: { speakingSessionId: string | null; queued: number }) => void) => on('audio:state', cb),
+    onAudioState: (cb: (p: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }) => void) => on('audio:state', cb),
+    onSpoken: (cb: (p: { sessionId: string; eventId: string }) => void) => on('activity:spoken', cb),
     onNotice: (cb: (p: { level: 'info' | 'warn' | 'error'; message: string }) => void) => on('notice', cb),
     onSettings: (cb: (p: unknown) => void) => on('settings:changed', cb),
     onConfirmQuit: (cb: () => void) => on('app:confirm-quit', cb)

@@ -38,12 +38,14 @@ export class EventStore {
       [e.id, e.sessionId, e.type, e.turnId, payload, new Date(e.timestamp)])
   }
 
-  async recent(sessionId: string, limit = 100): Promise<Array<{ type: string; payload: unknown; at: number }>> {
+  async recent(sessionId: string, limit = 100): Promise<Array<{ id: string; type: string; payload: unknown; at: number; spoken: boolean }>> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      'SELECT event_type, payload, occurred_at FROM agent_events WHERE session_id = ? ORDER BY occurred_at DESC LIMIT ?', [sessionId, limit])
+      `SELECT e.id, e.event_type, e.payload, e.occurred_at,
+              EXISTS(SELECT 1 FROM spoken_messages m WHERE m.event_id = e.id) AS spoken
+       FROM agent_events e WHERE e.session_id = ? ORDER BY e.occurred_at DESC LIMIT ?`, [sessionId, limit])
     return rows.reverse().map((r) => ({
-      type: r.event_type, at: (r.occurred_at as Date).getTime(),
-      payload: r.payload
+      id: r.id as string, type: r.event_type, at: (r.occurred_at as Date).getTime(),
+      payload: r.payload, spoken: !!r.spoken
     }))
   }
 
@@ -51,12 +53,6 @@ export class EventStore {
     await this.pool.execute(
       'INSERT INTO spoken_messages (id, session_id, event_id, voice_profile_id, priority, text) VALUES (?,?,?,?,?,?)',
       [randomUUID(), sessionId, eventId, voiceId, priority, text])
-  }
-
-  async lastSpoken(sessionId: string): Promise<{ text: string; voiceId: string | null } | null> {
-    const [rows] = await this.pool.execute<RowDataPacket[]>(
-      'SELECT text, voice_profile_id FROM spoken_messages WHERE session_id = ? ORDER BY spoken_at DESC LIMIT 1', [sessionId])
-    return rows[0] ? { text: rows[0].text, voiceId: rows[0].voice_profile_id } : null
   }
 }
 

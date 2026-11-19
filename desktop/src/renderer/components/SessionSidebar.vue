@@ -23,7 +23,6 @@ const groups = computed(() => [
   { name: 'Closed', list: filtered.value.filter((s) => !s.running) }
 ].filter((g) => g.list.length))
 const visible = computed(() => groups.value.flatMap((g) => (collapsed[g.name] ? [] : g.list)))
-const runningCount = computed(() => store.sessions.filter((s) => s.running).length)
 const totalCount = computed(() => store.sessions.filter((s) => !s.archivedAt).length)
 
 const stateLabel: Record<string, string> = {
@@ -86,6 +85,7 @@ async function copyPath(s: SessionView) {
   await window.echo.clipboard.write({ text: s.workingDirectory })
   notify('info', 'Path copied.', 2500)
 }
+async function toggleGlobalMute() { await window.echo.settings.save({ globalMute: !store.settings.globalMute }) }
 async function openVscode(s: SessionView) { await window.echo.sessions.openInVscode({ id: s.id }) }
 function onWindowKey(e: KeyboardEvent) { if (e.key === 'Escape') closeMenu() }
 onMounted(() => { window.addEventListener('click', closeMenu); window.addEventListener('blur', closeMenu); window.addEventListener('keydown', onWindowKey) })
@@ -170,10 +170,20 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     </div>
 
     <div class="sidebar-foot">
-      <span class="foot-stats"><b>{{ runningCount }}</b> running · {{ totalCount }} total</span>
-      <button class="link-btn sidebar-settings" title="Settings" @click="emit('settings')">
-        <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.25" /><path d="M8 1.75v1.6M8 12.65v1.6M1.75 8h1.6M12.65 8h1.6M3.6 3.6l1.15 1.15M11.25 11.25l1.15 1.15M3.6 12.4l1.15-1.15M11.25 4.75l1.15-1.15" /></svg>Settings
+      <span class="services">
+        <span class="svc" :class="store.status.db ? 'ok' : 'bad'" :title="store.status.db ? 'MySQL connected' : 'MySQL unavailable (history is kept in memory only)'"><i></i>MySQL</span>
+        <span class="svc" :class="store.status.stt ? 'ok' : 'bad'" :title="store.status.stt ? 'Speech-to-text ready' : 'Speech-to-text offline'"><i></i>STT</span>
+        <span class="svc" :class="store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'" :title="store.status.ttsReady ? 'Text-to-speech ready' : store.status.tts ? 'Text-to-speech is loading the model' : 'Text-to-speech offline'"><i></i>TTS<template v-if="store.status.tts && !store.status.ttsReady"> …</template></span>
+      </span>
+      <span class="foot-tools">
+      <button class="tool-btn" :class="{ warn: store.settings.globalMute }" :aria-pressed="store.settings.globalMute" :title="store.settings.globalMute ? 'All voice output is muted. Click to unmute' : 'Mute all voice output'" aria-label="Mute all voice output" @click="toggleGlobalMute">
+        <svg v-if="!store.settings.globalMute" aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5" /></svg>
+        <svg v-else aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 6l3 4M13.75 6l-3 4" /></svg>
       </button>
+      <button class="tool-btn" title="Settings" aria-label="Settings" @click="emit('settings')">
+        <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.25" /><path d="M8 1.75v1.6M8 12.65v1.6M1.75 8h1.6M12.65 8h1.6M3.6 3.6l1.15 1.15M11.25 11.25l1.15 1.15M3.6 12.4l1.15-1.15M11.25 4.75l1.15-1.15" /></svg>
+      </button>
+      </span>
     </div>
 
     <div v-if="menu" class="menu" role="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }" @click.stop @contextmenu.prevent>

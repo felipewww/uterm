@@ -20,7 +20,11 @@ export const currentTerminalBackground = ref<TerminalBackground>('original')
 
 const listeners: Array<() => void> = []
 export function onThemeChange(cb: () => void): void { listeners.push(cb) }
-const notifyThemeChange = () => listeners.forEach((cb) => cb())
+const notifyThemeChange = () => {
+  // the terminal card paints the same color as the xterm canvas so its padding is seamless
+  document.documentElement.style.setProperty('--terminal-surface', terminalTheme().background)
+  listeners.forEach((cb) => cb())
+}
 
 export function token(name: string): string {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()

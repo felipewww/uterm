@@ -26,7 +26,9 @@ Benchmarks: `node scripts/benchmark-audio.mjs`. Real-CLI smoke test: see `deskto
 - Mic button or `Ctrl+Shift+Space` records → local transcription → edit → **Send** (to the session that was selected when you started recording).
 - Voice modes per session, foreground and background independently: **Silent**, **Essential** (questions/permissions/blockers),
   **Balanced** (+ final results), **Conversational** (+ progress). Defaults: foreground Balanced, background Silent.
-- Toolbar: mute, stop audio (never stops the agent), replay, open in VS Code, global mute, per-session voice settings.
+- Terminal card header: mute this session, per-session voice settings, open in VS Code, show/hide Activity; a stop button appears while audio is playing (it never stops the agent).
+- Activity: every agent message has a listen button to hear it again (replayed from a small in-memory audio cache when possible); messages the app already spoke are marked. Mute-all is in the sidebar footer.
+- Settings: General (theme, terminal background, default agent), Voice, Microphone, Services.
 - Claude permission prompts and questions are never answered for you; typed/spoken text is held back while one is showing.
 
 ## Docs

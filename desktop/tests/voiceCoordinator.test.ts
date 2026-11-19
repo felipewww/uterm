@@ -16,7 +16,8 @@ function setup(opts: { muted?: boolean; settings?: Partial<AppSettings> } = {}) 
     settings: () => ({ ...DEFAULT_SETTINGS, ...opts.settings }),
     focus: () => ({ selectedSessionId: 's2', windowFocused: true }), // s1 is a background session
     synthesize: vi.fn(async (text: string) => new TextEncoder().encode(text)),
-    play: vi.fn(async (audio: Uint8Array) => { spoken.push(new TextDecoder().decode(audio)) }),
+    deliver: vi.fn((c: { audio: Uint8Array }) => { spoken.push(new TextDecoder().decode(c.audio)) }),
+    finish: vi.fn(async () => undefined),
     stopPlayback: vi.fn(),
     onSpoken: vi.fn(),
     onState: (s: { speakingEventId: string | null }) => { states.push(s) },

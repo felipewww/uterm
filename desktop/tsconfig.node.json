@@ -16,5 +16,6 @@
     "types": ["node"],
     "lib": ["ES2023"]
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "tests/**/*", "electron.vite.config.ts", "vitest.config.mts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "tests/**/*", "electron.vite.config.ts", "vitest.config.mts"],
+  "exclude": ["tests/audioPlayer.test.ts"] /* needs the DOM lib: checked by tsconfig.web.json */
 }

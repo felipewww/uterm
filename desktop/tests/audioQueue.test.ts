@@ -7,7 +7,8 @@ function harness(over: Partial<QueueDeps> = {}) {
   const gates: Array<() => void> = []
   const deps: QueueDeps = {
     synthesize: async (text) => new TextEncoder().encode(text),
-    play: (audio) => new Promise<void>((res) => { played.push(new TextDecoder().decode(audio)); gates.push(res) }),
+    play: (audio) => { played.push(new TextDecoder().decode(audio)) },
+    finish: () => new Promise<void>((res) => { gates.push(res) }),
     stopPlayback: vi.fn(() => { while (gates.length) gates.shift()!() }),
     revalidate: () => ({ speak: true }),
     now: () => t,

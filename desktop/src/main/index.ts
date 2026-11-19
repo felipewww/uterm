@@ -33,6 +33,8 @@ let pool: Pool | null = null
 let dbOk = false
 let quitting = false
 const pendingAudio = new Map<string, () => void>()
+/** The player can report a message as finished (e.g. paused for a long time) before main has pushed its last chunk. */
+const endedEarly = new Set<string>()
 let speakingSessionId: string | null = null
 
 const send = (channel: string, payload?: unknown) => { if (win && !win.isDestroyed()) win.webContents.send(channel, payload) }
@@ -104,12 +106,15 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     settings: () => settings,
     focus: () => ({ selectedSessionId: sessions.selected, windowFocused: !!win && win.isFocused() && !win.isMinimized() }),
     synthesize: (t, v, s) => tts.synthesize(t, v, s),
-    play: (audio, speed, requestId) => new Promise<void>((resolve) => {
+    deliver: (c) => {
+      const copy = c.audio.buffer.slice(c.audio.byteOffset, c.audio.byteOffset + c.audio.byteLength)
+      send('audio:chunk', { requestId: c.requestId, eventId: c.eventId, sessionId: c.sessionId, index: c.index, total: c.total, speed: c.speed, data: copy })
+    },
+    finish: (requestId) => new Promise<void>((resolve) => {
+      if (endedEarly.delete(requestId)) { resolve(); return }
       const done = () => { pendingAudio.delete(requestId); clearTimeout(timer); resolve() }
-      const timer = setTimeout(done, 120_000) // renderer never answered: don't wedge the queue
+      const timer = setTimeout(done, 15 * 60_000) // the renderer never answered: don't wedge the queue forever
       pendingAudio.set(requestId, done)
-      const copy = audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)
-      send('audio:play', { requestId, data: copy, speed })
     }),
     stopPlayback: () => { send('audio:stop'); for (const done of [...pendingAudio.values()]) done() },
     onSpoken: (sid, eid, vid, prio, text) => { send('activity:spoken', { sessionId: sid, eventId: eid }); void eventStore?.recordSpoken(sid, eid, vid, prio, text).catch(() => undefined) },
@@ -143,12 +148,12 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     const a = parse(schemas.importSession, p)
     return sessions.importNative({ agentType: a.agentType as AgentType, nativeSessionId: a.nativeSessionId, workingDirectory: a.workingDirectory, title: a.title, configDir: a.configDir ?? null })
   })
+  ipcMain.handle('sessions:claudeProfiles', () => claudeProfiles())
   ipcMain.handle('sessions:start', async (_e, p) => { const a = parse(schemas.start, p); await sessions.start(requireSession(a.id), a.cols, a.rows) })
   ipcMain.handle('sessions:stop', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.stop(requireSession(a.id)) })
   ipcMain.handle('sessions:rename', (_e, p) => { const a = parse(schemas.rename, p); return sessions.rename(requireSession(a.id), a.title) })
   ipcMain.handle('sessions:delete', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.delete(requireSession(a.id)); voice.focusChanged() })
   ipcMain.handle('sessions:archive', (_e, p) => { const a = parse(schemas.archive, p); return sessions.archive(requireSession(a.id), a.archived) })
-  ipcMain.handle('sessions:claudeProfiles', () => claudeProfiles())
   ipcMain.handle('folders:list', () => sessions.folderList())
   ipcMain.handle('folders:create', (_e, p) => { const a = parse(schemas.folderCreate, p); return sessions.createFolder(a.name, a.parentId ?? null) })
   ipcMain.handle('folders:move', (_e, p) => { const a = parse(schemas.folderMove, p); return sessions.moveFolder(a.id, a.parentId) })
@@ -199,7 +204,11 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   ipcMain.handle('voice:stop', () => { voice.queue.cancelAll() })
   ipcMain.handle('voice:listen', (_e, p) => { const a = parse(schemas.listen, p); return voice.listen(requireSession(a.id), a.text, a.ref) })
   ipcMain.handle('voice:preview', (_e, p) => { voice.preview(parse(schemas.voicePreview, p).voiceId, 'Hello, this is how I sound when I give you an update.') })
-  ipcMain.handle('audio:ended', (_e, p) => { pendingAudio.get(parse(schemas.audioEnded, p).requestId)?.() })
+  ipcMain.handle('audio:ended', (_e, p) => {
+    const id = parse(schemas.audioEnded, p).requestId
+    const done = pendingAudio.get(id)
+    if (done) done(); else { endedEarly.add(id); if (endedEarly.size > 100) endedEarly.delete(endedEarly.values().next().value as string) }
+  })
 
   ipcMain.handle('voices:list', async () => {
     try {

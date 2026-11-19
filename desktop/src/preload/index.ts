@@ -64,7 +64,7 @@ const api = {
     onFolders: (cb: (p: unknown) => void) => on('folders:changed', cb),
     onSessionView: (cb: (p: unknown) => void) => on('session:view', cb),
     onActivity: (cb: (p: unknown) => void) => on('activity:event', cb),
-    onAudioPlay: (cb: (p: { requestId: string; data: ArrayBuffer; speed: number }) => void) => on('audio:play', cb),
+    onAudioChunk: (cb: (p: { requestId: string; eventId: string; sessionId: string; index: number; total: number; speed: number; data: ArrayBuffer }) => void) => on('audio:chunk', cb),
     onAudioStop: (cb: () => void) => on('audio:stop', cb),
     onAudioState: (cb: (p: AudioState) => void) => on('audio:state', cb),
     onSpoken: (cb: (p: { sessionId: string; eventId: string }) => void) => on('activity:spoken', cb),

@@ -2,7 +2,9 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { AGENT_LABELS } from '@shared/types'
 import VoiceBar from './VoiceBar.vue'
+import { totalOf, togglePlay, seekTo, tracks } from '../composables/useAudioPlayer'
 import { renderMarkdown } from '../markdown'
+import { mmss } from '../wavInfo'
 import { generatingFor, ingestHistory, selected, store, type ActivityItem } from '../store'
 
 const list = ref<HTMLElement | null>(null)
@@ -19,14 +21,29 @@ watch(() => items.value.length, async () => { await nextTick(); if (list.value) 
 
 const LISTENABLE = new Set(['progress', 'final', 'question', 'permission'])
 const active = (it: ActivityItem) => store.audio.speakingEventId === it.id
-const generating = (it: ActivityItem) => active(it) && store.audio.phase === 'generating'
-const playing = (it: ActivityItem) => active(it) && store.audio.phase === 'playing'
+const generating = (it: ActivityItem) => active(it) && store.audio.phase === 'generating' // nothing to hear yet
 const queued = (it: ActivityItem) => store.audio.queuedEventIds.includes(it.id)
+const track = (it: ActivityItem) => tracks[it.id]
+const hasAudio = (it: ActivityItem) => !!track(it)?.chunks.length
+const playing = (it: ActivityItem) => track(it)?.status === 'playing'
 async function listen(it: ActivityItem) {
   if (!store.selectedId) return
+  if (track(it)?.complete) { await togglePlay(it.id); return } // replay from memory, no new synthesis
   if (active(it)) { await window.echo.voice.stopPlayback(); return }
   await window.echo.voice.listen({ id: store.selectedId, text: it.speech ?? it.text, ref: it.id })
 }
+
+// player: a range input scrubs across the whole message; the seek happens on release (or a key press)
+const scrub = reactive<Record<string, number | undefined>>({})
+const pos = (it: ActivityItem) => scrub[it.id] ?? track(it)?.position ?? 0
+const pct = (it: ActivityItem) => { const t = track(it); const total = t ? totalOf(t) : 0; return total > 0 ? `${Math.min(100, (pos(it) / total) * 100)}%` : '0%' }
+const onScrub = (it: ActivityItem, e: Event) => { scrub[it.id] = Number((e.target as HTMLInputElement).value) }
+async function commitScrub(it: ActivityItem, e: Event) {
+  const v = Number((e.target as HTMLInputElement).value)
+  scrub[it.id] = undefined
+  await seekTo(it.id, v)
+}
+const totalLabel = (it: ActivityItem) => { const t = track(it); return t ? mmss(totalOf(t)) + (t.complete ? '' : '+') : '' }
 
 // long messages are clamped; the full response behind a summary is collapsed by default
 const open = reactive<Record<string, boolean>>({})
@@ -56,15 +73,24 @@ const time = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit'
             <span v-if="chip(it)" class="chip" :class="it.kind">{{ chip(it) }}</span>
             <svg v-if="it.spoken" class="spoken-mark" viewBox="0 0 16 16" aria-label="Spoken aloud"><title>Spoken aloud</title><path d="M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5" /></svg>
             <span v-if="generating(it)" class="voice-status generating" role="status"><span class="spinner mini"></span>Generating audio… {{ generatingFor() }}s</span>
-            <span v-else-if="playing(it)" class="voice-status playing" role="status"><span class="eq"><i></i><i></i><i></i></span>Speaking</span>
             <span v-else-if="queued(it)" class="voice-status" role="status">Waiting for the voice</span>
             <span class="msg-time">{{ time(it.at) }}</span>
-            <button v-if="LISTENABLE.has(it.kind)" class="listen-btn" :class="{ on: active(it) }" :title="active(it) ? 'Stop' : 'Listen'" :aria-label="active(it) ? 'Stop audio' : 'Listen to this message'" @click="listen(it)">
+            <button v-if="LISTENABLE.has(it.kind) && !hasAudio(it)" class="listen-btn" :class="{ on: active(it) }" :title="active(it) ? 'Stop' : 'Listen'" :aria-label="active(it) ? 'Stop audio' : 'Listen to this message'" @click="listen(it)">
               <svg v-if="!active(it)" aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3.25v9.5L12.5 8z" /></svg>
               <svg v-else aria-hidden="true" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1" /></svg>
             </button>
           </header>
           <div class="msg-body" :class="{ clamped: isLong(it) && !open[it.id] }">{{ it.text }}</div>
+<!-- audio player: appears once the voice has produced (or replayed) this message -->
+          <div v-if="hasAudio(it)" class="player" :class="track(it)!.status">
+            <button class="pl-btn" :title="playing(it) ? 'Pause' : 'Play'" :aria-label="playing(it) ? 'Pause' : 'Play'" @click="togglePlay(it.id)">
+              <span v-if="track(it)!.status === 'buffering'" class="spinner mini"></span>
+              <svg v-else-if="playing(it)" aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3.5v9M11 3.5v9" /></svg>
+              <svg v-else aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3.25v9.5L12.5 8z" /></svg>
+            </button>
+            <input class="pl-seek" type="range" min="0" :max="Math.max(totalOf(track(it)!), 0.1)" step="0.05" :value="pos(it)" :style="{ '--pct': pct(it) }" aria-label="Seek audio" @input="onScrub(it, $event)" @change="commitScrub(it, $event)" />
+            <span class="pl-time" :title="track(it)!.complete ? 'Audio length' : 'The voice is still generating the rest'">{{ mmss(pos(it)) }} / {{ totalLabel(it) }}</span>
+          </div>
           <button v-if="isLong(it)" class="more" @click="open[it.id] = !open[it.id]">{{ open[it.id] ? 'Show less' : 'Show more' }}</button>
           <template v-if="it.full">
             <button class="more" :aria-expanded="!!open[it.id]" @click="open[it.id] = !open[it.id]">

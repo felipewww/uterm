@@ -23,8 +23,10 @@ export interface AudioRequest {
 export interface QueueDeps {
   /** Synthesises one chunk. Must honour `signal` where possible. */
   synthesize(text: string, voiceProfileId: string, signal: AbortSignal): Promise<Uint8Array>
-  /** Plays one chunk; resolves when finished or when stopPlayback() was called. */
-  play(audio: Uint8Array, req: AudioRequest): Promise<void>
+  /** Hands one synthesised chunk to the player, which owns playback (and seeking). Does not wait for it to be heard. */
+  play(audio: Uint8Array, req: AudioRequest, meta: { index: number; total: number }): void
+  /** Resolves when the player has finished the whole request, or stopPlayback() was called. */
+  finish(req: AudioRequest): Promise<void>
   stopPlayback(): void
   /** Re-evaluates the voice policy right before synthesis/playback. */
   revalidate(req: AudioRequest): { speak: boolean; prefix?: string }
@@ -191,22 +193,16 @@ export class AudioQueue {
     const fullText = prefix ? `${prefix} ${req.text}` : req.text
     const chunks = splitSentences(fullText)
     try {
-      let next: Promise<Uint8Array> | null = chunks[0] ? this.deps.synthesize(chunks[0], req.voiceProfileId, abort.signal) : null
-      // Prevent unhandled rejection noise if we abort while a later chunk is in flight.
-      next?.catch(() => undefined)
+      // Chunks are pushed to the player as soon as each is synthesised, so it can play on and let the user scrub across the whole message.
       for (let i = 0; i < chunks.length; i++) {
-        this.setPhase('generating') // waiting for synthesis (first chunk, or the voice fell behind playback)
-        const audio = await next!
+        const audio = await this.deps.synthesize(chunks[i]!, req.voiceProfileId, abort.signal)
         if (req.cancelled) return // ignore results of cancelled synthesis
-        next = i + 1 < chunks.length ? this.deps.synthesize(chunks[i + 1]!, req.voiceProfileId, abort.signal) : null
-        next?.catch(() => undefined)
-        const again = this.deps.revalidate(req)
-        if (!again.speak) { this.deps.stopPlayback(); return }
+        if (!this.deps.revalidate(req).speak) { this.deps.stopPlayback(); return }
+        this.deps.play(i === chunks.length - 1 ? audio : appendSilence(audio, pauseAfter(chunks[i]!)), req, { index: i, total: chunks.length })
         this.setPhase('playing')
-        const last = i === chunks.length - 1
-        await this.deps.play(last ? audio : appendSilence(audio, pauseAfter(chunks[i]!)), req)
-        if (req.cancelled) return
       }
+      await this.deps.finish(req)
+      if (req.cancelled) return
       this.deps.onSpoken?.(req, fullText)
     } catch (err) {
       if (!req.cancelled) this.deps.onError?.(req, err as Error)

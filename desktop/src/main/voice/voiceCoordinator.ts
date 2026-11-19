@@ -11,8 +11,10 @@ export interface VoiceDeps {
   settings(): AppSettings
   focus(): FocusContext
   synthesize(text: string, voiceId: string, signal: AbortSignal): Promise<Uint8Array>
-  /** Plays in the renderer; resolves when playback ends (or is stopped). */
-  play(audio: Uint8Array, speed: number, requestId: string): Promise<void>
+  /** Sends one chunk of a message to the renderer's player (which owns playback and seeking). */
+  deliver(chunk: { audio: Uint8Array; requestId: string; eventId: string; sessionId: string; index: number; total: number; speed: number }): void
+  /** Resolves when the renderer has finished playing the whole message, or playback was stopped. */
+  finish(requestId: string): Promise<void>
   stopPlayback(): void
   onSpoken(sessionId: string, eventId: string, voiceId: string, priority: number, text: string): void
   onState(state: AudioState): void
@@ -30,7 +32,8 @@ export class VoiceCoordinator {
     this.queue = new AudioQueue({
       maxItems: d.settings().queueMaxItems,
       synthesize: (t, v, s) => this.synthesizeCached(t, v, s),
-      play: (audio, req) => d.play(audio, this.speedFor(req.sessionId), req.id),
+      play: (audio, req, meta) => d.deliver({ audio, requestId: req.id, eventId: req.eventId, sessionId: req.sessionId, index: meta.index, total: meta.total, speed: this.speedFor(req.sessionId) }),
+      finish: (req) => d.finish(req.id),
       stopPlayback: () => d.stopPlayback(),
       revalidate: (req) => this.revalidate(req.sessionId, req.kind, !!req.force),
       onChange: (s) => d.onState(s),

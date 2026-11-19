@@ -89,7 +89,7 @@ async function resume() {
             <kbd v-if="!starting" class="kbd on-accent">↵</kbd>
           </button>
           <button class="btn ghost" title="Open the folder in VS Code" @click="openVscode">Open in VS Code</button>
-          <button class="btn ghost danger-text" title="Delete this session" @click="store.confirmDelete = selected()!">Delete…</button>
+          <button class="btn ghost danger-text" title="Delete this session" @click="store.confirmDelete = selected()!">Delete</button>
         </div>
       </div>
     </div>

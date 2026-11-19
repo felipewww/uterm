@@ -22,8 +22,7 @@ type Row =
   | { kind: 'folder'; key: string; id: string; name: string; depth: number; count: number }
   | { kind: 'new'; key: string; depth: number }
   | { kind: 'empty'; key: string; folderId: string; depth: number }
-  | { kind: 'session'; key: string; s: SessionView; depth: number }
-  | { kind: 'status'; key: string; name: string; count: number }
+  | { kind: 'session'; key: string; s: SessionView; depth: number; lead?: boolean }
   | { kind: 'root-drop'; key: string }
 type FolderRow = Extract<Row, { kind: 'folder' }>
 const filtering = computed(() => !!query.value.trim())
@@ -31,7 +30,9 @@ const folderIds = computed(() => new Set(store.folders.map((f) => f.id)))
 // A folder whose parent is unknown is shown at the top level.
 const parentOf = (f: { parentId: string | null }) => (f.parentId && folderIds.value.has(f.parentId) ? f.parentId : null)
 const childFolders = (pid: string | null) => store.folders.filter((f) => parentOf(f) === pid)
-const sessionsIn = (fid: string) => filtered.value.filter((s) => s.folderId === fid)
+// Running sessions come first (the list is already newest-first, and the sort is stable).
+const liveFirst = (list: SessionView[]) => [...list].sort((a, b) => Number(b.running) - Number(a.running))
+const sessionsIn = (fid: string) => liveFirst(filtered.value.filter((s) => s.folderId === fid))
 const countIn = (fid: string): number => sessionsIn(fid).length + childFolders(fid).reduce((n, c) => n + countIn(c.id), 0)
 /** `id` itself or anything below it. */
 function isInside(candidate: string | null, id: string): boolean {
@@ -58,12 +59,9 @@ const rows = computed<Row[]>(() => {
     }
   }
   walk(null, 0)
-  const loose = filtered.value.filter((s) => !s.folderId || !folderIds.value.has(s.folderId))
-  for (const [name, list] of [['Active', loose.filter((s) => s.running)], ['Closed', loose.filter((s) => !s.running)]] as const) {
-    if (!list.length) continue
-    out.push({ kind: 'status', key: name, name, count: list.length })
-    if (!collapsed[name]) for (const s of list) out.push({ kind: 'session', key: s.id, s, depth: 0 })
-  }
+  const loose = liveFirst(filtered.value.filter((s) => !s.folderId || !folderIds.value.has(s.folderId)))
+  const hasFolders = out.length > 0
+  loose.forEach((s, i) => out.push({ kind: 'session', key: s.id, s, depth: 0, lead: i === 0 && hasFolders }))
   if (dragId.value) out.push({ kind: 'root-drop', key: 'root-drop' })
   return out
 })
@@ -150,11 +148,12 @@ async function onDrop(e: DragEvent, folderId: string | null) {
   if (kind === 'folder') await moveFolder(id, folderId)
   else { const s = store.sessions.find((x) => x.id === id); if (s) await moveTo(s, folderId) }
 }
+const liveCount = computed(() => store.sessions.filter((s) => s.running && !s.archivedAt).length)
 const totalCount = computed(() => store.sessions.filter((s) => !s.archivedAt).length)
 
 const stateLabel: Record<string, string> = {
-  STARTING: 'Starting', IDLE: 'Idle', WORKING: 'Working', WAITING_FOR_INPUT: 'Needs input',
-  WAITING_FOR_PERMISSION: 'Needs permission', ERROR: 'Error', CLOSED: 'Closed'
+  STARTING: 'Starting', IDLE: 'Ready', WORKING: 'Working', WAITING_FOR_INPUT: 'Needs input',
+  WAITING_FOR_PERMISSION: 'Permission', ERROR: 'Error', CLOSED: 'Closed'
 }
 const ago = (t: number) => {
   const m = Math.round((Date.now() - t) / 60000)
@@ -232,6 +231,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div class="sidebar-head">
       <span class="brand">Sessions</span>
       <span class="head-count">{{ totalCount }}</span>
+      <span v-if="liveCount" class="head-live" :title="`${liveCount} running`"><i></i>{{ liveCount }} live</span>
       <span class="head-tools">
         <button class="tool-btn" :class="{ on: !store.selectedId }" title="Home" aria-label="Home" @click="emit('home')">
           <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 7.75 8 3l5.5 4.75M4 6.75V13h8V6.75M6.75 13V9.75h2.5V13" /></svg>
@@ -257,7 +257,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     </label>
 
     <div class="session-groups" role="listbox" aria-label="Sessions" tabindex="0" @keydown="onKey">
-      <div v-for="row in rows" :key="row.key" class="tree-row" :class="'row-' + row.kind" :style="{ '--depth': 'depth' in row ? row.depth : 0 }">
+      <div v-for="row in rows" :key="row.key" class="tree-row" :class="['row-' + row.kind, { 'row-lead': 'lead' in row && row.lead }]" :style="{ '--depth': 'depth' in row ? row.depth : 0 }">
         <!-- folder -->
         <div
           v-if="row.kind === 'folder'" class="group-title folder" :class="{ 'drop-target': dropKey === row.key, dragging: dragId === row.id }"
@@ -280,22 +280,12 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
 
         <div v-else-if="row.kind === 'empty'" class="folder-empty" :class="{ 'drop-target': dropKey === row.key }" @dragover="onDragOver($event, row.key, row.folderId)" @dragleave="dropKey = null" @drop="onDrop($event, row.folderId)">Empty. Drag items here.</div>
 
-        <!-- Active / Closed (also the "top level" drop target) -->
-        <div
-          v-else-if="row.kind === 'status'" class="group-title status" :class="{ 'drop-target': dropKey === row.key }" role="button" tabindex="-1" :aria-expanded="!collapsed[row.key]"
-          @click="collapsed[row.key] = !collapsed[row.key]" @dragover="onDragOver($event, row.key, null)" @dragleave="dropKey = null" @drop="onDrop($event, null)"
-        >
-          <svg class="chev" :class="{ collapsed: collapsed[row.key] }" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 6.25 3.5 3.5 3.5-3.5" /></svg>
-          <i class="dot" :class="row.name === 'Active' ? 'idle' : 'closed'"></i>
-          <span class="group-name">{{ row.name }}</span><span class="count">{{ row.count }}</span>
-        </div>
-
         <div v-else-if="row.kind === 'root-drop'" class="root-drop" :class="{ 'drop-target': dropKey === row.key }" @dragover="onDragOver($event, row.key, null)" @dragleave="dropKey = null" @drop="onDrop($event, null)">Drop here for top level</div>
 
         <!-- session -->
         <div
           v-else-if="row.kind === 'session'" class="session" draggable="true" role="option" :aria-selected="row.s.id === store.selectedId" :data-sid="row.s.id" :title="tip(row.s)"
-          :class="{ 'in-folder': row.depth > 0, dragging: dragId === row.s.id, selected: row.s.id === store.selectedId, attention: row.s.needsAttention, archived: !!row.s.archivedAt, closed: !row.s.running }"
+          :class="['st-' + row.s.runtimeState.toLowerCase(), { live: row.s.running, 'in-folder': row.depth > 0, dragging: dragId === row.s.id, selected: row.s.id === store.selectedId, attention: row.s.needsAttention, archived: !!row.s.archivedAt, closed: !row.s.running }]"
           @click="emit('select', row.s.id)" @dblclick.stop="startEdit(row.s)" @dragstart="onDragStart($event, 'session', row.s.id)" @dragend="onDragEnd" @contextmenu.prevent="openMenu($event, row.s)"
         >
           <i class="dot" :class="row.s.runtimeState.toLowerCase()"></i>
@@ -318,7 +308,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
             <div class="session-sub">
               <span class="agent-tag" :class="row.s.agentType">{{ agentName(row.s) }}</span>
               <span class="path">{{ shortDir(row.s.workingDirectory) }}</span>
-              <span class="session-state" :class="'s-' + row.s.runtimeState.toLowerCase()">{{ stateLabel[row.s.runtimeState] }}</span>
+              <span v-if="row.s.running" class="session-state">{{ stateLabel[row.s.runtimeState] }}</span>
             </div>
           </div>
         </div>
@@ -369,7 +359,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       <button class="menu-item" role="menuitem" @click="act(() => copyPath(menu!.s))">Copy path</button>
       <button class="menu-item" role="menuitem" @click="act(() => openVscode(menu!.s))">Open in VS Code</button>
       <div class="menu-sep"></div>
-      <button class="menu-item danger" role="menuitem" @click="act(() => { store.confirmDelete = menu!.s })">Delete…<kbd class="kbd">Del</kbd></button>
+      <button class="menu-item danger" role="menuitem" @click="act(() => { store.confirmDelete = menu!.s })">Delete<kbd class="kbd">Del</kbd></button>
     </div>
     <div v-if="folderMenu" class="menu" role="menu" :style="{ left: folderMenu.x + 'px', top: folderMenu.y + 'px' }" @click.stop @contextmenu.prevent>
       <button class="menu-item" role="menuitem" @click="act(() => startNewFolder(folderMenu!.id))">New subfolder</button>

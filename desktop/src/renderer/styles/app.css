@@ -23,7 +23,8 @@
 .session-groups { flex: 1; overflow-y: auto; padding-bottom: 8px; outline: none; }
 .session-groups:focus-visible { box-shadow: inset 0 0 0 1px var(--border-subtle); }
 
-.session { position: relative; display: grid; grid-template-columns: 8px minmax(0, 1fr); column-gap: 10px; padding: 8px 10px; border-radius: var(--radius-md); cursor: pointer; transition: background var(--dur-fast); }
+.session { position: relative; display: grid; grid-template-columns: 8px minmax(0, 1fr); column-gap: 10px; padding: 11px 12px; border-radius: var(--radius-md); cursor: pointer; transition: background var(--dur-fast); }
+.session { background: color-mix(in srgb, var(--surface-raised) 45%, transparent); } /* a faint card, so the gap between sessions reads as spacing */
 .session:hover { background: var(--surface-raised); }
 .session.selected { background: var(--surface-hover); } .session.selected .session-title { color: var(--text-primary); }
 .session.attention:not(.selected) { background: color-mix(in srgb, var(--warning) 8%, transparent); }
@@ -42,9 +43,6 @@
 .agent-tag { flex: none; color: var(--agent); font-weight: var(--weight-semibold); } .agent-tag.claude { --agent: var(--agent-claude); } .agent-tag.codex { --agent: var(--agent-codex); } .agent-tag.kiro { --agent: var(--agent-kiro); }
 .session-sub .path { flex: 1; min-width: 0; overflow: hidden; color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; text-overflow: ellipsis; }
 .session-sub .path::before { content: '·'; margin-right: 6px; color: var(--text-tertiary); }
-.session-state { flex: none; color: var(--text-tertiary); font-weight: var(--weight-medium); }
-.session-state.s-idle { color: var(--success); } .session-state.s-working, .session-state.s-starting { color: var(--accent-text); }
-.session-state.s-waiting_for_input, .session-state.s-waiting_for_permission { color: var(--warning); } .session-state.s-error { color: var(--danger); }
 .rename { height: 22px; padding: 1px 6px; }
 
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 36px 20px; color: var(--text-secondary); font-size: var(--text-sm); text-align: center; }
@@ -203,12 +201,13 @@
 .recent-path { overflow: hidden; color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .recent-time { color: var(--text-tertiary); font-size: var(--text-sm); white-space: nowrap; }
 
-/* The sidebar is a tree. Every row sits in a .tree-row: an 8px gutter, 20px of indent per level, and a hairline guide per ancestor level
-   (drawn on the wrapper so it stays continuous). Folders and Active/Closed are rounded pills; sessions are flat rounded cards. */
+/* The sidebar is a tree. Every row sits in a .tree-row: an 8px gutter and 20px of indent per level. Folders and Active/Closed are
+   rounded pills; sessions are faint rounded cards. */
 .session-groups { padding: 6px 0 12px; }
-.tree-row { --step: 20px; --guide: color-mix(in srgb, var(--text-tertiary) 85%, transparent); padding: 1px 8px 1px calc(8px + var(--depth, 0) * var(--step)); background: repeating-linear-gradient(90deg, transparent 0 16px, var(--guide) 16px 17px, transparent 17px var(--step)) 8px 0 / calc(var(--depth, 0) * var(--step)) 100% no-repeat; }
-.tree-row.row-folder, .tree-row.row-status { padding-top: 6px; }
-.tree-row.row-folder:first-child, .tree-row.row-status:first-child { padding-top: 1px; }
+.tree-row { --step: 20px; padding: 3px 8px 3px calc(8px + var(--depth, 0) * var(--step)); }
+.tree-row.row-folder { padding-top: 10px; padding-bottom: 4px; }
+.tree-row.row-folder:first-child { padding-top: 2px; }
+.tree-row.row-folder + .tree-row.row-session { padding-top: 6px; } /* air between a section pill and its first session */
 .group-title { display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 10px 0 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--surface-raised); color: var(--text-primary); font-size: var(--text-base); font-weight: var(--weight-medium); text-align: left; cursor: pointer; transition: background var(--dur-fast), border-color var(--dur-fast); }
 .group-title:hover { background: var(--surface-hover); }
 .group-title .chev { width: 16px; height: 16px; flex: none; color: var(--text-tertiary); transition: transform var(--dur-fast); } .group-title .chev.collapsed { transform: rotate(-90deg); }
@@ -216,9 +215,6 @@
 .group-title .group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-title .count { flex: none; min-width: 22px; padding: 0 7px; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px; font-weight: var(--weight-medium); line-height: 20px; text-align: center; }
 .group-title .rename { flex: 1; min-width: 0; height: 26px; font-size: var(--text-base); font-weight: var(--weight-medium); }
-.group-title.status { height: 32px; background: transparent; border-color: var(--divider); color: var(--text-secondary); font-size: var(--text-sm); }
-.group-title.status:hover { background: var(--surface-raised); }
-.group-title.status .dot { width: 8px; height: 8px; margin: 0 4px 0 4px; flex: none; }
 .group-title.dragging, .session.dragging { opacity: .45; }
 .group-title.drop-target, .folder-empty.drop-target, .root-drop.drop-target { background: var(--accent-soft); border-color: var(--accent-outline); box-shadow: 0 0 0 1px var(--accent-outline); }
 .folder-empty { padding: 9px 12px; border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); color: var(--text-tertiary); font-size: var(--text-sm); }
@@ -291,3 +287,38 @@
 .voice-status .eq { margin: 0; }
 .msg.generating .msg-body { border-color: var(--accent-outline); }
 .speaking-chip .spinner { margin-right: 6px; }
+
+/* audio player under a spoken message */
+.player { display: flex; align-items: center; gap: 8px; padding: 2px 2px 0; }
+.pl-btn { display: grid; place-items: center; flex: none; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: var(--accent); color: var(--text-on-accent); cursor: pointer; transition: background var(--dur-fast); }
+.pl-btn:hover { background: var(--accent-hover); }
+.pl-btn svg { width: 13px; height: 13px; fill: currentColor; stroke: currentColor; stroke-linejoin: round; stroke-width: 1.4; stroke-linecap: round; }
+.pl-btn .spinner { border-color: color-mix(in srgb, var(--text-on-accent) 35%, transparent); border-top-color: var(--text-on-accent); }
+.pl-seek { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+.pl-seek::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent) var(--pct, 0%), var(--border-subtle) var(--pct, 0%)); }
+.pl-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border: 0; border-radius: 50%; background: var(--text-primary); transition: transform var(--dur-fast); }
+.pl-seek:hover::-webkit-slider-thumb, .pl-seek:active::-webkit-slider-thumb { transform: scale(1.2); }
+.pl-seek:focus-visible { outline: 2px solid var(--accent-outline); outline-offset: 3px; border-radius: 4px; }
+.pl-time { flex: none; color: var(--text-secondary); font-family: var(--font-mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+/* Live sessions: a running session reads as a card in its state colour; a closed one recedes. No bars, no glow. */
+.session { --live: var(--text-tertiary); }
+.session.st-idle { --live: var(--success); } .session.st-working, .session.st-starting { --live: var(--accent-hover); }
+.session.st-waiting_for_input, .session.st-waiting_for_permission { --live: var(--warning); } .session.st-error { --live: var(--danger); }
+.session.live { background: var(--surface-raised); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 32%, var(--border-subtle)); }
+.session.live:hover { background: var(--surface-hover); }
+.session.live.selected { background: var(--surface-hover); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live) 55%, var(--border-subtle)); }
+.session.live > .dot { width: 9px; height: 9px; margin-top: 5px; background: var(--live); box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 22%, transparent); animation: none; }
+.session.st-working > .dot, .session.st-starting > .dot, .session.st-waiting_for_input > .dot, .session.st-waiting_for_permission > .dot { animation: live-ring 1.6s ease-out infinite; }
+@keyframes live-ring { 0% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--live) 45%, transparent); } 100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--live) 0%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .session.live > .dot { animation: none !important; } }
+.session.closed { background: transparent; }
+.session.closed > .dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-tertiary); }
+.session.closed .session-title { color: var(--text-secondary); font-weight: var(--weight-medium); }
+.session.closed .agent-tag { opacity: .6; } .session.closed .path { color: var(--text-tertiary); }
+.session-state { display: inline-flex; align-items: center; gap: 5px; flex: none; height: 18px; margin-left: auto; padding: 0 8px 0 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--live) 15%, transparent); color: var(--live); font-size: 11.5px; font-weight: var(--weight-medium); }
+.session-state::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.session.st-working .session-state, .session.st-starting .session-state { color: var(--accent-text); }
+.tree-row.row-lead { padding-top: 12px; }
+.head-live { display: inline-flex; align-items: center; gap: 6px; margin-left: 2px; padding: 1px 8px 1px 7px; border-radius: var(--radius-pill); background: var(--success-soft); color: var(--success); font-size: 11.5px; font-weight: var(--weight-medium); }
+.head-live i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }

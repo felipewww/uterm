@@ -56,6 +56,9 @@ const api = {
   },
   settings: { get: () => call('settings:get'), save: (p: unknown) => call('settings:save', p) },
   status: { get: () => call('status:get') },
+  cloud: { models: (p: unknown) => call('cloud:models', p), test: (p: unknown) => call('cloud:test', p) },
+  usage: { summary: () => call('usage:summary') },
+  services: { set: (p: unknown) => call('services:set', p) },
   clipboard: { read: () => call('clipboard:read'), write: (p: unknown) => call('clipboard:write', p) },
   events: {
     onPtyData: (cb: (p: { id: string; data: string }) => void) => on('pty:data', cb),

@@ -13,6 +13,7 @@ echo "— Docker"
 if have docker && docker info >/dev/null 2>&1; then ok "Docker $(docker --version | cut -d' ' -f3 | tr -d ,)"; else bad "Docker unavailable"; fi
 docker compose version >/dev/null 2>&1 && ok "Compose $(docker compose version --short)" || bad "Docker Compose plugin missing"
 for s in mysql stt tts; do
+  if [ "$s" != mysql ] && ! service_on "$s"; then ok "$s: turned off in the app (memory freed)"; continue; fi
   st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(compose ps -q $s 2>/dev/null)" 2>/dev/null || echo "not created")"
   [ "$st" = "healthy" ] && ok "$s container: healthy" || bad "$s container: $st (docker compose logs $s)"
 done

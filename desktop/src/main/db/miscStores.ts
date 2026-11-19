@@ -14,6 +14,11 @@ export class SettingsStore {
     return { ...DEFAULT_SETTINGS, ...stored } as AppSettings
   }
 
+  /** Drops stored keys (settings that no longer exist). */
+  async remove(keys: string[]): Promise<void> {
+    for (const k of keys) await this.pool.execute('DELETE FROM settings WHERE setting_key = ?', [k])
+  }
+
   async save(patch: Partial<AppSettings>): Promise<void> {
     for (const [k, v] of Object.entries(patch)) {
       if (!(k in DEFAULT_SETTINGS)) continue
@@ -62,7 +67,7 @@ export class VoiceProfileStore {
   constructor(private pool: Pool) {}
 
   async list(): Promise<VoiceProfile[]> {
-    const [rows] = await this.pool.query<RowDataPacket[]>('SELECT id, name FROM voice_profiles ORDER BY is_default DESC, name')
+    const [rows] = await this.pool.query<RowDataPacket[]>("SELECT id, name FROM voice_profiles WHERE id NOT LIKE '%:%' ORDER BY is_default DESC, name") // cloud voices ("gemini:Kore") are rows only to satisfy the sessions FK
     return rows.map((r) => ({ id: r.id, name: r.name }))
   }
 

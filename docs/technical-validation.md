@@ -103,6 +103,9 @@ synthesized by Chatterbox and played (`spoken_messages` row stored); events pers
 Bugs found and fixed through this testing: IPC handlers registered after the window loaded; `sessions:select` payload shape
 (which also left the renderer deaf to events); window close with live agents left a windowless zombie process.
 
+## Cloud voice (OpenAI, Gemini) — implemented, NOT run against the real APIs
+Written from the providers' public documentation and covered by unit tests with a mocked `fetch` (request shapes, key in a header, WAV wrapping of Gemini's 16-bit PCM, error mapping, model discovery, usage totals, cost estimates, router and self-test). Nothing was called with a real key from this development environment: the first real calls are the **Test** buttons in Settings → Cloud voice. Model names (e.g. `gemini-2.5-flash-preview-tts`) and list prices change; both are editable/estimated in the app. Gemini/OpenAI transcription of 16 kHz WAV uploads was not exercised.
+
 ## Not tested (be skeptical of these)
 - Microphone capture (`MediaRecorder` → WAV → STT) in the renderer and the recording shortcut: no human voice available;
   only the STT service and IPC transcription endpoint were exercised.

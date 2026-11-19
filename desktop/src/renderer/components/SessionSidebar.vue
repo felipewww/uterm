@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { AGENT_LABELS, type SessionView } from '@shared/types'
-import { notify, store } from '../store'
+import { parseVoiceId } from '@shared/voices'
+import { notify, selected, store, toggleService, voiceOf } from '../store'
 
 const emit = defineEmits<{ select: [id: string]; create: []; settings: []; home: [] }>()
 const query = ref('')
@@ -147,6 +148,28 @@ async function onDrop(e: DragEvent, folderId: string | null) {
   if (!id) return
   if (kind === 'folder') await moveFolder(id, folderId)
   else { const s = store.sessions.find((x) => x.id === id); if (s) await moveTo(s, folderId) }
+}
+// STT/TTS chips show the provider in use: for TTS the voice of the selected chat (else the default voice), for STT the chosen transcriber.
+// A click turns the LOCAL Docker service off/on to free memory.
+const ttsProvider = computed(() => parseVoiceId(voiceOf(selected())).provider)
+const provider = (n: 'stt' | 'tts') => (n === 'stt' ? store.settings.sttProvider : ttsProvider.value)
+const cloud = (n: 'stt' | 'tts') => provider(n) !== 'local'
+const cloudReady = (n: 'stt' | 'tts') => { const p = provider(n); return p !== 'local' && store.keys[p] }
+const svcClass = (n: 'stt' | 'tts') => {
+  if (store.serviceBusy[n]) return 'busy'
+  if (cloud(n)) return cloudReady(n) ? 'ok' : 'bad' // cloud: ready when its key is present
+  if (!store.enabled[n]) return 'off'
+  if (n === 'tts') return store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'
+  return store.status.stt ? 'ok' : 'bad'
+}
+const svcTitle = (n: 'stt' | 'tts') => {
+  const name = n === 'stt' ? 'Speech-to-text' : 'Text-to-speech'
+  if (store.serviceBusy[n]) return `${name}: working…`
+  const local = !store.enabled[n] ? 'the local service is off (memory freed). Click to turn it on' : 'the local service is running. Click to turn it off and free its memory'
+  if (cloud(n)) return `${name} via ${provider(n) === 'openai' ? 'OpenAI' : 'Gemini'} (cloud)${cloudReady(n) ? '' : ': API key missing'}; ${local}`
+  if (!store.enabled[n]) return `${name} is off (memory freed). Click to turn on`
+  const state = n === 'tts' ? (store.status.ttsReady ? 'ready' : store.status.tts ? 'loading the model' : 'offline') : (store.status.stt ? 'ready' : 'offline')
+  return `${name}: ${state}. Click to turn off and free its memory`
 }
 const liveCount = computed(() => store.sessions.filter((s) => s.running && !s.archivedAt).length)
 const totalCount = computed(() => store.sessions.filter((s) => !s.archivedAt).length)
@@ -332,8 +355,8 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div class="sidebar-foot">
       <span class="services">
         <span class="svc" :class="store.status.db ? 'ok' : 'bad'" :title="store.status.db ? 'MySQL connected' : 'MySQL unavailable (history is kept in memory only)'"><i></i>MySQL</span>
-        <span class="svc" :class="store.status.stt ? 'ok' : 'bad'" :title="store.status.stt ? 'Speech-to-text ready' : 'Speech-to-text offline'"><i></i>STT</span>
-        <span class="svc" :class="store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'" :title="store.status.ttsReady ? 'Text-to-speech ready' : store.status.tts ? 'Text-to-speech is loading the model' : 'Text-to-speech offline'"><i></i>TTS<template v-if="store.status.tts && !store.status.ttsReady"> …</template></span>
+        <button class="svc" :class="svcClass('stt')" :disabled="store.serviceBusy.stt" :title="svcTitle('stt')" @click="toggleService('stt')"><i></i>STT<template v-if="cloud('stt')"> ☁</template></button>
+        <button class="svc" :class="svcClass('tts')" :disabled="store.serviceBusy.tts" :title="svcTitle('tts')" @click="toggleService('tts')"><i></i>TTS<template v-if="cloud('tts')"> ☁</template><template v-else-if="store.enabled.tts && store.status.tts && !store.status.ttsReady"> …</template></button>
       </span>
       <span class="foot-tools">
       <button class="tool-btn" :class="{ warn: store.settings.globalMute }" :aria-pressed="store.settings.globalMute" :title="store.settings.globalMute ? 'All voice output is muted. Click to unmute' : 'Mute all voice output'" aria-label="Mute all voice output" @click="toggleGlobalMute">

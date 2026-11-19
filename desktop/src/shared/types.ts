@@ -79,7 +79,21 @@ export interface AppSettings {
   globalMute: boolean
   /** Append the speech-friendly instructions (<voice> summaries) to new Claude sessions. */
   injectSpeechInstructions: boolean
+  /** Who transcribes recordings. Voice OUTPUT has no provider setting: the provider is part of the voice id (see shared/voices.ts). */
+  sttProvider: SpeechProvider
+  openaiTtsModel: string
+  openaiSttModel: string
+  geminiTtsModel: string
+  geminiSttModel: string
+  /** delivery style for cloud voices, written as an instruction */
+  cloudVoiceStyle: string
 }
+
+export type SpeechProvider = 'local' | 'openai' | 'gemini'
+export const SPEECH_PROVIDERS: SpeechProvider[] = ['local', 'openai', 'gemini']
+
+export interface UsageRow { provider: string; kind: string; calls: number; costUsd: number; audioSeconds: number; chars: number; unpriced: number }
+export interface UsageSummary { today: UsageRow[]; month: UsageRow[]; all: UsageRow[] }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultAgent: 'claude',
@@ -96,7 +110,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   progressExpiryMs: 20000,
   speechMaxChars: 400,
   globalMute: false,
-  injectSpeechInstructions: true
+  injectSpeechInstructions: true,
+  sttProvider: 'local',
+  openaiTtsModel: 'gpt-4o-mini-tts',
+  openaiSttModel: 'gpt-4o-mini-transcribe',
+  geminiTtsModel: 'gemini-2.5-flash-preview-tts',
+  geminiSttModel: 'gemini-2.5-flash',
+  cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate'
 }
 
 export interface ServiceStatus { stt: boolean; tts: boolean; ttsReady: boolean; db: boolean }

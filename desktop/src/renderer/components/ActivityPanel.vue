@@ -2,10 +2,11 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { AGENT_LABELS } from '@shared/types'
 import VoiceBar from './VoiceBar.vue'
+import { parseVoiceId } from '@shared/voices'
 import { totalOf, togglePlay, seekTo, tracks } from '../composables/useAudioPlayer'
 import { renderMarkdown } from '../markdown'
 import { mmss } from '../wavInfo'
-import { generatingFor, ingestHistory, selected, store, type ActivityItem } from '../store'
+import { generatingFor, ingestHistory, notify, selected, store, voiceOf, type ActivityItem } from '../store'
 
 const list = ref<HTMLElement | null>(null)
 const items = computed(() => (store.selectedId ? store.activity[store.selectedId] ?? [] : []))
@@ -29,6 +30,9 @@ const playing = (it: ActivityItem) => track(it)?.status === 'playing'
 async function listen(it: ActivityItem) {
   if (!store.selectedId) return
   if (track(it)?.complete) { await togglePlay(it.id); return } // replay from memory, no new synthesis
+  const vp = parseVoiceId(voiceOf(selected())).provider
+  if (vp === 'local' && !store.enabled.tts) { notify('info', 'Text-to-speech is off. Turn it on with the TTS chip at the bottom left.', 5000); return }
+  if (vp !== 'local' && !store.keys[vp]) { notify('info', 'This chat uses a cloud voice but its API key is missing. See Settings → Cloud voice.', 5000); return }
   if (active(it)) { await window.echo.voice.stopPlayback(); return }
   await window.echo.voice.listen({ id: store.selectedId, text: it.speech ?? it.text, ref: it.id })
 }

@@ -50,12 +50,14 @@ const dir = () => mkdtempSync(join(tmpdir(), 'echo-sm-'))
 
 describe('SessionManager', () => {
   it('creates a session, spawns the agent with its session key, and starts in STARTING', async () => {
+    process.env.ECHO_TERM_GEMINI_API_KEY = 'test-secret'
     const t = setup()
     const v = await t.mgr.create({ agentType: 'claude', title: 'Auth', workingDirectory: dir() })
     expect(v.running).toBe(true)
     expect(t.mgr.runtimeState(v.id)).toBe('STARTING')
     expect(t.procs[0]!.spec.env.ECHO_TERM_SESSION_ID).toBe(v.id)
     expect(t.procs[0]!.spec.env.ECHO_TERM_DB_PASSWORD).toBeUndefined()
+    expect(t.procs[0]!.spec.env.ECHO_TERM_GEMINI_API_KEY).toBeUndefined() // cloud keys never reach the agent's environment
   })
 
   it('files sessions in folders, renames, and deleting a folder keeps its sessions', async () => {

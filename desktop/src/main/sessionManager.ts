@@ -398,6 +398,7 @@ function cleanEnv(): Record<string, string> {
     if (k.startsWith('ELECTRON_') || k === 'NODE_OPTIONS') continue // don't leak Electron internals into the agent
     if (k === 'CLAUDE_CODE_CHILD_SESSION') continue // set when launched from inside another Claude session
     if (k.startsWith('ECHO_TERM_DB_')) continue // never hand DB credentials to agents
+    if (/^ECHO_TERM_.*(API_KEY|SECRET|TOKEN)$/.test(k)) continue // nor cloud-provider keys (agents and the tools they run must not see them)
     out[k] = v
   }
   out.PATH = searchPath(out.PATH ?? '') // agents (and the tools they start) must find each other even when launched from a GUI

@@ -7,7 +7,7 @@ const session = {
 } as unknown as SessionRecord
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
-function setup(opts: { muted?: boolean; settings?: Partial<AppSettings> } = {}) {
+function setup(opts: { muted?: boolean; ttsOff?: boolean; settings?: Partial<AppSettings> } = {}) {
   const spoken: string[] = []
   const states: Array<{ speakingEventId: string | null }> = []
   const deps = {
@@ -15,6 +15,7 @@ function setup(opts: { muted?: boolean; settings?: Partial<AppSettings> } = {}) 
     isMuted: () => !!opts.muted,
     settings: () => ({ ...DEFAULT_SETTINGS, ...opts.settings }),
     focus: () => ({ selectedSessionId: 's2', windowFocused: true }), // s1 is a background session
+    ttsEnabled: (_voiceId: string) => opts.ttsOff !== true,
     synthesize: vi.fn(async (text: string) => new TextEncoder().encode(text)),
     deliver: vi.fn((c: { audio: Uint8Array }) => { spoken.push(new TextDecoder().decode(c.audio)) }),
     finish: vi.fn(async () => undefined),
@@ -68,5 +69,14 @@ describe('VoiceCoordinator.listen (listen again from the activity panel)', () =>
   it('ignores unknown sessions and empty text', () => {
     const { voice } = setup()
     expect(voice.listen('s1', '   ', 'evt-1')).toBe(false)
+  })
+
+  it('does nothing, and raises no error, when text-to-speech is turned off', async () => {
+    const { voice, spoken, deps } = setup({ ttsOff: true })
+    expect(voice.listen('s1', 'Hello there, friend.', 'e1')).toBe(false)
+    await tick()
+    expect(spoken).toEqual([])
+    expect(deps.synthesize).not.toHaveBeenCalled()
+    expect(deps.onError).not.toHaveBeenCalled()
   })
 })

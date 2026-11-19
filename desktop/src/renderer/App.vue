@@ -13,7 +13,7 @@ import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { discardDraft, isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
-import { ingestEvent, layout, markSpoken, notify, resetActivity, removeSession, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
+import { ingestEvent, layout, markSpoken, notify, resetActivity, refreshStatus, removeSession, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
 import { disposeTerminal, writeTo } from './terminals'
 
 const showNew = ref(false)
@@ -21,15 +21,6 @@ const showSettings = ref(false)
 const showSessionSettings = ref(false)
 const offs: Array<() => void> = []
 let statusTimer: number | undefined
-
-async function refreshStatus() {
-  try {
-    const s = await window.echo.status.get()
-    Object.assign(store.status, { stt: s.stt, tts: s.tts, ttsReady: s.ttsReady, db: s.db })
-    store.agents = s.agents
-    store.capabilities = s.capabilities
-  } catch { /* main may be busy; try again on the next tick */ }
-}
 
 const cancelDelete = ref<HTMLButtonElement | null>(null)
 watch(() => store.confirmDelete, async (s) => { if (s) { await nextTick(); cancelDelete.value?.focus() } }) // the safe choice has the focus

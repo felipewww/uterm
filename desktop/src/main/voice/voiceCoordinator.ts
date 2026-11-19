@@ -10,6 +10,10 @@ export interface VoiceDeps {
   isMuted(id: string): boolean
   settings(): AppSettings
   focus(): FocusContext
+  /** false when the user turned text-to-speech off: nothing is queued or synthesised, and no error is raised. */
+  ttsEnabled(voiceId: string): boolean
+  /** extra cache-key part identifying provider, model and style (cloud audio is not interchangeable with local audio) */
+  voiceKey?(voiceId: string): string
   synthesize(text: string, voiceId: string, signal: AbortSignal): Promise<Uint8Array>
   /** Sends one chunk of a message to the renderer's player (which owns playback and seeking). */
   deliver(chunk: { audio: Uint8Array; requestId: string; eventId: string; sessionId: string; index: number; total: number; speed: number }): void
@@ -43,7 +47,7 @@ export class VoiceCoordinator {
   }
 
   private async synthesizeCached(text: string, voiceId: string, signal: AbortSignal): Promise<Uint8Array> {
-    const key = `${voiceId}\u0000${text}`
+    const key = `${this.d.voiceKey?.(voiceId) ?? ''}\u0000${voiceId}\u0000${text}`
     const hit = this.audioCache.get(key)
     if (hit) { this.audioCache.delete(key); this.audioCache.set(key, hit); return hit } // refresh LRU position
     const audio = await this.d.synthesize(text, voiceId, signal)
@@ -76,6 +80,7 @@ export class VoiceCoordinator {
     if (!c) return
     const s = this.d.getSession(e.sessionId)
     if (!s) return
+    if (!this.d.ttsEnabled(this.voiceFor(s))) return // this chat's voice is unavailable (service turned off, or no cloud key): stay silent, no error
     if (!this.revalidate(e.sessionId, c.kind, false).speak) return
     const settings = this.d.settings()
     const text = c.kind === 'permission' ? c.text : prepareSpeech(c.text, { maxChars: settings.speechMaxChars })
@@ -97,7 +102,7 @@ export class VoiceCoordinator {
   listen(sessionId: string, text: string, ref: string): boolean {
     const s = this.d.getSession(sessionId)
     const spoken = prepareSpeech(text, { maxChars: this.d.settings().speechMaxChars })
-    if (!s || !spoken) return false
+    if (!s || !spoken || !this.d.ttsEnabled(this.voiceFor(s))) return false
     this.queue.enqueue({
       sessionId, eventId: ref, dedupeKey: `listen:${randomUUID()}`, voiceProfileId: this.voiceFor(s),
       text: spoken, kind: 'final', priority: 1, ttlMs: 60_000, force: true

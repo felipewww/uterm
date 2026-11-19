@@ -4,8 +4,12 @@ source "$(dirname "$0")/lib.sh"
 load_env
 have docker || { c_err "docker not found"; exit 1; }
 
-c_info "Starting Docker services (MySQL, STT, TTS)"
-compose up -d mysql stt tts
+svcs="mysql"
+for s in stt tts; do
+  if service_on "$s"; then svcs="$svcs $s"; else c_info "$s is turned off (Settings → Services in the app); not starting it"; fi
+done
+c_info "Starting Docker services: $svcs"
+compose up -d $svcs
 wait_healthy mysql 120 || { c_err "MySQL is not healthy. Run ./scripts/doctor.sh"; exit 1; }
 c_ok "MySQL ready"
 node scripts/migrate.mjs

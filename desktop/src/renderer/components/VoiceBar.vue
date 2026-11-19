@@ -6,14 +6,16 @@ import { selected, store } from '../store'
 const s = computed(() => selected())
 const draft = computed(() => (s.value ? drafts[s.value.id] : undefined))
 const recordingElsewhere = computed(() => !!recorder.activeSessionId && recorder.activeSessionId !== s.value?.id)
-const audioDown = computed(() => !store.status.stt)
+const audioDown = computed(() => store.settings.sttProvider === 'local' && !store.status.stt)
+const sttOff = computed(() => store.settings.sttProvider === 'local' && !store.enabled.stt)
+const sttNoKey = computed(() => store.settings.sttProvider !== 'local' && !store.keys[store.settings.sttProvider])
 const shortcut = computed(() => store.settings.recordShortcut.replace('Control', 'Ctrl').split('+').join(' + '))
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
 const canSend = computed(() => !!s.value?.running && !!draft.value?.text.trim())
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
-const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
-const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
+const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttOff.value ? 'Speech-to-text is off' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
+const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttOff.value ? 'Turn it on with the STT chip at the bottom left' : sttNoKey.value ? 'Add the key to .env (Settings → Cloud voice)' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
 
 async function toggle() {
   if (!s.value) return

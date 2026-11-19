@@ -45,6 +45,9 @@ export const schemas = {
   voiceCreate: z.object({ name: z.string().min(1).max(80) }),
   voiceDelete: z.object({ voiceId: z.string().max(36) }),
   audioEnded: z.object({ requestId: z.string().max(64) }),
+  cloudProvider: z.object({ provider: z.enum(['openai', 'gemini']) }),
+  cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional() }),
+  serviceSet: z.object({ name: z.enum(['stt', 'tts']), enabled: z.boolean() }),
   settingsPatch: z.record(z.string(), z.unknown()),
   text: z.object({ text: z.string().max(100_000) })
 }

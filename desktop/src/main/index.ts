@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { ZodType } from 'zod'
 import type { AnyAgentEvent } from '@shared/events'
 import { schemas } from '@shared/ipc'
-import { DEFAULT_SETTINGS, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
+import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
@@ -23,6 +23,11 @@ import { nodePtyFactory } from './pty/nodePtyFactory'
 import { SessionManager } from './sessionManager'
 import { SPEECH_INSTRUCTIONS } from './speechInstructions'
 import { claudeProfiles } from './agents/claudeProfiles'
+import { readDesired, setService, type ServiceName } from './services'
+import { SpeechRouter, selfTest } from './voice/speechRouter'
+import { cloudVoiceLabel, isCloudVoice, legacyDefaultVoice } from '@shared/voices'
+import { listModels, type CloudProvider } from './voice/cloud'
+import { MemoryUsageStore, MySqlUsageStore, type UsageRepository } from './db/usageStore'
 import { SttClient } from './voice/sttClient'
 import { TtsClient } from './voice/ttsClient'
 import { VoiceCoordinator } from './voice/voiceCoordinator'
@@ -60,6 +65,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   let settingsStore: SettingsStore | null = null
   let eventStore: EventStore | null = null
   let voiceStore: VoiceProfileStore | null = null
+  let usageStore: UsageRepository = new MemoryUsageStore()
 
   if (dbCfg && root) {
     try {
@@ -69,7 +75,14 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       settingsStore = new SettingsStore(pool)
       eventStore = new EventStore(pool)
       voiceStore = new VoiceProfileStore(pool)
+      usageStore = new MySqlUsageStore(pool)
       settings = await settingsStore.load()
+      // Earlier builds had a global "voice provider" setting. The provider now belongs to the voice id (shared/voices.ts): carry it over once.
+      const legacy = settings as unknown as Record<string, unknown>
+      const carried = legacyDefaultVoice(legacy, settings.defaultVoiceId)
+      if (carried) { settings.defaultVoiceId = carried; await settingsStore.save({ defaultVoiceId: carried }) }
+      await settingsStore.remove(['ttsProvider', 'openaiVoice', 'geminiVoice'])
+      for (const k of ['ttsProvider', 'openaiVoice', 'geminiVoice']) delete legacy[k]
       dbOk = true
     } catch (err) {
       console.error('[db] unavailable:', (err as Error).message) // message only: never log credentials
@@ -100,12 +113,21 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   await sessions.load()
   if (!dbOk) notice('warn', 'MySQL is unavailable: sessions will not be saved this run. Terminals work normally. Run ./scripts/doctor.sh.')
 
+  let servicesOn = readDesired(root) // the user's on/off choice for the local voice services
+  // Cloud keys live in .env (never in the database, never passed to agents). Only the app process reads them.
+  const getKey = (p: CloudProvider): string | null => {
+    const name = `ECHO_TERM_${p.toUpperCase()}_API_KEY`
+    return (env[name] ?? process.env[name] ?? '').trim() || null
+  }
+  const router = new SpeechRouter({ settings: () => settings, getKey, local: { tts, stt }, usage: () => usageStore, servicesOn: () => servicesOn })
   const voice = new VoiceCoordinator({
+    ttsEnabled: (voiceId) => router.ttsUsable(voiceId),
+    voiceKey: (voiceId) => router.voiceKey(voiceId),
     getSession: (id) => sessions.getRecord(id),
     isMuted: (id) => sessions.isMuted(id),
     settings: () => settings,
     focus: () => ({ selectedSessionId: sessions.selected, windowFocused: !!win && win.isFocused() && !win.isMinimized() }),
-    synthesize: (t, v, s) => tts.synthesize(t, v, s),
+    synthesize: (t, v, s) => router.synthesize(t, v, s),
     deliver: (c) => {
       const copy = c.audio.buffer.slice(c.audio.byteOffset, c.audio.byteOffset + c.audio.byteLength)
       send('audio:chunk', { requestId: c.requestId, eventId: c.eventId, sessionId: c.sessionId, index: c.index, total: c.total, speed: c.speed, data: copy })
@@ -166,6 +188,8 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
   ipcMain.handle('sessions:update', async (_e, p) => {
     const a = parse(schemas.sessionSettings, p)
+    const vid = a.patch.voiceProfileId
+    if (vid && isCloudVoice(vid)) await voiceStore?.upsert({ id: vid, name: cloudVoiceLabel(vid) ?? vid }).catch(() => undefined) // sessions.voice_profile_id has a foreign key
     await sessions.updateSettings(requireSession(a.id), a.patch as never)
     voice.focusChanged()
   })
@@ -195,7 +219,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
   ipcMain.handle('voice:transcribe', async (_e, wav: ArrayBuffer) => {
     if (!(wav instanceof ArrayBuffer) || wav.byteLength < 44 || wav.byteLength > 50_000_000) throw new Error('Invalid audio')
-    return stt.transcribe(new Uint8Array(wav)) // audio lives in memory only; nothing is written to disk
+    return router.transcribe(new Uint8Array(wav)) // audio lives in memory only; nothing is written to disk (a cloud provider receives it for the call)
   })
   ipcMain.handle('voice:send', (_e, p) => {
     const a = parse(schemas.send, p)
@@ -232,7 +256,12 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   ipcMain.handle('settings:save', async (_e, p) => {
     const patch = parse(schemas.settingsPatch, p)
     const clean: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(patch)) if (k in DEFAULT_SETTINGS && typeof v === typeof (DEFAULT_SETTINGS as never)[k]) clean[k] = v
+    for (const [k, v] of Object.entries(patch)) {
+      if (!(k in DEFAULT_SETTINGS) || typeof v !== typeof (DEFAULT_SETTINGS as never)[k]) continue
+      if (k === 'sttProvider' && !SPEECH_PROVIDERS.includes(v as never)) continue
+      if (typeof v === 'string' && v.length > 300) continue
+      clean[k] = v
+    }
     settings = { ...settings, ...clean } as AppSettings
     await settingsStore?.save(clean as Partial<AppSettings>).catch(() => notice('warn', 'Could not save settings to MySQL.'))
     send('settings:changed', settings)
@@ -240,11 +269,26 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     return settings
   })
 
-  ipcMain.handle('status:get', async (): Promise<ServiceStatus & { agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
-    const [s, t, claude, codex, kiro] = await Promise.all([stt.status(), tts.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect(), new KiroAdapter().detect()])
-    return { stt: s.up, tts: t.up, ttsReady: t.ready, db: dbOk, agents: { claude, codex, kiro },
+  ipcMain.handle('status:get', async (): Promise<ServiceStatus & { enabled: { stt: boolean; tts: boolean }; keys: { openai: boolean; gemini: boolean }; agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
+    const [sp, claude, codex, kiro] = await Promise.all([router.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect(), new KiroAdapter().detect()])
+    return { stt: sp.stt, tts: sp.tts, ttsReady: sp.ttsReady, db: dbOk, enabled: servicesOn, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, agents: { claude, codex, kiro },
       capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities, kiro: new KiroAdapter().capabilities } }
   })
+  ipcMain.handle('services:set', async (_e, p) => {
+    const a = parse(schemas.serviceSet, p)
+    if (a.name === 'tts' && !a.enabled) { voice.queue.cancelAll(); send('audio:stop') } // stop speaking before the service goes away
+    servicesOn = await setService(root, a.name as ServiceName, a.enabled)
+    return servicesOn
+  })
+  ipcMain.handle('cloud:models', (_e, p) => { const a = parse(schemas.cloudProvider, p); return listModels(router.cloudConfig(), a.provider) })
+  ipcMain.handle('cloud:test', (_e, p) => {
+    const a = parse(schemas.cloudTest, p)
+    return selfTest(router, a.provider, { ttsModel: a.ttsModel, sttModel: a.sttModel, style: a.style }, a.voice ?? (a.provider === 'openai' ? 'coral' : 'Kore'), (wav) => {
+      const data = wav.buffer.slice(wav.byteOffset, wav.byteOffset + wav.byteLength)
+      send('audio:chunk', { requestId: `test-${Date.now()}`, eventId: 'test', sessionId: 'test', index: 0, total: 1, speed: 1, data })
+    })
+  })
+  ipcMain.handle('usage:summary', () => usageStore.summary())
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, p) => { clipboard.writeText(parse(schemas.text, p).text) })
 

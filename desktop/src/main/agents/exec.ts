@@ -43,8 +43,12 @@ export async function whichAny(cmds: string[], pathEnv = searchPath()): Promise<
   return null
 }
 
-export function run(file: string, args: string[], timeoutMs = 8000): Promise<string> {
+export function run(file: string, args: string[], timeoutMs = 8000, cwd?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(file, args, { timeout: timeoutMs, encoding: 'utf8' }, (err, stdout) => (err ? reject(err) : resolve(stdout.trim())))
+    execFile(file, args, { timeout: timeoutMs, encoding: 'utf8', cwd }, (err, stdout, stderr) => {
+      if (!err) return resolve(stdout.trim())
+      const detail = stderr.trim().split('\n').filter(Boolean).pop() // the last stderr line is usually the actual reason
+      reject(detail ? new Error(`${err.message.split('\n')[0]}: ${detail}`) : err)
+    })
   })
 }

@@ -15,6 +15,9 @@ load_env() {
   set -a; . "$ROOT/.env"; set +a
 }
 
+# The app's on/off choice for the voice services (Settings → Services, or the STT/TTS chips). Default: on.
+service_on() { local f="$ROOT/.services.local"; [ -f "$f" ] && grep -qx "$1=off" "$f" && return 1; return 0; }
+
 compose() { docker compose --project-directory "$ROOT" "$@"; }
 
 wait_healthy() { # service, timeout seconds

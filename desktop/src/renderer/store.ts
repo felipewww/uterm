@@ -24,6 +24,11 @@ export const store = reactive({
   currentOp: {} as Record<string, string>,
   settings: { ...DEFAULT_SETTINGS } as AppSettings,
   status: { stt: false, tts: false, ttsReady: false, db: false } as ServiceStatus,
+  /** the user's on/off choice for the Docker voice services (off = stopped, memory freed) */
+  enabled: { stt: true, tts: true },
+  serviceBusy: { stt: false, tts: false },
+  /** which cloud API keys are present in .env (the keys themselves never reach the renderer) */
+  keys: { openai: false, gemini: false },
   agents: {} as Record<string, AgentInfo>,
   capabilities: {} as Record<string, { notes: string[] }>,
   voices: [{ id: 'default', name: 'Default' }] as VoiceProfile[],
@@ -70,6 +75,9 @@ export function removeSession(id: string): void {
   if (store.selectedId === id) store.selectedId = null
   if (store.confirmDelete?.id === id) store.confirmDelete = null
 }
+
+/** The voice a session speaks with: its own, else the global default. */
+export const voiceOf = (s?: { voiceProfileId: string | null }): string => s?.voiceProfileId || store.settings.defaultVoiceId
 
 export const selected = (): SessionView | undefined => store.sessions.find((s) => s.id === store.selectedId)
 
@@ -132,4 +140,33 @@ export function ingestHistory(sessionId: string, rows: Array<{ id?: string; type
 export function markSpoken(sessionId: string, eventId: string): void {
   const item = store.activity[sessionId]?.find((x) => x.id === eventId)
   if (item) item.spoken = true
+}
+
+export async function refreshStatus(): Promise<void> {
+  try {
+    const s = await window.echo.status.get()
+    Object.assign(store.status, { stt: s.stt, tts: s.tts, ttsReady: s.ttsReady, db: s.db })
+    store.enabled = { ...s.enabled }
+    store.keys = { ...s.keys }
+    store.agents = s.agents
+    store.capabilities = s.capabilities
+  } catch { /* main may be busy; try again on the next tick */ }
+}
+
+export const SERVICE_LABEL = { stt: 'Speech-to-text', tts: 'Text-to-speech' } as const
+
+/** Turns a Docker voice service off (stops the container and frees its memory) or on again. */
+export async function toggleService(name: 'stt' | 'tts'): Promise<void> {
+  if (store.serviceBusy[name]) return
+  const turnOn = !store.enabled[name]
+  store.serviceBusy[name] = true
+  try {
+    store.enabled = { ...(await window.echo.services.set({ name, enabled: turnOn })) }
+    notify('info', turnOn ? `${SERVICE_LABEL[name]} is starting. It may take a moment to load.` : `${SERVICE_LABEL[name]} turned off. Its memory is freed.`, 5000)
+  } catch (err) {
+    notify('error', (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
+  } finally {
+    store.serviceBusy[name] = false
+    void refreshStatus()
+  }
 }

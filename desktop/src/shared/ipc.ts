@@ -21,6 +21,10 @@ export const schemas = {
   listen: z.object({ id: Id, text: z.string().min(1).max(8000), ref: z.string().min(1).max(64) }),
   rename: z.object({ id: Id, title: z.string().min(1).max(160) }),
   archive: z.object({ id: Id, archived: z.boolean() }),
+  folderCreate: z.object({ name: z.string().min(1).max(80), parentId: Id.nullable().optional() }),
+  folderMove: z.object({ id: Id, parentId: Id.nullable() }),
+  folderRename: z.object({ id: Id, name: z.string().min(1).max(80) }),
+  moveToFolder: z.object({ id: Id, folderId: Id.nullable() }),
   mute: z.object({ id: Id, muted: z.boolean() }),
   sessionSettings: z.object({
     id: Id,

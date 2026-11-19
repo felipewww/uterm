@@ -31,7 +31,11 @@ export interface SessionRecord {
   createdAt: number
   lastActivityAt: number
   archivedAt: number | null
+  /** user folder this session is filed in, or null */
+  folderId: string | null
 }
+
+export interface FolderRecord { id: string; name: string; parentId: string | null; createdAt: number }
 
 /** Persisted record + runtime-only state (never stored). */
 export interface SessionView extends SessionRecord {

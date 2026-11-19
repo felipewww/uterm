@@ -20,11 +20,19 @@ const api = {
     rename: (p: unknown) => call('sessions:rename', p),
     archive: (p: unknown) => call('sessions:archive', p),
     mute: (p: unknown) => call('sessions:mute', p),
+    moveToFolder: (p: unknown) => call('sessions:moveToFolder', p),
     update: (p: unknown) => call('sessions:update', p),
     select: (p: unknown) => call('sessions:select', p),
     openInVscode: (p: unknown) => call('sessions:openInVscode', p),
     activity: (p: unknown) => call('sessions:activity', p),
     pickDirectory: () => call('dialog:pickDirectory')
+  },
+  folders: {
+    list: () => call('folders:list'),
+    create: (p: unknown) => call('folders:create', p),
+    rename: (p: unknown) => call('folders:rename', p),
+    move: (p: unknown) => call('folders:move', p),
+    remove: (p: unknown) => call('folders:delete', p)
   },
   pty: {
     write: (p: unknown) => call('pty:write', p),
@@ -49,6 +57,7 @@ const api = {
   events: {
     onPtyData: (cb: (p: { id: string; data: string }) => void) => on('pty:data', cb),
     onPtyExit: (cb: (p: { id: string }) => void) => on('pty:exit', cb),
+    onFolders: (cb: (p: unknown) => void) => on('folders:changed', cb),
     onSessionView: (cb: (p: unknown) => void) => on('session:view', cb),
     onActivity: (cb: (p: unknown) => void) => on('activity:event', cb),
     onAudioPlay: (cb: (p: { requestId: string; data: ArrayBuffer; speed: number }) => void) => on('audio:play', cb),

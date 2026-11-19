@@ -1,6 +1,6 @@
 import { reactive, watch } from 'vue'
 import type { AnyAgentEvent } from '@shared/events'
-import { DEFAULT_SETTINGS, type AppSettings, type ServiceStatus, type SessionView, type VoiceProfile } from '@shared/types'
+import { DEFAULT_SETTINGS, type AppSettings, type FolderRecord, type ServiceStatus, type SessionView, type VoiceProfile } from '@shared/types'
 
 export interface ActivityItem {
   id: string; at: number; kind: 'prompt' | 'progress' | 'tool' | 'question' | 'permission' | 'error' | 'final' | 'attention'
@@ -13,6 +13,7 @@ export interface AgentInfo { installed: boolean; version?: string; path?: string
 
 export const store = reactive({
   sessions: [] as SessionView[],
+  folders: [] as FolderRecord[],
   selectedId: null as string | null,
   activity: {} as Record<string, ActivityItem[]>,
   currentOp: {} as Record<string, string>,

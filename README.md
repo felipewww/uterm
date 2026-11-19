@@ -28,6 +28,7 @@ Benchmarks: `node scripts/benchmark-audio.mjs`. Real-CLI smoke test: see `deskto
   **Balanced** (+ final results), **Conversational** (+ progress). Defaults: foreground Balanced, background Silent.
 - Terminal card header: mute this session, per-session voice settings, open in VS Code, show/hide Activity; a stop button appears while audio is playing (it never stops the agent).
 - Activity: every agent message has a listen button to hear it again (replayed from a small in-memory audio cache when possible); messages the app already spoke are marked. Mute-all is in the sidebar footer.
+- Folders: create them from the sidebar (folder button), nest them (right-click a folder → New subfolder / Move folder to), and drag sessions or folders in or out (drop on Active/Closed or the bottom strip for top level), or use the session menu "Move to folder". Deleting a folder moves its contents up one level. Stored in MySQL (migrations `0003`, `0004`).
 - Settings: General (theme, terminal background, default agent), Voice, Microphone, Services.
 - Claude permission prompts and questions are never answered for you; typed/spoken text is held back while one is showing.
 

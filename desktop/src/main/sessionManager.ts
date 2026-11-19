@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
-import type { AgentType, AppSettings, RuntimeState, SessionRecord, SessionView } from '@shared/types'
+import type { AgentType, AppSettings, FolderRecord, RuntimeState, SessionRecord, SessionView } from '@shared/types'
 import type { AnyAgentEvent, EventDraft } from '@shared/events'
 import type { AgentAdapter, AgentObserver } from './agents/adapter'
 import type { SessionRepository } from './db/sessionStore'
@@ -29,11 +30,13 @@ export interface SessionManagerDeps {
   settings(): AppSettings
   speechInstructions(): string | null
   onViewChanged(view: SessionView): void
+  onFoldersChanged?(folders: FolderRecord[]): void
   onPersistenceError(message: string): void
 }
 
 export class SessionManager {
   private records = new Map<string, SessionRecord>()
+  private folders = new Map<string, FolderRecord>()
   private runtime = new Map<string, Runtime>()
   private selectedId: string | null = null
   private hookBuffers = new Map<string, ReorderBuffer<HookEnv>>()
@@ -42,6 +45,7 @@ export class SessionManager {
 
   async load(): Promise<void> {
     this.records = new Map((await this.d.repo.list({ includeArchived: true })).map((r) => [r.id, r]))
+    this.folders = new Map((await this.d.repo.listFolders()).map((f) => [f.id, f]))
   }
 
   getRecord(id: string): SessionRecord | undefined { return this.records.get(id) }
@@ -267,6 +271,68 @@ export class SessionManager {
     this.records.set(id, { ...rec, ...patch })
     this.publishView(id)
     await this.safely('save session settings', () => this.d.repo.update(id, patch))
+  }
+
+  folderList(): FolderRecord[] { return [...this.folders.values()] }
+  private publishFolders(): void { this.d.onFoldersChanged?.(this.folderList()) }
+
+  async createFolder(name: string, parentId: string | null = null): Promise<FolderRecord | undefined> {
+    const n = name.trim().slice(0, 80)
+    if (!n || (parentId !== null && !this.folders.has(parentId))) return undefined
+    const f = (await this.safely('create the folder', () => this.d.repo.createFolder(n, parentId))) ?? { id: randomUUID(), name: n, parentId, createdAt: Date.now() }
+    this.folders.set(f.id, f)
+    this.publishFolders()
+    return f
+  }
+
+  async renameFolder(id: string, name: string): Promise<void> {
+    const f = this.folders.get(id)
+    const n = name.trim().slice(0, 80)
+    if (!f || !n) return
+    this.folders.set(id, { ...f, name: n })
+    this.publishFolders()
+    await this.safely('rename the folder', () => this.d.repo.renameFolder(id, n))
+  }
+
+  /** True when `candidate` is `id` itself or sits somewhere below it. */
+  private isInside(candidate: string | null, id: string): boolean {
+    for (let c = candidate, guard = 0; c && guard < 1000; guard++) {
+      if (c === id) return true
+      c = this.folders.get(c)?.parentId ?? null
+    }
+    return false
+  }
+
+  /** parentId null = top level. A folder can't go inside itself or one of its own subfolders. */
+  async moveFolder(id: string, parentId: string | null): Promise<boolean> {
+    const f = this.folders.get(id)
+    if (!f || (parentId !== null && !this.folders.has(parentId)) || this.isInside(parentId, id)) return false
+    if (f.parentId === parentId) return true
+    this.folders.set(id, { ...f, parentId })
+    this.publishFolders()
+    await this.safely('move the folder', () => this.d.repo.setFolderParent(id, parentId))
+    return true
+  }
+
+  /** Contents move up one level. */
+  async deleteFolder(id: string): Promise<void> {
+    const f = this.folders.get(id)
+    if (!f) return
+    const parent = f.parentId
+    this.folders.delete(id)
+    for (const [k, c] of this.folders) if (c.parentId === id) this.folders.set(k, { ...c, parentId: parent })
+    for (const [sid, r] of this.records) if (r.folderId === id) { this.records.set(sid, { ...r, folderId: parent }); this.publishView(sid) }
+    this.publishFolders()
+    await this.safely('delete the folder', () => this.d.repo.deleteFolder(id))
+  }
+
+  /** folderId null = unfiled. */
+  async moveToFolder(id: string, folderId: string | null): Promise<void> {
+    const rec = this.records.get(id)
+    if (!rec || (folderId !== null && !this.folders.has(folderId))) return
+    this.records.set(id, { ...rec, folderId })
+    this.publishView(id)
+    await this.safely('move the session', () => this.d.repo.setFolder(id, folderId))
   }
 
   async archive(id: string, archived: boolean): Promise<void> {

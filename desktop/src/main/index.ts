@@ -90,6 +90,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     settings: () => settings,
     speechInstructions: () => (settings.injectSpeechInstructions ? SPEECH_INSTRUCTIONS : null),
     onViewChanged: (v: SessionView) => send('session:view', { ...v, speaking: v.id === speakingSessionId }),
+    onFoldersChanged: (f) => send('folders:changed', f),
     onPersistenceError: (m) => { if (!dbWarned) { dbWarned = true; notice('warn', m) } }
   })
   await sessions.load()
@@ -144,6 +145,12 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   ipcMain.handle('sessions:stop', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.stop(requireSession(a.id)) })
   ipcMain.handle('sessions:rename', (_e, p) => { const a = parse(schemas.rename, p); return sessions.rename(requireSession(a.id), a.title) })
   ipcMain.handle('sessions:archive', (_e, p) => { const a = parse(schemas.archive, p); return sessions.archive(requireSession(a.id), a.archived) })
+  ipcMain.handle('folders:list', () => sessions.folderList())
+  ipcMain.handle('folders:create', (_e, p) => { const a = parse(schemas.folderCreate, p); return sessions.createFolder(a.name, a.parentId ?? null) })
+  ipcMain.handle('folders:move', (_e, p) => { const a = parse(schemas.folderMove, p); return sessions.moveFolder(a.id, a.parentId) })
+  ipcMain.handle('folders:rename', (_e, p) => { const a = parse(schemas.folderRename, p); return sessions.renameFolder(a.id, a.name) })
+  ipcMain.handle('folders:delete', (_e, p) => sessions.deleteFolder(parse(schemas.id, p).id))
+  ipcMain.handle('sessions:moveToFolder', (_e, p) => { const a = parse(schemas.moveToFolder, p); return sessions.moveToFolder(requireSession(a.id), a.folderId) })
   ipcMain.handle('sessions:mute', (_e, p) => {
     const a = parse(schemas.mute, p); sessions.setMuted(requireSession(a.id), a.muted)
     if (a.muted) voice.queue.cancelSession(a.id)

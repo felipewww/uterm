@@ -54,6 +54,7 @@ onMounted(async () => {
       if (s) notify('info', `"${s.title}" closed.`, 3000)
     }),
     ev.onSessionView((v) => upsertSession(v as SessionView)),
+    ev.onFolders((f) => { store.folders = f as typeof store.folders }),
     ev.onActivity((e) => ingestEvent(e as AnyAgentEvent)),
     ev.onAudioState((s) => { store.audio = s }),
     ev.onSpoken((p) => markSpoken(p.sessionId, p.eventId)),
@@ -66,6 +67,7 @@ onMounted(async () => {
   try {
     store.settings = await window.echo.settings.get()
     store.sessions = await window.echo.sessions.list()
+    store.folders = await window.echo.folders.list()
     store.voices = await window.echo.voice.list()
     // Fresh start: show the welcome screen. Only a reloaded window with agents still running goes straight to one.
     const running = store.sessions.find((s) => s.running)

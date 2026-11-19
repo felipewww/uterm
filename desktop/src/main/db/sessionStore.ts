@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { ResultSetHeader, RowDataPacket } from 'mysql2/promise'
-import type { AgentType, SessionRecord, VoiceMode } from '@shared/types'
+import type { AgentType, FolderRecord, SessionRecord, VoiceMode } from '@shared/types'
 import type { Pool } from './pool'
 
 export interface NewSession {
@@ -22,6 +22,13 @@ export interface SessionRepository {
   touch(id: string, at?: number): Promise<void>
   archive(id: string, archived: boolean): Promise<void>
   findByNative(agent: AgentType, nativeId: string): Promise<SessionRecord | null>
+  listFolders(): Promise<FolderRecord[]>
+  createFolder(name: string, parentId?: string | null): Promise<FolderRecord>
+  renameFolder(id: string, name: string): Promise<void>
+  setFolderParent(id: string, parentId: string | null): Promise<void>
+  /** Children (folders and sessions) move up to the deleted folder's parent. */
+  deleteFolder(id: string): Promise<void>
+  setFolder(sessionId: string, folderId: string | null): Promise<void>
 }
 
 const toMs = (d: Date | null): number | null => (d ? d.getTime() : null)
@@ -35,7 +42,7 @@ function rowToSession(r: RowDataPacket): SessionRecord {
     foregroundVoiceMode: r.foreground_voice_mode as VoiceMode | null,
     backgroundVoiceMode: r.background_voice_mode as VoiceMode | null,
     createdAt: (r.created_at as Date).getTime(), lastActivityAt: (r.last_activity_at as Date).getTime(),
-    archivedAt: toMs(r.archived_at)
+    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null
   }
 }
 
@@ -97,6 +104,37 @@ export class MySqlSessionStore implements SessionRepository {
 
   async archive(id: string, archived: boolean): Promise<void> {
     await this.pool.execute('UPDATE sessions SET archived_at = ? WHERE id = ?', [archived ? new Date() : null, id])
+  }
+
+  async listFolders(): Promise<FolderRecord[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>('SELECT id, name, parent_id, created_at FROM session_folders ORDER BY created_at, name')
+    return rows.map((r) => ({ id: r.id, name: r.name, parentId: r.parent_id ?? null, createdAt: (r.created_at as Date).getTime() }))
+  }
+
+  async createFolder(name: string, parentId: string | null = null): Promise<FolderRecord> {
+    const id = randomUUID()
+    await this.pool.execute('INSERT INTO session_folders (id, name, parent_id) VALUES (?, ?, ?)', [id, name, parentId])
+    return { id, name, parentId, createdAt: Date.now() }
+  }
+
+  async renameFolder(id: string, name: string): Promise<void> {
+    await this.pool.execute('UPDATE session_folders SET name = ? WHERE id = ?', [name, id])
+  }
+
+  async setFolderParent(id: string, parentId: string | null): Promise<void> {
+    await this.pool.execute('UPDATE session_folders SET parent_id = ? WHERE id = ?', [parentId, id])
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    const [rows] = await this.pool.execute<RowDataPacket[]>('SELECT parent_id FROM session_folders WHERE id = ?', [id])
+    const parent = (rows[0]?.parent_id as string | null | undefined) ?? null
+    await this.pool.execute('UPDATE session_folders SET parent_id = ? WHERE parent_id = ?', [parent, id])
+    await this.pool.execute('UPDATE sessions SET folder_id = ? WHERE folder_id = ?', [parent, id])
+    await this.pool.execute('DELETE FROM session_folders WHERE id = ?', [id])
+  }
+
+  async setFolder(sessionId: string, folderId: string | null): Promise<void> {
+    await this.pool.execute('UPDATE sessions SET folder_id = ? WHERE id = ?', [folderId, sessionId])
   }
 
   async findByNative(agent: AgentType, nativeId: string): Promise<SessionRecord | null> {

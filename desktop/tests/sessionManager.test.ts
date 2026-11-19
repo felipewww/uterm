@@ -58,6 +58,49 @@ describe('SessionManager', () => {
     expect(t.procs[0]!.spec.env.ECHO_TERM_DB_PASSWORD).toBeUndefined()
   })
 
+  it('files sessions in folders, renames, and deleting a folder keeps its sessions', async () => {
+    const t = setup()
+    const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    const f = (await t.mgr.createFolder('  Work  '))!
+    expect(f.name).toBe('Work')
+    await t.mgr.moveToFolder(a.id, f.id)
+    expect(t.mgr.getRecord(a.id)!.folderId).toBe(f.id)
+    expect((await t.repo.get(a.id))!.folderId).toBe(f.id)
+    await t.mgr.renameFolder(f.id, 'Clients')
+    expect(t.mgr.folderList()[0]!.name).toBe('Clients')
+    await t.mgr.deleteFolder(f.id)
+    expect(t.mgr.folderList()).toEqual([])
+    expect(t.mgr.getRecord(a.id)).toBeDefined()
+    expect(t.mgr.getRecord(a.id)!.folderId).toBeNull()
+    expect(t.views.at(-1)!.folderId).toBeNull() // the UI is told
+  })
+
+  it('nests folders, blocks cycles, and deleting a folder moves its contents up', async () => {
+    const t = setup()
+    const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    const top = (await t.mgr.createFolder('Top'))!
+    const mid = (await t.mgr.createFolder('Mid', top.id))!
+    const leaf = (await t.mgr.createFolder('Leaf', mid.id))!
+    expect(await t.mgr.createFolder('Orphan', '00000000-0000-4000-8000-000000000000')).toBeUndefined()
+    expect(await t.mgr.moveFolder(top.id, leaf.id)).toBe(false) // into its own subfolder
+    expect(await t.mgr.moveFolder(top.id, top.id)).toBe(false)
+    await t.mgr.moveToFolder(a.id, mid.id)
+    await t.mgr.deleteFolder(mid.id)
+    expect(t.mgr.folderList().find((f) => f.id === leaf.id)!.parentId).toBe(top.id)
+    expect(t.mgr.getRecord(a.id)!.folderId).toBe(top.id)
+    expect((await t.repo.listFolders()).find((f) => f.id === leaf.id)!.parentId).toBe(top.id)
+    expect(await t.mgr.moveFolder(leaf.id, null)).toBe(true)
+    expect(t.mgr.folderList().find((f) => f.id === leaf.id)!.parentId).toBeNull()
+  })
+
+  it('ignores empty folder names and moves to unknown folders', async () => {
+    const t = setup()
+    const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    expect(await t.mgr.createFolder('   ')).toBeUndefined()
+    await t.mgr.moveToFolder(a.id, '00000000-0000-4000-8000-000000000000')
+    expect(t.mgr.getRecord(a.id)!.folderId).toBeNull()
+  })
+
   it('rejects a missing working directory', async () => {
     await expect(setup().mgr.create({ agentType: 'claude', title: 'x', workingDirectory: '/definitely/not/here' })).rejects.toThrow(/does not exist/)
   })

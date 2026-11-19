@@ -31,6 +31,7 @@ export interface SessionManagerDeps {
   speechInstructions(): string | null
   onViewChanged(view: SessionView): void
   onFoldersChanged?(folders: FolderRecord[]): void
+  onSessionRemoved?(id: string): void
   onPersistenceError(message: string): void
 }
 
@@ -333,6 +334,18 @@ export class SessionManager {
     this.records.set(id, { ...rec, folderId })
     this.publishView(id)
     await this.safely('move the session', () => this.d.repo.setFolder(id, folderId))
+  }
+
+  /** Permanently removes the session from Echo-Term (running agent stopped first). The agent's own conversation files are never touched. */
+  async delete(id: string): Promise<void> {
+    if (!this.records.has(id)) return
+    if (this.isRunning(id)) await this.stop(id)
+    this.runtime.delete(id)
+    this.hookBuffers.delete(id)
+    this.records.delete(id)
+    if (this.selectedId === id) this.selectedId = null
+    this.d.onSessionRemoved?.(id)
+    await this.safely('delete the session', () => this.d.repo.delete(id))
   }
 
   async archive(id: string, archived: boolean): Promise<void> {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { SessionView } from '@shared/types'
 import type { AnyAgentEvent } from '@shared/events'
 import ActivityPanel from './components/ActivityPanel.vue'
@@ -11,10 +11,10 @@ import SettingsDialog from './components/SettingsDialog.vue'
 import TerminalPane from './components/TerminalPane.vue'
 import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
-import { isRecording, startRecording, stopRecording } from './composables/useRecorder'
+import { discardDraft, isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
-import { ingestEvent, layout, markSpoken, notify, resetActivity, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
-import { writeTo } from './terminals'
+import { ingestEvent, layout, markSpoken, notify, resetActivity, removeSession, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
+import { disposeTerminal, writeTo } from './terminals'
 
 const showNew = ref(false)
 const showSettings = ref(false)
@@ -29,6 +29,15 @@ async function refreshStatus() {
     store.agents = s.agents
     store.capabilities = s.capabilities
   } catch { /* main may be busy; try again on the next tick */ }
+}
+
+const cancelDelete = ref<HTMLButtonElement | null>(null)
+watch(() => store.confirmDelete, async (s) => { if (s) { await nextTick(); cancelDelete.value?.focus() } }) // the safe choice has the focus
+async function confirmDeleteSession() {
+  const s = store.confirmDelete
+  store.confirmDelete = null
+  if (!s) return
+  try { await window.echo.sessions.remove({ id: s.id }) } catch (err) { notify('error', `Could not delete the session: ${(err as Error).message}`) }
 }
 
 async function select(id: string | null) {
@@ -54,6 +63,7 @@ onMounted(async () => {
       if (s) notify('info', `"${s.title}" closed.`, 3000)
     }),
     ev.onSessionView((v) => upsertSession(v as SessionView)),
+    ev.onSessionRemoved(({ id }) => { disposeTerminal(id); discardDraft(id); removeSession(id) }),
     ev.onFolders((f) => { store.folders = f as typeof store.folders }),
     ev.onActivity((e) => ingestEvent(e as AnyAgentEvent)),
     ev.onAudioState((s) => { store.audio = s }),
@@ -122,6 +132,18 @@ async function quit() {
         <div class="modal-actions">
           <button class="btn" @click="store.confirmQuit = false">Keep running</button>
           <button class="btn danger" @click="quit">Quit and stop agents</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="store.confirmDelete" class="modal-backdrop" @click.self="store.confirmDelete = null" @keydown.esc="store.confirmDelete = null">
+      <div class="modal" role="alertdialog" aria-labelledby="del-title">
+        <h2 id="del-title">Delete this session?</h2>
+        <p><strong>{{ store.confirmDelete.title }}</strong> will be removed from Echo-Term{{ store.confirmDelete.running ? ' and its running agent stopped' : '' }}, together with its saved activity and spoken-message history. This cannot be undone.</p>
+        <p class="muted">The agent's own conversation files (for example under ~/.claude or ~/.codex) are left on disk.</p>
+        <div class="modal-actions">
+          <button ref="cancelDelete" class="btn" @click="store.confirmDelete = null">Cancel</button>
+          <button class="btn danger" @click="confirmDeleteSession">Delete session</button>
         </div>
       </div>
     </div>

@@ -29,6 +29,7 @@ export class MemorySessionRepo implements SessionRepository {
   }
   async touch(id: string, at = Date.now()) { const r = this.rows.get(id); if (r) this.rows.set(id, { ...r, lastActivityAt: at }) }
   async archive(id: string, a: boolean) { const r = this.rows.get(id); if (r) this.rows.set(id, { ...r, archivedAt: a ? Date.now() : null }) }
+  async delete(id: string) { this.rows.delete(id) }
   async findByNative(agent: AgentType, n: string) { return [...this.rows.values()].find((r) => r.agentType === agent && r.nativeSessionId === n) ?? null }
   async listFolders() { return [...this.folders.values()] }
   async createFolder(name: string, parentId: string | null = null) { const f = { id: randomUUID(), name, parentId, createdAt: Date.now() }; this.folders.set(f.id, f); return f }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { AGENT_LABELS } from '@shared/types'
-import { selected, store } from '../store'
+import { generatingFor, selected, store } from '../store'
 
 const emit = defineEmits<{ settings: [] }>()
 const s = computed(() => selected())
@@ -23,7 +23,7 @@ async function stopAudio() { await window.echo.voice.stopPlayback() }
 
     <div class="toolbar-actions">
       <span v-if="store.audio.speakingSessionId" class="speaking-chip">
-        <span class="eq"><i></i><i></i><i></i></span>speaking<template v-if="store.audio.queued"> · {{ store.audio.queued }} queued</template>
+        <span v-if="store.audio.phase === 'generating'" class="spinner mini"></span><span v-else class="eq"><i></i><i></i><i></i></span>{{ store.audio.phase === 'generating' ? `generating voice… ${generatingFor()}s` : 'speaking' }}<template v-if="store.audio.queued"> · {{ store.audio.queued }} queued</template>
         <button class="chip-stop" title="Stop audio (the agent keeps running)" aria-label="Stop audio" @click="stopAudio"><svg aria-hidden="true" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1" /></svg></button>
       </span>
 

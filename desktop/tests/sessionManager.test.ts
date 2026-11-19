@@ -93,6 +93,25 @@ describe('SessionManager', () => {
     expect(t.mgr.folderList().find((f) => f.id === leaf.id)!.parentId).toBeNull()
   })
 
+  it('deletes a session for good: stops it, forgets it, tells the UI, removes it from the repository', async () => {
+    const t = setup()
+    const removed: string[] = []
+    ;(t.deps as { onSessionRemoved?: (id: string) => void }).onSessionRemoved = (id) => removed.push(id)
+    const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    const b = await t.mgr.create({ agentType: 'codex', title: 'B', workingDirectory: dir() })
+    t.mgr.select(a.id)
+    await t.mgr.delete(a.id)
+    expect(t.mgr.isRunning(a.id)).toBe(false)
+    expect(t.mgr.getRecord(a.id)).toBeUndefined()
+    expect(t.mgr.selected).toBeNull()
+    expect(await t.repo.get(a.id)).toBeNull()
+    expect(removed).toEqual([a.id])
+    expect(t.mgr.getRecord(b.id)).toBeDefined() // others untouched
+    expect(t.mgr.isRunning(b.id)).toBe(true)
+    await t.mgr.delete(a.id) // idempotent
+    expect(removed).toEqual([a.id])
+  })
+
   it('ignores empty folder names and moves to unknown folders', async () => {
     const t = setup()
     const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })

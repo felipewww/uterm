@@ -21,6 +21,8 @@ export interface SessionRepository {
   setNativeSessionId(id: string, nativeId: string): Promise<'ok' | 'duplicate'>
   touch(id: string, at?: number): Promise<void>
   archive(id: string, archived: boolean): Promise<void>
+  /** Removes the session and (by cascade) its stored activity and spoken messages. */
+  delete(id: string): Promise<void>
   findByNative(agent: AgentType, nativeId: string): Promise<SessionRecord | null>
   listFolders(): Promise<FolderRecord[]>
   createFolder(name: string, parentId?: string | null): Promise<FolderRecord>
@@ -135,6 +137,10 @@ export class MySqlSessionStore implements SessionRepository {
 
   async setFolder(sessionId: string, folderId: string | null): Promise<void> {
     await this.pool.execute('UPDATE sessions SET folder_id = ? WHERE id = ?', [folderId, sessionId])
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.pool.execute('DELETE FROM sessions WHERE id = ?', [id])
   }
 
   async findByNative(agent: AgentType, nativeId: string): Promise<SessionRecord | null> {

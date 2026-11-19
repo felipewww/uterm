@@ -46,6 +46,18 @@ export interface SessionView extends SessionRecord {
   speaking: boolean
 }
 
+/** What the speech queue is doing now; drives the "generating audio" indicator in Activity. */
+export interface AudioState {
+  speakingSessionId: string | null
+  speakingEventId: string | null
+  queued: number
+  /** generating = the voice is being synthesised (nothing audible yet); playing = audio is coming out */
+  phase: 'idle' | 'generating' | 'playing'
+  /** when the current phase began (ms epoch) */
+  since: number
+  queuedEventIds: string[]
+}
+
 export interface VoiceProfile { id: string; name: string }
 
 export interface AppSettings {

@@ -198,6 +198,7 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'ArrowUp') { e.preventDefault(); go(i < 0 ? 0 : i - 1) }
   else if (e.key === 'Home') { e.preventDefault(); go(0) }
   else if (e.key === 'End') { e.preventDefault(); go(list.length - 1) }
+  else if (e.key === 'Delete' && list[i]) { e.preventDefault(); store.confirmDelete = list[i]! }
   else if (e.key === 'F2' && list[i]) { e.preventDefault(); void startEdit(list[i]) }
 }
 
@@ -212,7 +213,8 @@ function openFolderMenu(e: MouseEvent, f: FolderRow) {
   folderMenu.value = { x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 300), id: f.id, name: f.name }
 }
 const closeMenu = () => { menu.value = null; folderMenu.value = null }
-async function act(fn: () => unknown) { closeMenu(); await fn() }
+// Run the action first: its arguments read the open menu's target (`menu!.s`), which closeMenu() clears.
+async function act(fn: () => unknown) { const done = fn(); closeMenu(); await done }
 async function copyPath(s: SessionView) {
   await window.echo.clipboard.write({ text: s.workingDirectory })
   notify('info', 'Path copied.', 2500)
@@ -254,10 +256,10 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     </label>
 
     <div class="session-groups" role="listbox" aria-label="Sessions" tabindex="0" @keydown="onKey">
-      <template v-for="row in rows" :key="row.key">
+      <div v-for="row in rows" :key="row.key" class="tree-row" :class="'row-' + row.kind" :style="{ '--depth': 'depth' in row ? row.depth : 0 }">
         <!-- folder -->
         <div
-          v-if="row.kind === 'folder'" class="group-title folder" :class="{ 'drop-target': dropKey === row.key, dragging: dragId === row.id }" :style="{ '--depth': row.depth }"
+          v-if="row.kind === 'folder'" class="group-title folder" :class="{ 'drop-target': dropKey === row.key, dragging: dragId === row.id }"
           role="button" tabindex="-1" :aria-expanded="!collapsed[row.key]" :draggable="editingFolder !== row.id"
           @click="collapsed[row.key] = !collapsed[row.key]" @contextmenu.prevent="openFolderMenu($event, row)" @dblclick.stop="startRenameFolder(row.id, row.name)"
           @dragstart="onDragStart($event, 'folder', row.id)" @dragend="onDragEnd" @dragover="onDragOver($event, row.key, row.id)" @dragleave="dropKey = null" @drop="onDrop($event, row.id)"
@@ -269,13 +271,13 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
         </div>
 
         <!-- folder being named -->
-        <div v-else-if="row.kind === 'new' && newFolder" class="group-title folder" :style="{ '--depth': row.depth }">
+        <div v-else-if="row.kind === 'new' && newFolder" class="group-title folder">
           <svg class="chev" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 6.25 3.5 3.5 3.5-3.5" /></svg>
           <svg class="folder-ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M2 4.25h4l1.5 1.75H14v6.5H2z" /></svg>
           <input ref="folderInput" v-model="newFolder.text" class="rename" placeholder="Folder name" aria-label="New folder name" @keydown.enter="commitNewFolder" @keydown.esc.stop="newFolder = null" @blur="commitNewFolder" />
         </div>
 
-        <div v-else-if="row.kind === 'empty'" class="folder-empty" :class="{ 'drop-target': dropKey === row.key }" :style="{ '--depth': row.depth }" @dragover="onDragOver($event, row.key, row.folderId)" @dragleave="dropKey = null" @drop="onDrop($event, row.folderId)">Empty. Drag items here.</div>
+        <div v-else-if="row.kind === 'empty'" class="folder-empty" :class="{ 'drop-target': dropKey === row.key }" @dragover="onDragOver($event, row.key, row.folderId)" @dragleave="dropKey = null" @drop="onDrop($event, row.folderId)">Empty. Drag items here.</div>
 
         <!-- Active / Closed (also the "top level" drop target) -->
         <div
@@ -283,6 +285,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
           @click="collapsed[row.key] = !collapsed[row.key]" @dragover="onDragOver($event, row.key, null)" @dragleave="dropKey = null" @drop="onDrop($event, null)"
         >
           <svg class="chev" :class="{ collapsed: collapsed[row.key] }" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 6.25 3.5 3.5 3.5-3.5" /></svg>
+          <i class="dot" :class="row.name === 'Active' ? 'idle' : 'closed'"></i>
           <span class="group-name">{{ row.name }}</span><span class="count">{{ row.count }}</span>
         </div>
 
@@ -290,7 +293,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
 
         <!-- session -->
         <div
-          v-else-if="row.kind === 'session'" class="session" draggable="true" role="option" :aria-selected="row.s.id === store.selectedId" :data-sid="row.s.id" :title="tip(row.s)" :style="{ '--depth': row.depth }"
+          v-else-if="row.kind === 'session'" class="session" draggable="true" role="option" :aria-selected="row.s.id === store.selectedId" :data-sid="row.s.id" :title="tip(row.s)"
           :class="{ 'in-folder': row.depth > 0, dragging: dragId === row.s.id, selected: row.s.id === store.selectedId, attention: row.s.needsAttention, archived: !!row.s.archivedAt, closed: !row.s.running }"
           @click="emit('select', row.s.id)" @dblclick.stop="startEdit(row.s)" @dragstart="onDragStart($event, 'session', row.s.id)" @dragend="onDragEnd" @contextmenu.prevent="openMenu($event, row.s)"
         >
@@ -318,7 +321,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
             </div>
           </div>
         </div>
-      </template>
+      </div>
 
       <div v-if="!filtered.length" class="empty-state">
         <template v-if="query || store.sessions.length">
@@ -364,6 +367,8 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       <div class="menu-sep"></div>
       <button class="menu-item" role="menuitem" @click="act(() => copyPath(menu!.s))">Copy path</button>
       <button class="menu-item" role="menuitem" @click="act(() => openVscode(menu!.s))">Open in VS Code</button>
+      <div class="menu-sep"></div>
+      <button class="menu-item danger" role="menuitem" @click="act(() => { store.confirmDelete = menu!.s })">Delete…<kbd class="kbd">Del</kbd></button>
     </div>
     <div v-if="folderMenu" class="menu" role="menu" :style="{ left: folderMenu.x + 'px', top: folderMenu.y + 'px' }" @click.stop @contextmenu.prevent>
       <button class="menu-item" role="menuitem" @click="act(() => startNewFolder(folderMenu!.id))">New subfolder</button>

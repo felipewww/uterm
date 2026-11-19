@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AudioState } from '../shared/types'
 
 type Unsub = () => void
 const on = <T>(channel: string, cb: (payload: T) => void): Unsub => {
@@ -19,6 +20,7 @@ const api = {
     stop: (p: unknown) => call('sessions:stop', p),
     rename: (p: unknown) => call('sessions:rename', p),
     archive: (p: unknown) => call('sessions:archive', p),
+    remove: (p: unknown) => call('sessions:delete', p),
     mute: (p: unknown) => call('sessions:mute', p),
     moveToFolder: (p: unknown) => call('sessions:moveToFolder', p),
     update: (p: unknown) => call('sessions:update', p),
@@ -57,12 +59,13 @@ const api = {
   events: {
     onPtyData: (cb: (p: { id: string; data: string }) => void) => on('pty:data', cb),
     onPtyExit: (cb: (p: { id: string }) => void) => on('pty:exit', cb),
+    onSessionRemoved: (cb: (p: { id: string }) => void) => on('session:removed', cb),
     onFolders: (cb: (p: unknown) => void) => on('folders:changed', cb),
     onSessionView: (cb: (p: unknown) => void) => on('session:view', cb),
     onActivity: (cb: (p: unknown) => void) => on('activity:event', cb),
     onAudioPlay: (cb: (p: { requestId: string; data: ArrayBuffer; speed: number }) => void) => on('audio:play', cb),
     onAudioStop: (cb: () => void) => on('audio:stop', cb),
-    onAudioState: (cb: (p: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }) => void) => on('audio:state', cb),
+    onAudioState: (cb: (p: AudioState) => void) => on('audio:state', cb),
     onSpoken: (cb: (p: { sessionId: string; eventId: string }) => void) => on('activity:spoken', cb),
     onNotice: (cb: (p: { level: 'info' | 'warn' | 'error'; message: string }) => void) => on('notice', cb),
     onSettings: (cb: (p: unknown) => void) => on('settings:changed', cb),

@@ -10,7 +10,7 @@ import UsagePane from './UsagePane.vue'
 import { toWav16k } from '../composables/useRecorder'
 import { THEMES, TERMINAL_BACKGROUNDS, currentTerminalBackground, currentTheme, setTerminalBackground, setTheme } from '../design/theme'
 
-const props = defineProps<{ sessionId?: string | null }>()
+const props = defineProps<{ sessionId?: string | null; pane?: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const sess = computed(() => (props.sessionId ? store.sessions.find((s) => s.id === props.sessionId) : undefined))
@@ -34,7 +34,7 @@ const text = (n: 'stt' | 'tts') => {
 }
 
 type Pane = 'general' | 'voice' | 'cloud' | 'usage' | 'input' | 'services'
-const pane = ref<Pane>('general')
+const pane = ref<Pane>((['general', 'voice', 'cloud', 'usage', 'input', 'services'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
 const panes: Array<{ id: Pane; label: string; icon: string }> = [
   { id: 'general', label: 'General', icon: 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M5.5 3v3M10.5 6.5v3M7 10v3' },
   { id: 'voice', label: 'Voice', icon: 'M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5M12.5 3.75a6 6 0 0 1 0 8.5' },
@@ -52,7 +52,8 @@ const sv = reactive({
   voiceProfileId: sess.value?.voiceProfileId ?? '',
   playbackSpeed: sess.value?.playbackSpeed ?? 0,
   foreground: sess.value?.foregroundVoiceMode ?? '',
-  background: sess.value?.backgroundVoiceMode ?? ''
+  background: sess.value?.backgroundVoiceMode ?? '',
+  coach: sess.value?.englishCoach === null || sess.value?.englishCoach === undefined ? '' : sess.value.englishCoach ? 'on' : 'off'
 })
 
 onMounted(async () => {
@@ -69,6 +70,7 @@ async function saveSession() {
   if (!sess.value) return
   await window.echo.sessions.update({ id: sess.value.id, patch: {
     voiceProfileId: sv.voiceProfileId || null,
+    englishCoach: sv.coach === '' ? null : sv.coach === 'on',
     playbackSpeed: sv.playbackSpeed ? Number(sv.playbackSpeed) : null,
     foregroundVoiceMode: sv.foreground || null, backgroundVoiceMode: sv.background || null
   } })
@@ -110,6 +112,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 <div class="field-text"><strong>Voice</strong></div>
           <VoicePicker v-model="sv.voiceProfileId" :inherit="`Use the default (${voiceName(store.settings.defaultVoiceId)})`" preview-button />
 </div>
+        <div class="field">
+          <div class="field-text"><strong>English coach</strong><small>A more natural version of what you say, shown before you send</small></div>
+          <select v-model="sv.coach"><option value="">Use the global setting ({{ store.settings.englishCoach ? 'on' : 'off' }})</option><option value="on">On for this chat</option><option value="off">Off for this chat</option></select>
+        </div>
         <div class="field">
 <div class="field-text"><strong>Playback speed</strong></div>
           <input v-model.number="sv.playbackSpeed" type="number" min="0.5" max="2" step="0.05" placeholder="default" />
@@ -167,6 +173,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <div class="field">
 <div class="field-text"><strong>Default voice</strong><small>Used by every chat unless it picks its own. Includes cloud voices.</small></div>
               <VoicePicker v-model="g.defaultVoiceId" preview-button />
+</div>
+            <h3 class="pane-title">English practice</h3>
+            <div class="field">
+<div class="field-text"><strong>English coach</strong><small>After each recording, show a more natural B2–C1 version next to your transcription before you send. Needs the OpenAI key (Settings → Cloud voice). Each chat can override this.</small></div>
+              <input v-model="g.englishCoach" class="switch" type="checkbox" aria-label="English coach" />
 </div>
             <div class="field">
 <div class="field-text"><strong>Playback speed</strong><small>0.5 – 2</small></div>

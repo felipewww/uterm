@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { coachOnFor } from '@shared/types'
 import { notify, store } from '../store'
 
 export interface Draft {
@@ -7,7 +8,14 @@ export interface Draft {
   text: string
   error: string
   note: string
+  /** the transcription as it came back, so "Back to mine" can restore it */
+  original?: string
+  /** the more natural English version (B2–C1) shown next to the transcription before sending */
+  coach?: { status: 'loading' | 'done' | 'error'; text: string; error: string }
 }
+
+/** The coach runs for a chat when its own choice (or, failing that, the global one) is on and an OpenAI key is present. */
+export const coachEnabled = (sessionId: string): boolean => coachOnFor(store.settings.englishCoach, store.sessions.find((x) => x.id === sessionId)?.englishCoach) && store.keys.openai
 
 /** Drafts are keyed by the session that was selected when recording STARTED. */
 export const drafts = reactive<Record<string, Draft>>({})
@@ -75,11 +83,29 @@ async function finish(sessionId: string): Promise<void> {
     const wav = await toWav16k(blob)
     const text: string = await window.echo.voice.transcribe(wav)
     if (!text) { drafts[sessionId] = { ...d, status: 'error', error: 'No speech detected.' }; return }
-    drafts[sessionId] = { status: 'review', seconds: d.seconds, text, error: '', note: '' }
+    drafts[sessionId] = { status: 'review', seconds: d.seconds, text, error: '', note: '', original: text }
+    void runCoach(sessionId)
   } catch (err) {
     drafts[sessionId] = { ...d, status: 'error', error: `Transcription failed: ${(err as Error).message}. Is the STT service running?` }
   }
 }
+
+/** Asks the English coach for a more natural version of the draft's current text. Display only: nothing is sent anywhere else. */
+export async function runCoach(sessionId: string): Promise<void> {
+  const d = drafts[sessionId]
+  if (!d || d.status !== 'review' || !d.text.trim() || !coachEnabled(sessionId)) return
+  d.coach = { status: 'loading', text: '', error: '' }
+  try {
+    const text: string = await window.echo.coach.improve({ text: d.text })
+    const now = drafts[sessionId]
+    if (now?.coach) now.coach = { status: 'done', text, error: '' } // the draft may have been discarded or re-recorded meanwhile
+  } catch (err) {
+    const now = drafts[sessionId]
+    if (now?.coach) now.coach = { status: 'error', text: '', error: (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') }
+  }
+}
+export function useNatural(sessionId: string): void { const d = drafts[sessionId]; if (d?.coach?.status === 'done') d.text = d.coach.text }
+export function useMine(sessionId: string): void { const d = drafts[sessionId]; if (d?.original) d.text = d.original }
 
 /** Sends the draft to the session it was recorded for, never the currently selected one. */
 export async function submitDraft(sessionId: string, auto: boolean, force = false): Promise<void> {

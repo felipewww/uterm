@@ -276,7 +276,7 @@ export class SessionManager {
     await this.safely('rename the session', () => this.d.repo.update(id, { title: t }))
   }
 
-  async updateSettings(id: string, patch: Partial<Pick<SessionRecord, 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode'>>): Promise<void> {
+  async updateSettings(id: string, patch: Partial<Pick<SessionRecord, 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode' | 'englishCoach'>>): Promise<void> {
     const rec = this.records.get(id)
     if (!rec) return
     this.records.set(id, { ...rec, ...patch })

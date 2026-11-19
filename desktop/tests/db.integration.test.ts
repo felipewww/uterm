@@ -70,6 +70,13 @@ describe.skipIf(!process.env.CI && !existsSync(envFile))('MySQL integration', ()
     await store.update(a.id, { title: 'Renamed', foregroundVoiceMode: 'conversational', playbackSpeed: 1.25 })
     const got = (await store.get(a.id))!
     expect(got).toMatchObject({ title: 'Renamed', foregroundVoiceMode: 'conversational', playbackSpeed: 1.25, backgroundVoiceMode: null })
+    expect(got.englishCoach).toBeNull() // follows the global setting until the chat chooses
+    await store.update(a.id, { englishCoach: false })
+    expect((await store.get(a.id))!.englishCoach).toBe(false)
+    await store.update(a.id, { englishCoach: true })
+    expect((await store.get(a.id))!.englishCoach).toBe(true)
+    await store.update(a.id, { englishCoach: null })
+    expect((await store.get(a.id))!.englishCoach).toBeNull()
     await store.archive(a.id, true)
     expect((await store.list()).map((s) => s.id)).not.toContain(a.id)
     expect((await store.list({ includeArchived: true })).map((s) => s.id)).toContain(a.id)

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { cancelRecording, discardDraft, drafts, isRecording, recorder, startRecording, stopRecording, submitDraft } from '../composables/useRecorder'
+import { cancelRecording, coachEnabled, discardDraft, drafts, isRecording, recorder, runCoach, startRecording, stopRecording, submitDraft, useMine, useNatural } from '../composables/useRecorder'
+import { coachOnFor } from '@shared/types'
 import { selected, store } from '../store'
 
 const s = computed(() => selected())
@@ -12,6 +13,11 @@ const sttNoKey = computed(() => store.settings.sttProvider !== 'local' && !store
 const shortcut = computed(() => store.settings.recordShortcut.replace('Control', 'Ctrl').split('+').join(' + '))
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
 const canSend = computed(() => !!s.value?.running && !!draft.value?.text.trim())
+const coachWanted = computed(() => coachOnFor(store.settings.englishCoach, s.value?.englishCoach)) // this chat's choice, else the global one
+const coachOn = computed(() => !!s.value && coachEnabled(s.value.id))
+const coachNeedsKey = computed(() => coachWanted.value && !store.keys.openai)
+const coachOffHere = computed(() => !coachWanted.value && s.value?.englishCoach === false)
+async function setCoach(on: boolean) { if (s.value) await window.echo.sessions.update({ id: s.value.id, patch: { englishCoach: on } }) }
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
 const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttOff.value ? 'Speech-to-text is off' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
@@ -74,6 +80,26 @@ async function rerecord() {
     <template v-else>
       <div class="composer-label"><span>Transcription</span><span class="to">→ {{ s.title }}</span></div>
       <textarea v-model="draft.text" class="draft" placeholder="Review the transcription before sending…" @keydown.ctrl.enter.prevent="send" @keydown.meta.enter.prevent="send"></textarea>
+      <div v-if="coachOn" class="coach" :class="draft.coach?.status ?? 'loading'">
+        <div class="composer-label">
+          <span>More natural English</span>
+          <span class="coach-tools">
+            <button class="coach-link" title="Generate it again from the text above" :disabled="draft.coach?.status === 'loading'" @click="runCoach(s.id)">↻ Redo</button>
+            <button class="coach-link" title="Stop showing this for this chat (you can turn it back on in the chat's voice settings)" @click="setCoach(false)">Off for this chat</button>
+          </span>
+        </div>
+        <p v-if="!draft.coach || draft.coach.status === 'loading'" class="coach-loading"><span class="spinner mini"></span>Polishing your sentence…</p>
+        <p v-else-if="draft.coach.status === 'error'" class="coach-error">{{ draft.coach.error }}</p>
+        <template v-else>
+          <div class="coach-text">{{ draft.coach.text }}</div>
+          <div class="coach-actions">
+            <button class="btn small" :disabled="draft.text === draft.coach.text" @click="useNatural(s.id)">Use this version</button>
+            <button v-if="draft.original && draft.text !== draft.original" class="btn small ghost" @click="useMine(s.id)">Back to mine</button>
+          </div>
+        </template>
+      </div>
+      <p v-else-if="coachOffHere" class="coach-hint">English coach is off for this chat. <button class="coach-link" @click="setCoach(true)">Turn on</button></p>
+      <p v-else-if="coachNeedsKey" class="coach-hint">English coach is on but needs <code>ECHO_TERM_OPENAI_API_KEY</code> in .env.</p>
       <div v-if="draft.note" class="banner warn">{{ draft.note }}</div>
       <div class="composer-actions">
         <button class="btn ghost discard" title="Discard transcription" @click="discardDraft(s.id)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 4.75 1 8h7l1-8M2.5 3.25h11M6 3.25V2h4v1.25M6.5 6.5v3.5M9.5 6.5v3.5" /></svg>Discard</button>

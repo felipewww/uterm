@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { ZodType } from 'zod'
 import type { AnyAgentEvent } from '@shared/events'
 import { schemas } from '@shared/ipc'
-import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
+import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, coachOnFor, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
@@ -27,6 +27,8 @@ import { readDesired, setService, type ServiceName } from './services'
 import { SpeechRouter, selfTest } from './voice/speechRouter'
 import { cloudVoiceLabel, isCloudVoice, legacyDefaultVoice } from '@shared/voices'
 import { listModels, type CloudProvider } from './voice/cloud'
+import { EnglishCoach, shouldCoach } from './voice/coach'
+import { MemoryCoachHistory, MySqlCoachHistory, type CoachHistory } from './db/coachStore'
 import { MemoryUsageStore, MySqlUsageStore, type UsageRepository } from './db/usageStore'
 import { SttClient } from './voice/sttClient'
 import { TtsClient } from './voice/ttsClient'
@@ -66,6 +68,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   let eventStore: EventStore | null = null
   let voiceStore: VoiceProfileStore | null = null
   let usageStore: UsageRepository = new MemoryUsageStore()
+  let coachHistory: CoachHistory = new MemoryCoachHistory()
 
   if (dbCfg && root) {
     try {
@@ -76,6 +79,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       eventStore = new EventStore(pool)
       voiceStore = new VoiceProfileStore(pool)
       usageStore = new MySqlUsageStore(pool)
+      coachHistory = new MySqlCoachHistory(pool)
       settings = await settingsStore.load()
       // Earlier builds had a global "voice provider" setting. The provider now belongs to the voice id (shared/voices.ts): carry it over once.
       const legacy = settings as unknown as Record<string, unknown>
@@ -119,6 +123,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     const name = `ECHO_TERM_${p.toUpperCase()}_API_KEY`
     return (env[name] ?? process.env[name] ?? '').trim() || null
   }
+  const coach = new EnglishCoach({ settings: () => settings, getKey: () => getKey('openai'), usage: () => usageStore })
   const router = new SpeechRouter({ settings: () => settings, getKey, local: { tts, stt }, usage: () => usageStore, servicesOn: () => servicesOn })
   const voice = new VoiceCoordinator({
     ttsEnabled: (voiceId) => router.ttsUsable(voiceId),
@@ -150,10 +155,23 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
 
   bus.subscribe((e: AnyAgentEvent) => {
+    // Anything sent to an agent (typed in the terminal or from the composer) gets its natural version shown under it in Activity, no approval step.
+    if (e.type === 'USER_PROMPT_SUBMITTED') void coachPrompt(e.sessionId, e.id, e.payload.prompt)
     if (e.type !== 'ASSISTANT_MESSAGE_DELTA') send('activity:event', e)
     voice.onEvent(e)
     void eventStore?.record(e).catch(() => undefined)
   })
+
+  async function coachPrompt(sessionId: string, eventId: string, prompt: string): Promise<void> {
+    const rec = sessions.getRecord(sessionId)
+    if (!rec || !coachOnFor(settings.englishCoach, rec.englishCoach) || !coach.available() || !shouldCoach(prompt)) return
+    try {
+      const natural = await coach.improve(prompt)
+      if (!natural) return
+      send('coach:natural', { sessionId, eventId, natural })
+      void coachHistory.record({ sessionId, eventId, original: prompt.trim(), natural }).catch(() => undefined)
+    } catch { /* the coach is a nicety: never surface its failures next to the user's work */ }
+  }
 
   const hookServer = new HookServer(socketPath(), (env) => sessions.handleHook(env as never))
   await hookServer.start()
@@ -288,6 +306,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       send('audio:chunk', { requestId: `test-${Date.now()}`, eventId: 'test', sessionId: 'test', index: 0, total: 1, speed: 1, data })
     })
   })
+  ipcMain.handle('coach:improve', (_e, p) => coach.improve(parse(schemas.coachImprove, p).text))
   ipcMain.handle('usage:summary', () => usageStore.summary())
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, p) => { clipboard.writeText(parse(schemas.text, p).text) })

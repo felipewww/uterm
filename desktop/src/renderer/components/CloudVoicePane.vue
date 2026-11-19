@@ -69,6 +69,16 @@ Transcription uses the cloud, so the local speech-to-text service is idle but st
     <input v-model="s.cloudVoiceStyle" maxlength="200" />
   </div>
 
+  <h3 class="pane-title">English coach (OpenAI)</h3>
+  <div class="field">
+    <div class="field-text"><strong>Show a more natural version of what I say</strong><small>After each recording, next to the transcription and before sending. Level B2–C1, same meaning. It does not change what is sent or what is spoken back. Needs the OpenAI key.</small></div>
+    <input v-model="s.englishCoach" class="switch" type="checkbox" aria-label="English coach" />
+  </div>
+  <div class="field">
+    <div class="field-text"><strong>Coach model</strong><small>A small, cheap text model</small></div>
+    <input v-model="s.englishCoachModel" spellcheck="false" />
+  </div>
+
   <template v-for="p in providers" :key="p">
     <h3 class="pane-title">{{ name[p] }}</h3>
     <div class="svc-row cloud-key">

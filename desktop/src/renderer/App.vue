@@ -13,14 +13,16 @@ import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { discardDraft, isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
-import { ingestEvent, layout, markSpoken, notify, resetActivity, refreshStatus, removeSession, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
+import { ingestEvent, layout, markSpoken, notify, resetActivity, refreshStatus, refreshUsage, removeSession, resetSidebar, setNatural, resizeActivity, resizeSidebar, store, upsertSession } from './store'
 import { disposeTerminal, writeTo } from './terminals'
 
 const showNew = ref(false)
 const showSettings = ref(false)
+const settingsPane = ref<string | undefined>(undefined) // which pane the Settings dialog opens on
 const showSessionSettings = ref(false)
 const offs: Array<() => void> = []
 let statusTimer: number | undefined
+let usageTimer: number | undefined
 
 const cancelDelete = ref<HTMLButtonElement | null>(null)
 watch(() => store.confirmDelete, async (s) => { if (s) { await nextTick(); cancelDelete.value?.focus() } }) // the safe choice has the focus
@@ -55,6 +57,7 @@ onMounted(async () => {
     }),
     ev.onSessionView((v) => upsertSession(v as SessionView)),
     ev.onSessionRemoved(({ id }) => { disposeTerminal(id); discardDraft(id); removeSession(id) }),
+    ev.onCoachNatural((p) => setNatural(p.sessionId, p.eventId, p.natural)),
     ev.onFolders((f) => { store.folders = f as typeof store.folders }),
     ev.onActivity((e) => ingestEvent(e as AnyAgentEvent)),
     ev.onAudioState((s) => { store.audio = s }),
@@ -77,12 +80,15 @@ onMounted(async () => {
     notify('error', `Startup problem: ${(err as Error).message}`)
   }
   void refreshStatus()
+  void refreshUsage()
+  usageTimer = window.setInterval(refreshUsage, 30_000)
   statusTimer = window.setInterval(refreshStatus, 8000)
 })
 
 onBeforeUnmount(() => {
   offs.forEach((o) => o())
   clearInterval(statusTimer)
+  clearInterval(usageTimer)
   window.removeEventListener('keydown', onKey, true)
 })
 
@@ -98,7 +104,7 @@ async function quit() {
 
 <template>
   <div class="app" :class="{ 'no-activity': !store.showActivity }" :style="{ '--sidebar-width': layout.sidebarW + 'px', '--activity-width': layout.activityW + 'px' }">
-    <SessionSidebar @select="select" @home="select(null)" @create="showNew = true" @settings="showSettings = true" />
+    <SessionSidebar @select="select" @home="select(null)" @create="showNew = true" @settings="settingsPane = undefined; showSettings = true" @usage="settingsPane = 'usage'; showSettings = true" />
     <ResizeHandle label="Resize sessions panel" @resize="resizeSidebar" @reset="resetSidebar" />
     <main class="center">
       <section class="terminal-card">
@@ -113,7 +119,7 @@ async function quit() {
     </template>
 
     <NewSessionDialog v-if="showNew" @close="showNew = false" @created="created" />
-    <SettingsDialog v-if="showSettings" @close="showSettings = false" />
+    <SettingsDialog v-if="showSettings" :pane="settingsPane" @close="showSettings = false; void refreshUsage()" />
     <SettingsDialog v-if="showSessionSettings" :session-id="store.selectedId" @close="showSessionSettings = false" />
 
     <div v-if="store.confirmQuit" class="modal-backdrop">

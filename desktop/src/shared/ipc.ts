@@ -34,7 +34,8 @@ export const schemas = {
       voiceProfileId: z.string().max(36).nullable().optional(),
       playbackSpeed: z.number().min(0.5).max(2).nullable().optional(),
       foregroundVoiceMode: mode.nullable().optional(),
-      backgroundVoiceMode: mode.nullable().optional()
+      backgroundVoiceMode: mode.nullable().optional(),
+      englishCoach: z.boolean().nullable().optional()
     })
   }),
   ptyWrite: z.object({ id: Id, data: z.string().max(200_000) }),
@@ -47,6 +48,7 @@ export const schemas = {
   audioEnded: z.object({ requestId: z.string().max(64) }),
   cloudProvider: z.object({ provider: z.enum(['openai', 'gemini']) }),
   cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional() }),
+  coachImprove: z.object({ text: z.string().min(1).max(6000) }),
   serviceSet: z.object({ name: z.enum(['stt', 'tts']), enabled: z.boolean() }),
   settingsPatch: z.record(z.string(), z.unknown()),
   text: z.object({ text: z.string().max(100_000) })

@@ -12,6 +12,8 @@ export interface ActivityItem {
   full?: string
   /** the app spoke this message aloud */
   spoken?: boolean
+  /** English coach: a more natural way to say this prompt */
+  natural?: string
 }
 export interface Notice { id: number; level: 'info' | 'warn' | 'error'; message: string }
 export interface AgentInfo { installed: boolean; version?: string; path?: string }
@@ -29,6 +31,8 @@ export const store = reactive({
   serviceBusy: { stt: false, tts: false },
   /** which cloud API keys are present in .env (the keys themselves never reach the renderer) */
   keys: { openai: false, gemini: false },
+  /** estimated cloud spend in USD (all providers), for the sidebar footer */
+  spend: { today: 0, month: 0, all: 0 },
   agents: {} as Record<string, AgentInfo>,
   capabilities: {} as Record<string, { notes: string[] }>,
   voices: [{ id: 'default', name: 'Default' }] as VoiceProfile[],
@@ -126,14 +130,21 @@ export function ingestEvent(e: AnyAgentEvent): void {
   if (list.length > 300) list.splice(0, list.length - 300)
 }
 
-export function ingestHistory(sessionId: string, rows: Array<{ id?: string; type: string; payload: Record<string, unknown>; at: number; spoken?: boolean }>): void {
+export function ingestHistory(sessionId: string, rows: Array<{ id?: string; type: string; payload: Record<string, unknown>; at: number; spoken?: boolean; natural?: string }>): void {
   if ((store.activity[sessionId]?.length ?? 0) > 0) return
   const items = rows.map((r, i) => {
     const item = toActivity({ id: r.id ?? `h${i}-${r.at}`, sessionId, nativeSessionId: null, agent: 'claude', type: r.type, timestamp: r.at, turnId: null, payload: r.payload } as AnyAgentEvent)
     if (item && r.spoken) item.spoken = true
+    if (item && r.natural) item.natural = r.natural
     return item
   }).filter(Boolean) as ActivityItem[]
   store.activity[sessionId] = items
+}
+
+/** The English coach finished: show the natural version under the prompt. */
+export function setNatural(sessionId: string, eventId: string, natural: string): void {
+  const item = store.activity[sessionId]?.find((x) => x.id === eventId)
+  if (item) item.natural = natural
 }
 
 /** The app just spoke this event aloud: mark its activity item. */
@@ -170,3 +181,14 @@ export async function toggleService(name: 'stt' | 'tts'): Promise<void> {
     void refreshStatus()
   }
 }
+
+/** Estimated cloud spend, summed over every provider and kind. */
+export async function refreshUsage(): Promise<void> {
+  try {
+    const u = await window.echo.usage.summary() as { today: Array<{ costUsd: number }>; month: Array<{ costUsd: number }>; all: Array<{ costUsd: number }> }
+    const sum = (rows: Array<{ costUsd: number }>) => rows.reduce((n, r) => n + r.costUsd, 0)
+    store.spend = { today: sum(u.today), month: sum(u.month), all: sum(u.all) }
+  } catch { /* the footer just keeps its last value */ }
+}
+
+export const usd = (n: number): string => (n > 0 && n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`)

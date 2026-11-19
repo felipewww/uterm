@@ -18,7 +18,7 @@ export interface SessionRepository {
   get(id: string): Promise<SessionRecord | null>
   list(opts?: { includeArchived?: boolean }): Promise<SessionRecord[]>
   update(id: string, patch: Partial<Pick<SessionRecord,
-    'title' | 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode' | 'transcriptPath'>>): Promise<void>
+    'title' | 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode' | 'transcriptPath' | 'englishCoach'>>): Promise<void>
   setNativeSessionId(id: string, nativeId: string): Promise<'ok' | 'duplicate'>
   touch(id: string, at?: number): Promise<void>
   archive(id: string, archived: boolean): Promise<void>
@@ -45,14 +45,15 @@ function rowToSession(r: RowDataPacket): SessionRecord {
     foregroundVoiceMode: r.foreground_voice_mode as VoiceMode | null,
     backgroundVoiceMode: r.background_voice_mode as VoiceMode | null,
     createdAt: (r.created_at as Date).getTime(), lastActivityAt: (r.last_activity_at as Date).getTime(),
-    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null, configDir: r.config_dir ?? null
+    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null, configDir: r.config_dir ?? null,
+    englishCoach: r.english_coach === null || r.english_coach === undefined ? null : !!r.english_coach
   }
 }
 
 const COLUMN: Record<string, string> = {
   title: 'title', voiceProfileId: 'voice_profile_id', playbackSpeed: 'playback_speed',
   foregroundVoiceMode: 'foreground_voice_mode', backgroundVoiceMode: 'background_voice_mode',
-  transcriptPath: 'transcript_path'
+  transcriptPath: 'transcript_path', englishCoach: 'english_coach'
 }
 
 export class MySqlSessionStore implements SessionRepository {
@@ -85,7 +86,7 @@ export class MySqlSessionStore implements SessionRepository {
     for (const [k, v] of Object.entries(patch)) {
       const col = COLUMN[k]
       if (!col || v === undefined) continue
-      sets.push(`${col} = ?`); vals.push(v)
+      sets.push(`${col} = ?`); vals.push(typeof v === 'boolean' ? (v ? 1 : 0) : v)
     }
     if (sets.length === 0) return
     await this.pool.execute(`UPDATE sessions SET ${sets.join(', ')} WHERE id = ?`, [...vals, id] as never[])

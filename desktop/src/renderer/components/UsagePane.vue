@@ -7,9 +7,9 @@ const error = ref('')
 onMounted(async () => { try { data.value = await window.echo.usage.summary() as UsageSummary } catch (e) { error.value = (e as Error).message } })
 
 const PROVIDER: Record<string, string> = { openai: 'OpenAI', gemini: 'Gemini' }
-const KIND: Record<string, string> = { tts: 'Voice output', stt: 'Transcription' }
+const KIND: Record<string, string> = { tts: 'Voice output', stt: 'Transcription', chat: 'English coach' }
 const usd = (n: number) => (n > 0 && n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`)
-const amount = (r: UsageRow) => (r.kind === 'tts' ? `${Math.round(r.chars).toLocaleString()} chars · ${(r.audioSeconds / 60).toFixed(1)} min` : `${(r.audioSeconds / 60).toFixed(1)} min`)
+const amount = (r: UsageRow) => (r.kind === 'chat' ? 'text' : r.kind === 'tts' ? `${Math.round(r.chars).toLocaleString()} chars · ${(r.audioSeconds / 60).toFixed(1)} min` : `${(r.audioSeconds / 60).toFixed(1)} min`)
 const total = (rows: UsageRow[]) => rows.reduce((n, r) => n + r.costUsd, 0)
 const periods = [{ key: 'today', label: 'Today' }, { key: 'month', label: 'This month' }, { key: 'all', label: 'All time' }] as const
 </script>

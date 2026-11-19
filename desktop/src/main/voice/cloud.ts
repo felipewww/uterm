@@ -18,7 +18,7 @@ export interface CloudConfig {
 }
 
 export interface Usage {
-  provider: CloudProvider; model: string; kind: 'tts' | 'stt'
+  provider: CloudProvider; model: string; kind: 'tts' | 'stt' | 'chat'
   /** what the provider reported or we measured */
   chars?: number; audioSeconds?: number; inputTokens?: number; outputTokens?: number
 }

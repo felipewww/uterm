@@ -2,9 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { AGENT_LABELS, type SessionView } from '@shared/types'
 import { parseVoiceId } from '@shared/voices'
-import { notify, selected, store, toggleService, voiceOf } from '../store'
+import { notify, selected, store, toggleService, usd, voiceOf } from '../store'
 
-const emit = defineEmits<{ select: [id: string]; create: []; settings: []; home: [] }>()
+const emit = defineEmits<{ select: [id: string]; create: []; settings: []; usage: []; home: [] }>()
 const query = ref('')
 const showArchived = ref(false)
 const collapsed = reactive<Record<string, boolean>>({})
@@ -352,6 +352,10 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       </div>
     </div>
 
+    <button class="usage-chip" :title="`Estimated cloud spend: ${usd(store.spend.today)} today, ${usd(store.spend.month)} this month, ${usd(store.spend.all)} in total. Click for details`" @click="emit('usage')">
+      <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg>
+      <span>Cloud usage</span><strong>{{ usd(store.spend.month) }}</strong><small>this month</small>
+    </button>
     <div class="sidebar-foot">
       <span class="services">
         <span class="svc" :class="store.status.db ? 'ok' : 'bad'" :title="store.status.db ? 'MySQL connected' : 'MySQL unavailable (history is kept in memory only)'"><i></i>MySQL</span>

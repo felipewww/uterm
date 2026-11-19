@@ -43,14 +43,15 @@ export class EventStore {
       [e.id, e.sessionId, e.type, e.turnId, payload, new Date(e.timestamp)])
   }
 
-  async recent(sessionId: string, limit = 100): Promise<Array<{ id: string; type: string; payload: unknown; at: number; spoken: boolean }>> {
+  async recent(sessionId: string, limit = 100): Promise<Array<{ id: string; type: string; payload: unknown; at: number; spoken: boolean; natural?: string }>> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
       `SELECT e.id, e.event_type, e.payload, e.occurred_at,
-              EXISTS(SELECT 1 FROM spoken_messages m WHERE m.event_id = e.id) AS spoken
+              EXISTS(SELECT 1 FROM spoken_messages m WHERE m.event_id = e.id) AS spoken,
+              (SELECT h.natural_text FROM english_history h WHERE h.event_id = e.id LIMIT 1) AS natural_text
        FROM agent_events e WHERE e.session_id = ? ORDER BY e.occurred_at DESC LIMIT ?`, [sessionId, limit])
     return rows.reverse().map((r) => ({
       id: r.id as string, type: r.event_type, at: (r.occurred_at as Date).getTime(),
-      payload: r.payload, spoken: !!r.spoken
+      payload: r.payload, spoken: !!r.spoken, natural: r.natural_text ?? undefined
     }))
   }
 

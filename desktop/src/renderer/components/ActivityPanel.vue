@@ -67,6 +67,7 @@ const time = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit'
         <!-- you -->
         <template v-if="it.kind === 'prompt'">
           <div class="bubble">{{ it.text }}</div>
+          <div v-if="it.natural && it.natural.trim().toLowerCase() !== it.text.trim().toLowerCase()" class="natural"><span>More natural</span>{{ it.natural }}</div>
           <div class="msg-time">You · {{ time(it.at) }}</div>
         </template>
 

@@ -5,9 +5,15 @@ import type { Usage } from './cloud'
  * in November 2026 and can change: treat the totals as estimates and check the provider dashboards for the real bill.
  * Returns null for a model we have no price for (usage is still recorded).
  */
+const CHAT_PRICES: Array<[string, number, number]> = [['gpt-4o-mini', 0.15, 0.6], ['gpt-4.1-mini', 0.4, 1.6], ['gpt-4.1-nano', 0.1, 0.4], ['gpt-5-mini', 0.25, 2], ['gpt-5-nano', 0.05, 0.4]]
+
 export function estimateCost(u: Usage, now = new Date()): number | null {
   const min = (u.audioSeconds ?? 0) / 60
   const M = 1_000_000
+  if (u.kind === 'chat') { // text models: $ per 1M input / output tokens (list prices; unknown models are left unpriced)
+    const rate = CHAT_PRICES.find(([prefix]) => u.model.startsWith(prefix))
+    return rate ? ((u.inputTokens ?? 0) / M) * rate[1] + ((u.outputTokens ?? 0) / M) * rate[2] : null
+  }
   if (u.provider === 'openai') {
     if (u.kind === 'tts') {
       if (/^gpt-4o-mini-tts/.test(u.model)) return min * 0.015 // OpenAI's own per-minute estimate for this model

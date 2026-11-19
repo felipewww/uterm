@@ -114,6 +114,18 @@ describe('SessionManager', () => {
     expect(removed).toEqual([a.id])
   })
 
+  it('a chat can override the English coach, and go back to following the global setting', async () => {
+    const t = setup()
+    const v = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    expect(v.englishCoach).toBeNull()
+    await t.mgr.updateSettings(v.id, { englishCoach: false })
+    expect(t.mgr.getRecord(v.id)!.englishCoach).toBe(false)
+    expect(t.views.at(-1)!.englishCoach).toBe(false)
+    expect((await t.repo.get(v.id))!.englishCoach).toBe(false)
+    await t.mgr.updateSettings(v.id, { englishCoach: null })
+    expect(t.mgr.getRecord(v.id)!.englishCoach).toBeNull()
+  })
+
   it('ignores empty folder names and moves to unknown folders', async () => {
     const t = setup()
     const a = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })

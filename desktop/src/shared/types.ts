@@ -35,7 +35,12 @@ export interface SessionRecord {
   folderId: string | null
   /** Claude config folder (CLAUDE_CONFIG_DIR) this session runs with; null = the environment default */
   configDir: string | null
+  /** English coach for this chat: null = follow the global setting, true/false = override it */
+  englishCoach: boolean | null
 }
+
+/** The coach is on for a chat when its own choice says so, else when the global setting does. */
+export const coachOnFor = (globalOn: boolean, override: boolean | null | undefined): boolean => override ?? globalOn
 
 export interface FolderRecord { id: string; name: string; parentId: string | null; createdAt: number }
 
@@ -87,6 +92,9 @@ export interface AppSettings {
   geminiSttModel: string
   /** delivery style for cloud voices, written as an instruction */
   cloudVoiceStyle: string
+  /** Show a more natural (B2–C1) English version of what you said, next to the transcription, before you send it. Needs an OpenAI key. */
+  englishCoach: boolean
+  englishCoachModel: string
 }
 
 export type SpeechProvider = 'local' | 'openai' | 'gemini'
@@ -116,7 +124,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openaiSttModel: 'gpt-4o-mini-transcribe',
   geminiTtsModel: 'gemini-2.5-flash-preview-tts',
   geminiSttModel: 'gemini-2.5-flash',
-  cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate'
+  cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate',
+  englishCoach: true,
+  englishCoachModel: 'gpt-4o-mini'
 }
 
 export interface ServiceStatus { stt: boolean; tts: boolean; ttsReady: boolean; db: boolean }

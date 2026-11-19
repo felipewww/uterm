@@ -144,4 +144,20 @@ describe('AudioQueue', () => {
     h.q.enqueue(req({ text: 'y' })); await tick(); await tick()
     expect(onError).toHaveBeenCalledTimes(2)
   })
+
+  it('reports generating until audio is ready, then playing, and lists queued events', async () => {
+    const states: Array<{ phase: string; queuedEventIds: string[]; speakingEventId: string | null }> = []
+    let release!: () => void
+    const h = harness({
+      synthesize: (text) => new Promise((res) => { release = () => res(new TextEncoder().encode(text)) }),
+      onChange: (st) => states.push({ phase: st.phase, queuedEventIds: st.queuedEventIds, speakingEventId: st.speakingEventId })
+    })
+    h.q.enqueue(req({ text: 'One.', eventId: 'e1' })); h.q.enqueue(req({ text: 'Two.', eventId: 'e2', sessionId: 's2' }))
+    await tick()
+    expect(states.at(-1)).toMatchObject({ phase: 'generating', speakingEventId: 'e1', queuedEventIds: ['e2'] })
+    release(); await tick()
+    expect(states.at(-1)).toMatchObject({ phase: 'playing', speakingEventId: 'e1' })
+    h.q.cancelAll(); await tick()
+    expect(states.at(-1)).toMatchObject({ phase: 'idle', speakingEventId: null, queuedEventIds: [] })
+  })
 })

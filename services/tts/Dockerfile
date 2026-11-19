@@ -6,8 +6,10 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /srv
-# CPU-only torch first (Chatterbox pins torch==2.6.0 for Python 3.11).
-RUN pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+# torch first (Chatterbox pins torch==2.6.0 for Python 3.11). CPU wheels by default; the GPU override
+# (docker-compose.gpu.yml, scripts/tts-gpu.sh) passes the CUDA 12.4 index instead.
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+RUN pip install torch==2.6.0 torchaudio==2.6.0 --index-url ${TORCH_INDEX}
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 

@@ -11,7 +11,7 @@
 | 5 Stabilization | Mostly done | 86 tests, scripts, docs, Linux `dir` package; AppImage/deb not built |
 
 ## Known limitations / next steps
-1. TTS on CPU runs at RTF ≈ 2.2–2.5 (first audio ≈ 4.5 s+). Evaluate Chatterbox Nano / GPU profile before changing models.
+1. TTS on CPU runs at RTF ≈ 2.0–2.5 (first audio ≈ 4.5 s+). The GPU path (`scripts/tts-gpu.sh`) measured RTF ≈ 0.45 on a GTX 1650; Chatterbox Nano was not evaluated.
 2. Verify the microphone path and recording shortcut by hand; consider a global shortcut.
 3. Exercise Claude permission/question/failure hooks live and Codex hooks after `/hooks` trust.
 4. Build and test AppImage/deb; configure `chrome-sandbox` in the deb post-install.

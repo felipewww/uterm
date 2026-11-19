@@ -1,0 +1,11 @@
+# Optional: run Chatterbox on an NVIDIA GPU (≈4-5x faster than CPU on the reference machine). Use scripts/tts-gpu.sh,
+# which adds the GPU access flavour that fits your Docker setup (nvidia-container-toolkit, or plain device mapping).
+services:
+  tts:
+    build:
+      context: ./services/tts
+      args:
+        TORCH_INDEX: https://download.pytorch.org/whl/cu124
+    image: echo-term-tts-gpu
+    environment:
+      TTS_DEVICE: cuda

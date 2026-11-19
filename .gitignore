@@ -24,3 +24,4 @@ coverage/
 *.gguf
 *.bin
 .claude/settings.local.json
+docker-compose.gpu.generated.yml

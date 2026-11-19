@@ -15,6 +15,12 @@ group), `build-essential` (for node-pty), at least one of Claude Code, Codex CLI
 ./scripts/stop.sh     # stops containers, keeps volumes
 ```
 The first TTS start downloads Chatterbox weights (several GB) — the app opens immediately and shows TTS as "warming up".
+
+**Faster voice on an NVIDIA GPU (optional).** On CPU the voice generates at roughly 2x slower than real time. With a GPU of about 4 GB or more,
+`./scripts/tts-gpu.sh` rebuilds only the `tts` image with CUDA and restarts it (it works with or without nvidia-container-toolkit and never uses sudo);
+`./scripts/tts-gpu.sh --cpu` goes back. Measured on a GTX 1650 (4 GB): ~0.45x real time, about 3 GiB of VRAM.
+**A livelier voice:** Chatterbox copies the delivery of its reference clip, so a short, warm and animated recording (Settings → Voice → new voice) sounds
+much more expressive than the neutral default voice.
 If Electron aborts with a SUID-sandbox error, either use `dev.sh` (falls back to `--no-sandbox` for dev) or run the printed `sudo chown/chmod` yourself.
 
 Desktop scripts (`cd desktop`): `npm run dev | build | test | lint | typecheck | package`.

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import type { SpeechKind } from '@shared/types'
+import type { AudioState, SpeechKind } from '@shared/types'
 import { splitSentences } from './speechText'
+import { appendSilence, pauseAfter } from './wav'
 
 export interface AudioRequest {
   id: string
@@ -27,7 +28,7 @@ export interface QueueDeps {
   stopPlayback(): void
   /** Re-evaluates the voice policy right before synthesis/playback. */
   revalidate(req: AudioRequest): { speak: boolean; prefix?: string }
-  onChange?(state: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }): void
+  onChange?(state: AudioState): void
   onSpoken?(req: AudioRequest, spokenText: string): void
   onError?(req: AudioRequest, err: Error): void
   now?(): number
@@ -47,6 +48,8 @@ export class AudioQueue {
   private seen: string[] = []
   private pumping = false
   private paused = false
+  private phase: AudioState['phase'] = 'idle'
+  private since = 0
 
   constructor(private deps: QueueDeps) {}
 
@@ -150,7 +153,16 @@ export class AudioQueue {
   }
 
   private emit(): void {
-    this.deps.onChange?.({ speakingSessionId: this.speakingSessionId, speakingEventId: this.speakingEventId, queued: this.queue.length })
+    this.deps.onChange?.({
+      speakingSessionId: this.speakingSessionId, speakingEventId: this.speakingEventId, queued: this.queue.length,
+      phase: this.current ? this.phase : 'idle', since: this.since, queuedEventIds: this.queue.map((r) => r.eventId)
+    })
+  }
+
+  private setPhase(p: AudioState['phase']): void {
+    if (this.phase === p) return
+    this.phase = p; this.since = this.now()
+    this.emit()
   }
 
   private async pump(): Promise<void> {
@@ -174,6 +186,7 @@ export class AudioQueue {
   private async speak(req: AudioRequest, prefix?: string): Promise<void> {
     const abort = new AbortController()
     this.current = { req, abort }
+    this.phase = 'generating'; this.since = this.now()
     this.emit()
     const fullText = prefix ? `${prefix} ${req.text}` : req.text
     const chunks = splitSentences(fullText)
@@ -182,13 +195,16 @@ export class AudioQueue {
       // Prevent unhandled rejection noise if we abort while a later chunk is in flight.
       next?.catch(() => undefined)
       for (let i = 0; i < chunks.length; i++) {
+        this.setPhase('generating') // waiting for synthesis (first chunk, or the voice fell behind playback)
         const audio = await next!
         if (req.cancelled) return // ignore results of cancelled synthesis
         next = i + 1 < chunks.length ? this.deps.synthesize(chunks[i + 1]!, req.voiceProfileId, abort.signal) : null
         next?.catch(() => undefined)
         const again = this.deps.revalidate(req)
         if (!again.speak) { this.deps.stopPlayback(); return }
-        await this.deps.play(audio, req)
+        this.setPhase('playing')
+        const last = i === chunks.length - 1
+        await this.deps.play(last ? audio : appendSilence(audio, pauseAfter(chunks[i]!)), req)
         if (req.cancelled) return
       }
       this.deps.onSpoken?.(req, fullText)

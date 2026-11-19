@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AnyAgentEvent } from '@shared/events'
-import type { AppSettings, SessionRecord } from '@shared/types'
+import type { AppSettings, AudioState, SessionRecord } from '@shared/types'
 import { AudioQueue } from './audioQueue'
 import { prepareSpeech } from './speechText'
 import { PRIORITY, classifyEvent, effectiveMode, isForeground, modeAllows, type FocusContext } from './voicePolicy'
@@ -15,7 +15,7 @@ export interface VoiceDeps {
   play(audio: Uint8Array, speed: number, requestId: string): Promise<void>
   stopPlayback(): void
   onSpoken(sessionId: string, eventId: string, voiceId: string, priority: number, text: string): void
-  onState(state: { speakingSessionId: string | null; speakingEventId: string | null; queued: number }): void
+  onState(state: AudioState): void
   onError(message: string): void
 }
 

@@ -3,17 +3,8 @@
  * Order of preference: <voice> summary > cleaned prose (length-limited).
  */
 
-const VOICE_TAG = /<voice>([\s\S]*?)<\/voice>/gi
-
-export function extractVoiceSummary(text: string): string | null {
-  const matches = [...text.matchAll(VOICE_TAG)].map((m) => m[1]?.trim() ?? '').filter(Boolean)
-  if (matches.length === 0) return null
-  return collapse(matches.join(' '))
-}
-
-export function stripVoiceTags(text: string): string {
-  return text.replace(VOICE_TAG, '').trim()
-}
+import { extractVoiceSummary, isTagOnly, stripVoiceTags } from '@shared/voiceTag'
+export { extractVoiceSummary, stripVoiceTags }
 
 const collapse = (s: string) => s.replace(/\s+/g, ' ').trim()
 
@@ -74,7 +65,7 @@ export function splitSentences(text: string, maxChunk = 220): string[] {
   const chunks: string[] = []
   let cur = ''
   for (const s of sentences.map((x) => x.trim()).filter(Boolean)) {
-    if (cur && (cur + ' ' + s).length > maxChunk) { chunks.push(cur); cur = s } else cur = cur ? cur + ' ' + s : s
+    if (cur && !isTagOnly(s) && (cur + ' ' + s).length > maxChunk) { chunks.push(cur); cur = s } else cur = cur ? cur + ' ' + s : s
   }
   if (cur) chunks.push(cur)
   // First chunk short => lower time-to-first-audio.

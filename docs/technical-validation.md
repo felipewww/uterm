@@ -1,6 +1,6 @@
 # Technical validation (Milestone 0)
 
-Everything below was **executed on this machine** (Ubuntu 25.10, Ryzen 7 / 16 threads, 32 GB, no dedicated GPU,
+Everything below was **executed on this machine** (Ubuntu 25.10, Ryzen 7 / 16 threads, 32 GB, GTX 1650 (4 GB; unused until the GPU test below),
 Docker 29.4, Node 22.23) unless it is explicitly listed under *Not tested*. Versions: Claude Code 2.1.328,
 Codex CLI 0.169.0, Electron 45.4, node-pty 1.1.0, xterm.js 6.0, whisper.cpp (official image, `small.en`),
 Chatterbox 0.1.7 (`ChatterboxTurboTTS`, PyTorch 2.6.0 CPU, Python 3.11).
@@ -86,6 +86,14 @@ Measured with `node scripts/benchmark-audio.mjs` (default voice, 6 torch threads
   sentence-level chunking with a short first chunk and pipelined synthesis, a 400-character default speech limit, `<voice>`
   summaries, and progress expiry so stale updates are dropped. If this is unacceptable day-to-day, next steps to evaluate
   *(not done)*: Chatterbox **Nano** (`from_pretrained(nano=True)`, advertised ≈3× real time on 8 cores), Kokoro, or the optional GPU compose profile.
+
+### GPU run (GTX 1650, 4 GB) — measured
+Same model and code, `TTS_DEVICE=cuda`, CUDA 12.4 torch wheels, container started with plain device mapping plus the driver libraries
+(`libcuda`, `libnvidia-ptxjitcompiler`, `libnvidia-nvvm`, `libnvidia-gpucomp`, `libnvidia-ml`); without the ptxjit library the vocoder fails with
+`CUFFT_INTERNAL_ERROR`. Model load 14 s, 2.6 GiB VRAM idle, ~3.0 GiB peak. Results: 98 chars → 2.5 s for 5.7 s of audio (RTF 0.45); 211 chars → 6.2 s for
+13.9 s of audio (RTF 0.45). The same ~12-14 s clips took 23-29 s on CPU (RTF 2.0-2.1). CPU profile: ~85% of the time is the T3 token loop (≈14 tokens/s,
+real time needs 25); the S3Gen vocoder is ~3 s and watermarking is negligible. Dynamic int8 quantisation of `nn.Linear` gave no gain (GPT-2 uses `Conv1D`).
+Quality was not assessed by ear.
 
 ## End-to-end checks that passed in the running app
 Create session → real Claude → prompt injected with bracketed paste → hooks → reorder → normalization → activity panel

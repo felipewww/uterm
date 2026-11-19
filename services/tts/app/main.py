@@ -41,6 +41,10 @@ def _load_engine(engine) -> None:
                 engine.prepare_voice(v.id, str(state.store.ref_path(v.id)))
             except Exception as exc:
                 print(f"voice {v.id} failed to prepare: {exc}", flush=True)
+        try:  # first real synthesis pays one-off warm-up costs (kernel loading, allocator); do it before /ready
+            engine.synthesize("Ready.", DEFAULT_VOICE_ID)
+        except Exception as exc:
+            print(f"warm-up failed (continuing): {exc}", flush=True)
         state.ready = True
     except Exception as exc:  # surfaced via /ready
         state.error = f"{type(exc).__name__}: {exc}"

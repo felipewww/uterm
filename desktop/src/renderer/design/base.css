@@ -1,0 +1,10 @@
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; background: var(--surface-frame); overflow: hidden; }
+:root { font-family: var(--font-ui); font-size: var(--text-base); color: var(--text-primary); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.muted { color: var(--text-secondary); } .error-text { color: var(--danger); } .warn-text { color: var(--warning); }
+::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: var(--radius-xs); border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); border: 2px solid transparent; background-clip: padding-box; }
+@keyframes pulse { 50% { opacity: .4; } }
+@keyframes spin { to { transform: rotate(360deg); } }

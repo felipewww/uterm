@@ -1,23 +1,18 @@
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal } from '@xterm/xterm'
 import { matchesShortcut } from './shortcut'
+import { onThemeChange, terminalTheme } from './design/theme'
 import { store } from './store'
 
 interface Entry { term: Terminal; fit: FitAddon; el: HTMLDivElement; opened: boolean; observer?: ResizeObserver }
 const entries = new Map<string, Entry>()
-
-const theme = {
-  background: '#18191b', foreground: '#d7d9de', cursor: '#d7d9de', selectionBackground: '#2e436e',
-  black: '#000000', red: '#cd3131', green: '#0dbc79', yellow: '#e5e510', blue: '#2472c8', magenta: '#bc3fbc', cyan: '#11a8cd', white: '#e5e5e5',
-  brightBlack: '#666666', brightRed: '#f14c4c', brightGreen: '#23d18b', brightYellow: '#f5f543', brightBlue: '#3b8eea', brightMagenta: '#d670d6', brightCyan: '#29b8db', brightWhite: '#e5e5e5'
-}
 
 export function ensureTerminal(id: string): Entry {
   const existing = entries.get(id)
   if (existing) return existing
   const term = new Terminal({
     fontFamily: "'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace", fontSize: 13, scrollback: 10000,
-    cursorBlink: true, allowProposedApi: true, theme, macOptionIsMeta: true
+    cursorBlink: true, allowProposedApi: true, theme: terminalTheme(), macOptionIsMeta: true
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
@@ -45,6 +40,8 @@ export function ensureTerminal(id: string): Entry {
   void window.echo.pty.attach({ id }).then((buf: string) => { if (buf) term.write(buf) }) // renderer reload: replay
   return entry
 }
+
+onThemeChange(() => { for (const e of entries.values()) e.term.options.theme = terminalTheme() })
 
 export function writeTo(id: string, data: string): void { ensureTerminal(id).term.write(data) }
 

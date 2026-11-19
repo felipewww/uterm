@@ -1,0 +1,16 @@
+/* Scale tokens: shared by every theme. Colors live in themes/*.css, never here. */
+:root {
+  --font-ui: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace;
+  --text-xs: 11px; --text-sm: 12px; --text-base: 13px; --text-md: 14px;
+  --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
+
+  --radius-xs: 6px; --radius-sm: 8px; --radius-md: 10px; --radius-lg: 12px; --radius-xl: 16px; --radius-pill: 999px;
+
+  --dur-fast: .12s; --dur-base: .2s;
+  --z-modal: 50; --z-toast: 60;
+
+  --sidebar-width: 290px; --activity-width: 340px;
+}

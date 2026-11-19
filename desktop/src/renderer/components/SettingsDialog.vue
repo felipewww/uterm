@@ -4,6 +4,7 @@ import { VOICE_MODES, type AppSettings, type VoiceMode } from '@shared/types'
 import { shortcutFromEvent } from '../shortcut'
 import { notify, selected, store } from '../store'
 import { toWav16k } from '../composables/useRecorder'
+import { THEMES, currentTheme, setTheme } from '../design/theme'
 
 const props = defineProps<{ sessionId?: string | null }>()
 const emit = defineEmits<{ close: [] }>()
@@ -91,6 +92,7 @@ void selected
       <template v-else>
         <h2>Settings</h2>
         <div class="grid2">
+          <label>Theme <select :value="currentTheme" @change="setTheme(($event.target as HTMLSelectElement).value)"><option v-for="t in THEMES" :key="t.id" :value="t.id">{{ t.label }}</option></select></label>
           <label>Default agent <select v-model="g.defaultAgent"><option value="claude">Claude Code</option><option value="codex">Codex CLI</option></select></label>
           <label>Default voice <select v-model="g.defaultVoiceId"><option v-for="v in store.voices" :key="v.id" :value="v.id">{{ v.name }}</option></select></label>
           <label>Default foreground mode <select v-model="g.defaultForegroundMode"><option v-for="m in modes" :key="m" :value="m">{{ m }}</option></select></label>

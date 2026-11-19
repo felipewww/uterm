@@ -85,13 +85,14 @@ export class SessionManager {
     }
   }
 
-  async create(input: { agentType: AgentType; title: string; workingDirectory: string }): Promise<SessionView> {
+  async create(input: { agentType: AgentType; title: string; workingDirectory: string; configDir?: string | null }): Promise<SessionView> {
     const dir = input.workingDirectory
     if (!existsSync(dir) || !statSync(dir).isDirectory()) throw new Error(`Directory does not exist: ${dir}`)
+    const configDir = this.checkConfigDir(input.agentType, input.configDir)
     const s = this.d.settings()
     const rec = await this.d.repo.create({
       agentType: input.agentType, title: input.title.trim() || dirName(dir), workingDirectory: dir,
-      voiceProfileId: s.defaultVoiceId
+      voiceProfileId: s.defaultVoiceId, configDir
     })
     this.records.set(rec.id, rec)
     await this.start(rec.id, 100, 30)
@@ -99,14 +100,22 @@ export class SessionManager {
   }
 
   /** Registers an existing native conversation (reliable id + cwd only); never duplicates one. */
-  async importNative(input: { agentType: AgentType; nativeSessionId: string; workingDirectory: string; title: string }): Promise<SessionView> {
+  /** Only Claude has per-session config folders; the path must be an existing absolute folder. */
+  private checkConfigDir(agent: AgentType, dir: string | null | undefined): string | null {
+    if (!dir || agent !== 'claude') return null
+    if (!dir.startsWith('/') || !existsSync(dir) || !statSync(dir).isDirectory()) throw new Error(`Claude config folder does not exist: ${dir}`)
+    return dir
+  }
+
+  async importNative(input: { agentType: AgentType; nativeSessionId: string; workingDirectory: string; title: string; configDir?: string | null }): Promise<SessionView> {
     for (const r of this.records.values()) {
       if (r.agentType === input.agentType && r.nativeSessionId === input.nativeSessionId) return this.view(r.id)!
     }
     if (!existsSync(input.workingDirectory)) throw new Error(`Directory no longer exists: ${input.workingDirectory}`)
+    const configDir = this.checkConfigDir(input.agentType, input.configDir)
     const rec = await this.d.repo.create({
       agentType: input.agentType, title: input.title.trim() || dirName(input.workingDirectory), workingDirectory: input.workingDirectory,
-      nativeSessionId: input.nativeSessionId, voiceProfileId: this.d.settings().defaultVoiceId
+      nativeSessionId: input.nativeSessionId, voiceProfileId: this.d.settings().defaultVoiceId, configDir
     })
     this.records.set(rec.id, rec)
     return this.view(rec.id)!
@@ -118,6 +127,7 @@ export class SessionManager {
     if (!rec) throw new Error('unknown session')
     if (this.isRunning(id)) return
     if (!existsSync(rec.workingDirectory)) throw new Error(`Working directory no longer exists: ${rec.workingDirectory}`)
+    if (rec.configDir && !existsSync(rec.configDir)) throw new Error(`Claude config folder no longer exists: ${rec.configDir}`)
     const adapter = this.d.adapters[rec.agentType]
     const detected = await adapter.detect()
     if (!detected.installed) throw new Error(`${adapter.label} is not installed or not on PATH`)
@@ -146,7 +156,7 @@ export class SessionManager {
     try {
       this.d.pty.spawn(id, {
         file: launch.file, args: launch.args, cwd: rec.workingDirectory, cols, rows,
-        env: { ...cleanEnv(), TERM: 'xterm-256color', COLORTERM: 'truecolor', ...launch.env }
+        env: { ...cleanEnv(), TERM: 'xterm-256color', COLORTERM: 'truecolor', ...(rec.configDir && rec.agentType === 'claude' ? { CLAUDE_CONFIG_DIR: rec.configDir } : {}), ...launch.env }
       })
     } catch (err) {
       this.runtime.delete(id)

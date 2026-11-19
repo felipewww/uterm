@@ -12,7 +12,7 @@ export class MemorySessionRepo implements SessionRepository {
     const r: SessionRecord = {
       id, agentType: s.agentType, nativeSessionId: s.nativeSessionId ?? null, title: s.title, workingDirectory: s.workingDirectory,
       transcriptPath: s.transcriptPath ?? null, voiceProfileId: s.voiceProfileId ?? null, playbackSpeed: null,
-      foregroundVoiceMode: null, backgroundVoiceMode: null, createdAt: now, lastActivityAt: now, archivedAt: null, folderId: null
+      foregroundVoiceMode: null, backgroundVoiceMode: null, createdAt: now, lastActivityAt: now, archivedAt: null, folderId: null, configDir: s.configDir ?? null
     }
     this.rows.set(id, r)
     return r

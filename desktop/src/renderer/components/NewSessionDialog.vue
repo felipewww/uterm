@@ -20,27 +20,34 @@ const title = ref('')
 const dir = ref('')
 const error = ref('')
 const busy = ref(false)
-const imports = ref<Array<{ agent: AgentType; nativeId: string; cwd: string; title: string; mtime: number }>>([])
+const imports = ref<Array<{ agent: AgentType; nativeId: string; cwd: string; title: string; mtime: number; configDir?: string | null }>>([])
+// Claude can run with several config folders (accounts), e.g. a second one behind a `claudeme` alias.
+const profiles = ref<Array<{ dir: string | null; label: string }>>([])
+const profile = ref<string | null>(null)
 
-onMounted(async () => { imports.value = await window.echo.sessions.listImportable() })
+onMounted(async () => {
+  imports.value = await window.echo.sessions.listImportable()
+  profiles.value = await window.echo.sessions.claudeProfiles()
+})
 
 async function pick() { const d = await window.echo.sessions.pickDirectory(); if (d) { dir.value = d; if (!title.value) title.value = d.split('/').filter(Boolean).pop() ?? '' } }
 async function create() {
   if (!dir.value) { error.value = 'Choose a working directory first.'; return }
   busy.value = true; error.value = ''
   try {
-    const v = await window.echo.sessions.create({ agentType: agent.value, title: title.value, workingDirectory: dir.value })
+    const v = await window.echo.sessions.create({ agentType: agent.value, title: title.value, workingDirectory: dir.value, configDir: agent.value === 'claude' ? profile.value : null })
     upsertSession(v); emit('created', v.id)
   } catch (e) { error.value = clean(e) } finally { busy.value = false }
 }
 async function importOne(i: (typeof imports.value)[number]) {
   busy.value = true; error.value = ''
   try {
-    const v = await window.echo.sessions.importSession({ agentType: i.agent, nativeSessionId: i.nativeId, workingDirectory: i.cwd, title: i.title })
+    const v = await window.echo.sessions.importSession({ agentType: i.agent, nativeSessionId: i.nativeId, workingDirectory: i.cwd, title: i.title, configDir: i.configDir ?? null })
     upsertSession(v); emit('created', v.id)
   } catch (e) { error.value = clean(e) } finally { busy.value = false }
 }
 const clean = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+const profileLabel = (dir: string | null | undefined) => (dir ? profiles.value.find((p) => p.dir === dir)?.label ?? dir.replace(/^\/home\/[^/]+/, '~') : '')
 const ago = (t: number) => { const d = Math.round((Date.now() - t) / 86400000); return d < 1 ? 'today' : `${d}d ago` }
 </script>
 
@@ -58,6 +65,11 @@ const ago = (t: number) => { const d = Math.round((Date.now() - t) / 86400000); 
       <p v-if="noneInstalled" class="warn-text">
         No supported CLI was found (Claude Code, Codex CLI or Kiro CLI). Install one and make sure it runs from a terminal; the app also looks in ~/.local/bin, /usr/local/bin and Homebrew.
       </p>
+      <label v-if="agent === 'claude' && profiles.length > 1">Claude account
+        <select v-model="profile">
+          <option v-for="p in profiles" :key="p.dir ?? 'default'" :value="p.dir">{{ p.label }}</option>
+        </select>
+      </label>
       <label>Title <input v-model="title" placeholder="e.g. Auth refactor" @keydown.enter="create" /></label>
       <label>Working directory
         <div class="row"><input v-model="dir" readonly placeholder="Choose a folder…" /><button class="btn" @click="pick">Browse…</button></div>
@@ -71,7 +83,7 @@ const ago = (t: number) => { const d = Math.round((Date.now() - t) / 86400000); 
         <summary>Import an existing conversation ({{ imports.length }})</summary>
         <div v-for="i in imports" :key="i.agent + i.nativeId" class="import-row" @click="importOne(i)">
           <strong>{{ i.title }}</strong>
-          <span class="muted">{{ AGENT_LABELS[i.agent].short }} · {{ i.cwd.replace(/^\/home\/[^/]+/, '~') }} · {{ ago(i.mtime) }}</span>
+          <span class="muted">{{ AGENT_LABELS[i.agent].short }}{{ i.configDir ? ` (${profileLabel(i.configDir)})` : '' }} · {{ i.cwd.replace(/^\/home\/[^/]+/, '~') }} · {{ ago(i.mtime) }}</span>
         </div>
       </details>
     </div>

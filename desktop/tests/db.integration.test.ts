@@ -54,7 +54,7 @@ describe.skipIf(!process.env.CI && !existsSync(envFile))('MySQL integration', ()
     const second = await migrate(cfg(), dir)
     expect(second.applied).toEqual([])
     expect(second.alreadyApplied).toEqual(first.applied)
-  })
+  }, 60_000) // five migrations of DDL on a fresh database take a few seconds
 
   it('persists sessions, enforces unique native ids per agent, archives, finds by native id', async (ctx) => {
     if (!available) return ctx.skip()

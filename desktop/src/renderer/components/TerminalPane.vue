@@ -73,6 +73,7 @@ async function resume() {
           <dt>Folder</dt><dd :title="selected()!.workingDirectory">{{ shortDir(selected()!.workingDirectory) }}</dd>
           <dt>Last activity</dt><dd>{{ when(selected()!.lastActivityAt) }}</dd>
           <dt>Agent</dt><dd>{{ agent!.label }}</dd>
+          <template v-if="selected()!.configDir"><dt>Account</dt><dd :title="selected()!.configDir!">{{ shortDir(selected()!.configDir!) }}</dd></template>
         </dl>
         <figure v-if="lastMessage" class="resume-last">
           <figcaption>{{ lastMessage.kind === 'final' ? 'Last result' : 'Last update' }}</figcaption>

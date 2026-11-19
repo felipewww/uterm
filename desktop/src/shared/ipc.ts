@@ -8,13 +8,15 @@ export const schemas = {
   create: z.object({
     agentType: z.enum(AGENT_TYPES as unknown as [string, ...string[]]),
     title: z.string().max(160),
-    workingDirectory: z.string().min(1).max(1024)
+    workingDirectory: z.string().min(1).max(1024),
+    configDir: z.string().min(1).max(1024).nullable().optional()
   }),
   importSession: z.object({
     agentType: z.enum(AGENT_TYPES as unknown as [string, ...string[]]),
     nativeSessionId: z.string().regex(/^[0-9A-Za-z-]{8,64}$/),
     workingDirectory: z.string().min(1).max(1024),
-    title: z.string().max(160)
+    title: z.string().max(160),
+    configDir: z.string().min(1).max(1024).nullable().optional()
   }),
   start: z.object({ id: Id, cols: z.number().int().min(2).max(1000), rows: z.number().int().min(2).max(500) }),
   id: z.object({ id: Id }),

@@ -22,6 +22,7 @@ import { PtyManager } from './pty/ptyManager'
 import { nodePtyFactory } from './pty/nodePtyFactory'
 import { SessionManager } from './sessionManager'
 import { SPEECH_INSTRUCTIONS } from './speechInstructions'
+import { claudeProfiles } from './agents/claudeProfiles'
 import { SttClient } from './voice/sttClient'
 import { TtsClient } from './voice/ttsClient'
 import { VoiceCoordinator } from './voice/voiceCoordinator'
@@ -135,18 +136,19 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   ipcMain.handle('sessions:list', () => sessions.views(speakingSessionId))
   ipcMain.handle('sessions:create', async (_e, p) => {
     const a = parse(schemas.create, p)
-    return sessions.create({ agentType: a.agentType as AgentType, title: a.title, workingDirectory: a.workingDirectory })
+    return sessions.create({ agentType: a.agentType as AgentType, title: a.title, workingDirectory: a.workingDirectory, configDir: a.configDir ?? null })
   })
   ipcMain.handle('sessions:listImportable', () => listImportable())
   ipcMain.handle('sessions:import', async (_e, p) => {
     const a = parse(schemas.importSession, p)
-    return sessions.importNative({ agentType: a.agentType as AgentType, nativeSessionId: a.nativeSessionId, workingDirectory: a.workingDirectory, title: a.title })
+    return sessions.importNative({ agentType: a.agentType as AgentType, nativeSessionId: a.nativeSessionId, workingDirectory: a.workingDirectory, title: a.title, configDir: a.configDir ?? null })
   })
   ipcMain.handle('sessions:start', async (_e, p) => { const a = parse(schemas.start, p); await sessions.start(requireSession(a.id), a.cols, a.rows) })
   ipcMain.handle('sessions:stop', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.stop(requireSession(a.id)) })
   ipcMain.handle('sessions:rename', (_e, p) => { const a = parse(schemas.rename, p); return sessions.rename(requireSession(a.id), a.title) })
   ipcMain.handle('sessions:delete', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.delete(requireSession(a.id)); voice.focusChanged() })
   ipcMain.handle('sessions:archive', (_e, p) => { const a = parse(schemas.archive, p); return sessions.archive(requireSession(a.id), a.archived) })
+  ipcMain.handle('sessions:claudeProfiles', () => claudeProfiles())
   ipcMain.handle('folders:list', () => sessions.folderList())
   ipcMain.handle('folders:create', (_e, p) => { const a = parse(schemas.folderCreate, p); return sessions.createFolder(a.name, a.parentId ?? null) })
   ipcMain.handle('folders:move', (_e, p) => { const a = parse(schemas.folderMove, p); return sessions.moveFolder(a.id, a.parentId) })

@@ -33,6 +33,8 @@ export interface SessionRecord {
   archivedAt: number | null
   /** user folder this session is filed in, or null */
   folderId: string | null
+  /** Claude config folder (CLAUDE_CONFIG_DIR) this session runs with; null = the environment default */
+  configDir: string | null
 }
 
 export interface FolderRecord { id: string; name: string; parentId: string | null; createdAt: number }

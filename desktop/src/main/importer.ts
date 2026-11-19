@@ -4,8 +4,9 @@ import { join } from 'node:path'
 import type { AgentType } from '@shared/types'
 import { readSessionMeta } from './agents/codex'
 import { kiroSessionsDir, readKiroMeta } from './agents/kiro'
+import { claudeProfiles } from './agents/claudeProfiles'
 
-export interface ImportableSession { agent: AgentType; nativeId: string; cwd: string; title: string; mtime: number }
+export interface ImportableSession { agent: AgentType; nativeId: string; cwd: string; title: string; mtime: number; configDir?: string | null }
 
 function readHead(file: string, bytes = 96 * 1024): string {
   const fd = openSync(file, 'r')
@@ -16,9 +17,14 @@ function readHead(file: string, bytes = 96 * 1024): string {
   } finally { closeSync(fd) }
 }
 
-/** Claude: ~/.claude/projects/<slug>/<sessionId>.jsonl — records carry sessionId, cwd and user messages. */
+/** Claude: <config dir>/projects/<slug>/<sessionId>.jsonl — records carry sessionId, cwd and user messages. Every known config folder is scanned. */
 function scanClaude(limit: number): ImportableSession[] {
-  const root = join(homedir(), '.claude', 'projects')
+  const out: ImportableSession[] = []
+  for (const profile of claudeProfiles()) out.push(...scanClaudeDir(join(profile.resolved, 'projects'), profile.dir))
+  return out.sort((a, b) => b.mtime - a.mtime).slice(0, limit)
+}
+
+function scanClaudeDir(root: string, configDir: string | null): ImportableSession[] {
   const out: ImportableSession[] = []
   try {
     for (const slug of readdirSync(root)) {
@@ -39,11 +45,11 @@ function scanClaude(limit: number): ImportableSession[] {
           } catch { /* partial last line */ }
         }
         const id = f.slice(0, -'.jsonl'.length)
-        if (cwd && /^[0-9a-f-]{36}$/.test(id)) out.push({ agent: 'claude', nativeId: id, cwd, title: title || 'Claude conversation', mtime })
+        if (cwd && /^[0-9a-f-]{36}$/.test(id)) out.push({ agent: 'claude', nativeId: id, cwd, title: title || 'Claude conversation', mtime, configDir })
       }
     }
   } catch { /* no Claude history */ }
-  return out.sort((a, b) => b.mtime - a.mtime).slice(0, limit)
+  return out
 }
 
 function* walkRollouts(dir: string, depth = 0): Generator<string> {

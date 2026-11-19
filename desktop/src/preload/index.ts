@@ -16,6 +16,7 @@ const api = {
     create: (p: unknown) => call('sessions:create', p),
     start: (p: unknown) => call('sessions:start', p),
     listImportable: () => call('sessions:listImportable'),
+    claudeProfiles: () => call('sessions:claudeProfiles'),
     importSession: (p: unknown) => call('sessions:import', p),
     stop: (p: unknown) => call('sessions:stop', p),
     rename: (p: unknown) => call('sessions:rename', p),

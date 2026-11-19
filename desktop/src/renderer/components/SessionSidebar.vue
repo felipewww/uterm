@@ -165,7 +165,8 @@ const shortDir = (p: string) => {
   const parts = p.replace(/^\/home\/[^/]+/, '~').split('/').filter(Boolean)
   return parts.length > 3 ? `…/${parts.slice(-2).join('/')}` : parts.join('/') || '/'
 }
-const agentName = (s: SessionView) => AGENT_LABELS[s.agentType].short
+// A non-default Claude account is shown next to the agent name: ~/.claude-me -> "Claude (me)".
+const agentName = (s: SessionView) => AGENT_LABELS[s.agentType].short + (s.configDir ? ` (${s.configDir.split('/').filter(Boolean).pop()?.replace(/^\.claude[-_.]?/, '') || 'alt'})` : '')
 const tip = (s: SessionView) => `${s.title}\n${agentName(s)} · ${s.workingDirectory}\n${stateLabel[s.runtimeState]}${s.muted ? ' · muted' : ''}`
 
 async function startEdit(s: SessionView) {

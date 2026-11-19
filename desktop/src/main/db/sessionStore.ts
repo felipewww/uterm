@@ -10,6 +10,7 @@ export interface NewSession {
   nativeSessionId?: string | null
   transcriptPath?: string | null
   voiceProfileId?: string | null
+  configDir?: string | null
 }
 
 export interface SessionRepository {
@@ -44,7 +45,7 @@ function rowToSession(r: RowDataPacket): SessionRecord {
     foregroundVoiceMode: r.foreground_voice_mode as VoiceMode | null,
     backgroundVoiceMode: r.background_voice_mode as VoiceMode | null,
     createdAt: (r.created_at as Date).getTime(), lastActivityAt: (r.last_activity_at as Date).getTime(),
-    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null
+    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null, configDir: r.config_dir ?? null
   }
 }
 
@@ -60,9 +61,9 @@ export class MySqlSessionStore implements SessionRepository {
   async create(s: NewSession): Promise<SessionRecord> {
     const id = randomUUID()
     await this.pool.execute(
-      `INSERT INTO sessions (id, agent_type, native_session_id, title, working_directory, transcript_path, voice_profile_id)
-       VALUES (?,?,?,?,?,?,?)`,
-      [id, s.agentType, s.nativeSessionId ?? null, s.title, s.workingDirectory, s.transcriptPath ?? null, s.voiceProfileId ?? null]
+      `INSERT INTO sessions (id, agent_type, native_session_id, title, working_directory, transcript_path, voice_profile_id, config_dir)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [id, s.agentType, s.nativeSessionId ?? null, s.title, s.workingDirectory, s.transcriptPath ?? null, s.voiceProfileId ?? null, s.configDir ?? null]
     )
     return (await this.get(id))!
   }

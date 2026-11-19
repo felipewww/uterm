@@ -120,6 +120,29 @@ describe('SessionManager', () => {
     expect(t.mgr.getRecord(a.id)!.folderId).toBeNull()
   })
 
+  it('runs a Claude session with its own config folder and rejects folders that do not exist', async () => {
+    const t = setup()
+    const cfg = dir()
+    const v = await t.mgr.create({ agentType: 'claude', title: 'Me', workingDirectory: dir(), configDir: cfg })
+    expect(v.configDir).toBe(cfg)
+    expect(t.procs[0]!.spec.env.CLAUDE_CONFIG_DIR).toBe(cfg)
+    const plain = await t.mgr.create({ agentType: 'claude', title: 'Work', workingDirectory: dir() })
+    expect(plain.configDir).toBeNull()
+    await expect(t.mgr.create({ agentType: 'claude', title: 'x', workingDirectory: dir(), configDir: '/no/such/config' })).rejects.toThrow(/config folder/)
+    const codex = await t.mgr.create({ agentType: 'codex', title: 'C', workingDirectory: dir(), configDir: cfg })
+    expect(codex.configDir).toBeNull() // only Claude has per-session config folders
+  })
+
+  it('imports a conversation with its config folder, and resumes with it', async () => {
+    const t = setup()
+    const cfg = dir()
+    const v = await t.mgr.importNative({ agentType: 'claude', nativeSessionId: 'e407c5d3-1fdb-475c-bcee-91722bd5ca31', workingDirectory: dir(), title: 'old', configDir: cfg })
+    expect(v.configDir).toBe(cfg)
+    await t.mgr.start(v.id, 80, 24)
+    expect(t.procs.at(-1)!.spec.env.CLAUDE_CONFIG_DIR).toBe(cfg)
+    expect(t.launches.at(-1)!.native).toBe('e407c5d3-1fdb-475c-bcee-91722bd5ca31')
+  })
+
   it('rejects a missing working directory', async () => {
     await expect(setup().mgr.create({ agentType: 'claude', title: 'x', workingDirectory: '/definitely/not/here' })).rejects.toThrow(/does not exist/)
   })

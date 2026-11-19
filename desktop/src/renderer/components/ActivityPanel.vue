@@ -13,7 +13,7 @@ const items = computed(() => (store.selectedId ? store.activity[store.selectedId
 const op = computed(() => (store.selectedId ? store.currentOp[store.selectedId] : ''))
 const agent = computed(() => (selected() ? AGENT_LABELS[selected()!.agentType].short : 'Agent'))
 const chip = (it: ActivityItem) => ({ progress: 'Update', final: it.full ? 'Summary' : 'Result', question: 'Question', permission: 'Needs permission', error: 'Error', attention: 'Notice', prompt: '', tool: 'Tool' })[it.kind]
-const who = (it: ActivityItem) => (it.kind === 'error' ? 'Error' : it.kind === 'attention' ? 'Echo-Term' : agent.value)
+const who = (it: ActivityItem) => (it.kind === 'error' ? 'Error' : it.kind === 'attention' ? 'uTerm' : agent.value)
 
 watch(() => store.selectedId, async (id) => {
   if (id) { const rows = await window.echo.sessions.activity({ id }); ingestHistory(id, rows) }

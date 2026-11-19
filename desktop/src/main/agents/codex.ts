@@ -65,7 +65,7 @@ export class CodexAdapter implements AgentAdapter {
     interactiveQuestions: 'none' as const,
     notes: [
       'Assistant commentary/final messages come from read-only tailing of the native rollout JSONL.',
-      'Permission requests need the Echo-Term hooks to be trusted once via /hooks inside Codex.',
+      'Permission requests need the uTerm hooks to be trusted once via /hooks inside Codex.',
       'Interactive question events are not exposed by Codex hooks/transcripts: visual only.',
       'Speech instructions (<voice> summary, expressive tags) are passed per process with -c developer_instructions=…; ~/.codex/config.toml is untouched. Skipped if you already set developer_instructions there.'
     ]

@@ -1,4 +1,4 @@
-/* Feature layout for the Echo-Term shell. Colors/sizes come from design tokens only. */
+/* Feature layout for the uTerm shell. Colors/sizes come from design tokens only. */
 .app { display: grid; grid-template-columns: var(--sidebar-width) var(--space-2) minmax(0, 1fr) var(--space-2) var(--activity-width); padding: var(--space-2); height: 100%; background: var(--surface-frame); }
 .app.no-activity { grid-template-columns: var(--sidebar-width) var(--space-2) minmax(0, 1fr); }
 
@@ -188,7 +188,7 @@
 .welcome { container-type: inline-size; flex: 1; min-height: 0; display: flex; overflow-y: auto; background: var(--terminal-surface, var(--surface-sunken)); }
 .welcome-inner { display: flex; flex-direction: column; gap: 22px; width: min(680px, 100%); margin: auto; padding: 36px 32px; }
 .brand { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
-.banner { margin: 0; width: max-content; max-width: 100%; font-family: var(--font-mono); font-size: min(14px, calc((min(680px, 100cqw) - 64px) / 42)); line-height: 1.05; letter-spacing: 0; white-space: pre; user-select: none;
+.banner { margin: 0; width: max-content; max-width: 100%; font-family: var(--font-mono); font-size: min(20px, calc((min(680px, 100cqw) - 64px) / (var(--cols, 42) * 0.6))); line-height: 1.05; letter-spacing: 0; white-space: pre; user-select: none;
   color: var(--accent-text); background: linear-gradient(90deg, var(--accent-text), var(--accent-alt)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .tagline { margin: 0; color: var(--text-secondary); font-size: var(--text-base); }
 .welcome-head { text-align: center; }

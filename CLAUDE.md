@@ -1,4 +1,4 @@
-# Echo-Term — notes for coding agents
+# uTerm — notes for coding agents
 
 Monorepo of **independent** projects (no npm workspaces): `desktop/` (Electron + Vue 3 + TS strict), `services/stt`,
 `services/tts` (FastAPI + Chatterbox), `database/migrations`, `hooks/`, `scripts/`, `docs/`.

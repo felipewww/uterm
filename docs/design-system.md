@@ -1,4 +1,4 @@
-# Echo-Term design system
+# uTerm design system
 
 Goal: one visual language, and new themes that cost one CSS file. Shipped themes: **Carbon** (default: graphite, tight corners, cyan accent, mono labels), Islands Dark, Islands Light.
 

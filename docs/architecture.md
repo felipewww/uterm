@@ -23,7 +23,7 @@ screen scraping is used for semantics.
 ## Key decisions
 - **UI framework:** the brief's stack says Vue 3 while its diagram says "React UI"; Vue 3 was used.
 - **Claude hooks via `--settings`** (not `~/.claude/settings.json`): zero interference with user config, hooks apply only to
-  Echo-Term-launched processes, and unmanaged sessions can't leak events (no `ECHO_TERM_SESSION_ID` ⇒ the script exits).
+  uTerm-launched processes, and unmanaged sessions can't leak events (no `ECHO_TERM_SESSION_ID` ⇒ the script exits).
 - **Correlation:** the PTY gets `ECHO_TERM_SESSION_ID` (internal UUID) in its environment; hook envelopes carry it, so two
   sessions in the same directory never mix. Claude's native id is pre-assigned with `--session-id`; Codex's is read from the rollout.
 - **Reorder buffer + turn tracker** (see technical-validation.md) because async hooks are unordered.

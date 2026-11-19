@@ -8,7 +8,7 @@ Chatterbox 0.1.7 (`ChatterboxTurboTTS`, PyTorch 2.6.0 CPU, Python 3.11).
 ## 1. Real CLIs in node-pty + xterm.js — PASS
 - Claude Code and Codex both run inside node-pty (`tests/smoke/agent-smoke.cjs`) and Claude renders correctly in
   xterm.js inside the Electron app (colors, box drawing, bracketed paste, resize, footer, scrollback).
-- Gotcha: Claude shows a folder-trust dialog on first use of a directory; Echo-Term never answers it for you.
+- Gotcha: Claude shows a folder-trust dialog on first use of a directory; uTerm never answers it for you.
 - Gotcha (Ubuntu): Electron's SUID sandbox helper must be `root:4755`, otherwise Electron aborts. `dev.sh` falls back to
   `--no-sandbox` for development only and prints the manual `sudo` command; we never run sudo for you.
 
@@ -32,10 +32,10 @@ shuffled arrival orders):
 ## 4. Codex intermediate assistant messages — PASS via transcript tailing
 Codex 0.169 writes `~/.codex/sessions/YYYY/MM/DD/rollout-*-<id>.jsonl`. Assistant messages are
 `response_item` / `message` / `role=assistant` with `phase: "commentary"` (progress) or `"final_answer"`; `task_complete`
-carries `last_agent_message`; prompts are `item_completed` / `UserMessage`. Echo-Term tails the file read-only (polling,
+carries `last_agent_message`; prompts are `item_completed` / `UserMessage`. uTerm tails the file read-only (polling,
 byte offset) and never replaces the interactive CLI. The native session id comes from `session_meta`; for new sessions the
 rollout is discovered by creation time + `cwd`. Captured and scrubbed as `tests/fixtures/codex-turn.jsonl`.
-Codex hooks exist (`~/.codex/hooks.json`) but **require a one-time trust review via `/hooks`**; Echo-Term installs only
+Codex hooks exist (`~/.codex/hooks.json`) but **require a one-time trust review via `/hooks`**; uTerm installs only
 `SessionStart`, `PermissionRequest`, `Stop` entries (idempotent merge, backup, clean uninstall — verified against a temp
 `CODEX_HOME`) and does not use `--dangerously-bypass-hook-trust`.
 
@@ -51,8 +51,8 @@ Run live (`tests/smoke/kiro-smoke.cjs`, real `kiro-cli chat` in a PTY, one no-to
 - No workspace-trust prompt appeared in a scratch directory.
 - **Not detectable:** permission prompts and cancelled turns are not written to the log. Kiro hooks (custom agent config) and ACP
   (`kiro-cli acp`) exist but were not used: a custom agent would change the user's Kiro behaviour, and ACP replaces the CLI UI.
-  `~/.kiro` is read-only for Echo-Term.
-- Speech instructions: Kiro has no system-prompt flag, so a NEW session is started as `kiro-cli chat "<instructions + ask for a greeting>"` (first message; resumed sessions already carry it). Run live: Kiro answered with a one-line greeting (it even used a `[happy]` tag) and the Activity hides the priming message (marker `[Echo-Term voice setup]`). Imported/resumed Kiro conversations that were not started by Echo-Term do not get the instructions.
+  `~/.kiro` is read-only for uTerm.
+- Speech instructions: Kiro has no system-prompt flag, so a NEW session is started as `kiro-cli chat "<instructions + ask for a greeting>"` (first message; resumed sessions already carry it). Run live: Kiro answered with a one-line greeting (it even used a `[happy]` tag) and the Activity hides the priming message (marker `[uTerm voice setup]`). Imported/resumed Kiro conversations that were not started by uTerm do not get the instructions.
 - Detection: `kiro-cli` is looked up in PATH **and** the usual install folders (`~/.local/bin`, `/opt/homebrew/bin`, …) because a
   GUI-launched app does not inherit the shell PATH (matters on macOS). Covered by unit tests; not run on macOS.
 
@@ -112,6 +112,6 @@ Written from the providers' public documentation and covered by unit tests with 
 - Claude `PermissionRequest`, `Notification`, `AskUserQuestion`, `StopFailure`, `PostToolUseFailure` payloads live
   (implemented from the official docs, unit-tested with synthetic payloads).
 - Codex hooks (trust flow), Codex permission detection, `codex resume` live, Codex App Server (docs only; not used).
-- Kiro: tool-using turns live inside Echo-Term (only parsed from existing logs), the V3 engine (`--v3`/TUI), macOS paths, permission detection (not possible from the log).
+- Kiro: tool-using turns live inside uTerm (only parsed from existing logs), the V3 engine (`--v3`/TUI), macOS paths, permission detection (not possible from the log).
 - Multi-session background speaking with real audio, global mute, the listen-again buttons in Activity, VS Code button, window-focus transitions.
 - AppImage/deb artifacts (only `electron-builder --linux dir` was built and launched), macOS, GPU profile.

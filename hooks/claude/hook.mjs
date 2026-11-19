@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Echo-Term hook forwarder (Claude Code and Codex share this script).
-// Contract: read the hook JSON from stdin, forward it to the Echo-Term Unix socket,
+// uTerm hook forwarder (Claude Code and Codex share this script).
+// Contract: read the hook JSON from stdin, forward it to the uTerm Unix socket,
 // ALWAYS exit 0 with no stdout, and never take longer than ~1.5 s. No audio, no side effects.
 import net from 'node:net'
 import { join } from 'node:path'
@@ -9,7 +9,7 @@ import { join } from 'node:path'
 // chronological order, because async hook processes finish in arbitrary order.
 const startedNs = Number(process.hrtime.bigint())
 const key = process.env.ECHO_TERM_SESSION_ID
-if (!key) process.exit(0) // not an Echo-Term managed agent: ignore silently
+if (!key) process.exit(0) // not an uTerm managed agent: ignore silently
 
 const agent = process.env.ECHO_TERM_AGENT === 'codex' ? 'codex' : 'claude'
 const sock =

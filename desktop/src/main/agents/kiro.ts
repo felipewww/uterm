@@ -88,7 +88,7 @@ export class KiroAdapter implements AgentAdapter {
     }
 
     return {
-      onHook() { /* Kiro has no Echo-Term hooks: everything comes from the session log */ },
+      onHook() { /* Kiro has no uTerm hooks: everything comes from the session log */ },
       start() { discover(); discovery = setInterval(discover, 700); discovery.unref() },
       stop() { if (discovery) clearInterval(discovery); tail?.stop() }
     }

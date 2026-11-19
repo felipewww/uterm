@@ -1,5 +1,9 @@
 {
-  "name": "echo-term-desktop",
+  "name": "uterm-desktop",
+  "productName": "uTerm",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/felipewww/uterm.git" },
+  "homepage": "https://github.com/felipewww/uterm",
   "version": "0.1.0",
   "private": true,
   "description": "Voice-enabled coding agent workspace",
@@ -39,8 +43,8 @@
     "vue-tsc": "^3.3.14"
   },
   "build": {
-    "appId": "dev.echoterm.desktop",
-    "productName": "Echo-Term",
+    "appId": "dev.uterm.desktop",
+    "productName": "uTerm",
     "directories": {
       "output": "release"
     },

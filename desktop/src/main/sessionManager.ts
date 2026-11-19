@@ -346,7 +346,7 @@ export class SessionManager {
     await this.safely('move the session', () => this.d.repo.setFolder(id, folderId))
   }
 
-  /** Permanently removes the session from Echo-Term (running agent stopped first). The agent's own conversation files are never touched. */
+  /** Permanently removes the session from uTerm (running agent stopped first). The agent's own conversation files are never touched. */
   async delete(id: string): Promise<void> {
     if (!this.records.has(id)) return
     if (this.isRunning(id)) await this.stop(id)

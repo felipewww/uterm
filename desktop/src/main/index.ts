@@ -58,6 +58,12 @@ function parse<T>(schema: ZodType<T>, payload: unknown): T {
   return r.data
 }
 
+// The app was renamed (echo-term-desktop -> uterm-desktop): keep using the old user-data folder so saved theme, layout and sizes survive.
+{
+  const legacyData = join(app.getPath('appData'), 'echo-term-desktop')
+  if (existsSync(legacyData)) app.setPath('userData', legacyData)
+}
+
 async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () => boolean }> {
   // Packaged builds ship hooks/ and database/ as extraResources (outside the asar).
   const root = app.isPackaged ? process.resourcesPath : findRepoRoot(app.getAppPath())
@@ -341,7 +347,7 @@ function appIcon(): Electron.NativeImage | undefined {
 
 function createWindow(): void {
   win = new BrowserWindow({
-    width: 1440, height: 900, minWidth: 900, minHeight: 560, backgroundColor: '#1e1e1e', title: 'Echo-Term', icon: appIcon(),
+    width: 1440, height: 900, minWidth: 900, minHeight: 560, backgroundColor: '#1e1e1e', title: 'uTerm', icon: appIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true

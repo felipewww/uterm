@@ -124,7 +124,7 @@ async function quit() {
 
     <div v-if="store.confirmQuit" class="modal-backdrop">
       <div class="modal">
-        <h2>Quit Echo-Term?</h2>
+        <h2>Quit uTerm?</h2>
         <p>Running agent sessions will be stopped. Their conversations stay saved and can be resumed.</p>
         <div class="modal-actions">
           <button class="btn" @click="store.confirmQuit = false">Keep running</button>
@@ -136,7 +136,7 @@ async function quit() {
     <div v-if="store.confirmDelete" class="modal-backdrop" @click.self="store.confirmDelete = null" @keydown.esc="store.confirmDelete = null">
       <div class="modal" role="alertdialog" aria-labelledby="del-title">
         <h2 id="del-title">Delete this session?</h2>
-        <p><strong>{{ store.confirmDelete.title }}</strong> will be removed from Echo-Term{{ store.confirmDelete.running ? ' and its running agent stopped' : '' }}, together with its saved activity and spoken-message history. This cannot be undone.</p>
+        <p><strong>{{ store.confirmDelete.title }}</strong> will be removed from uTerm{{ store.confirmDelete.running ? ' and its running agent stopped' : '' }}, together with its saved activity and spoken-message history. This cannot be undone.</p>
         <p class="muted">The agent's own conversation files (for example under ~/.claude or ~/.codex) are left on disk.</p>
         <div class="modal-actions">
           <button ref="cancelDelete" class="btn" @click="store.confirmDelete = null">Cancel</button>

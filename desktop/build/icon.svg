@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Echo-Term app icon: line-art cat on a graphite rounded square. Source for build/icon.png -->
+  <!-- uTerm app icon: line-art cat on a graphite rounded square. Source for build/icon.png -->
   <rect width="1024" height="1024" rx="224" fill="#17181b"/>
   <g transform="translate(-907.9 -422.2) scale(1.85)">
     <polygon points="767.5,394 745,395 696,410 600,320 584,408 590,482 572,537 600,570 672,634 767.5,685 863.0,634 935.0,570 963.0,537 945.0,482 951.0,408 935.0,320 839.0,410 790.0,395" fill="#101113" stroke="#dfe1e5" stroke-width="6" stroke-linejoin="round" opacity=".92"/>

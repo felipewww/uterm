@@ -125,7 +125,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geminiTtsModel: 'gemini-2.5-flash-preview-tts',
   geminiSttModel: 'gemini-2.5-flash',
   cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate',
-  englishCoach: true,
+  englishCoach: false, // opt-in: it sends what you type or say to OpenAI
   englishCoachModel: 'gpt-4o-mini'
 }
 

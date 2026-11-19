@@ -7,6 +7,7 @@ const emit = defineEmits<{ create: []; select: [id: string] }>()
 
 // Block-letter banner (the classic "ANSI Shadow" terminal font), built from glyphs so every row has the same width.
 const FONT: Record<string, string[]> = {
+  U: ['██╗   ██╗', '██║   ██║', '██║   ██║', '██║   ██║', '╚██████╔╝', ' ╚═════╝ '],
   E: ['███████╗', '██╔════╝', '█████╗  ', '██╔══╝  ', '███████╗', '╚══════╝'],
   C: [' ██████╗', '██╔════╝', '██║     ', '██║     ', '╚██████╗', ' ╚═════╝'],
   H: ['██╗  ██╗', '██║  ██║', '███████║', '██╔══██║', '██║  ██║', '╚═╝  ╚═╝'],
@@ -15,7 +16,9 @@ const FONT: Record<string, string[]> = {
   R: ['██████╗ ', '██╔══██╗', '██████╔╝', '██╔══██╗', '██║  ██║', '╚═╝  ╚═╝'],
   M: ['███╗   ███╗', '████╗ ████║', '██╔████╔██║', '██║╚██╔╝██║', '██║ ╚═╝ ██║', '╚═╝     ╚═╝']
 }
-const BANNER = Array.from({ length: 6 }, (_, row) => [...'ECHOTERM'].map((ch) => FONT[ch]?.[row] ?? '').join('')).join('\n')
+const BANNER = Array.from({ length: 6 }, (_, row) => [...'UTERM'].map((ch) => FONT[ch]?.[row] ?? '').join('')).join('\n')
+
+const COLS = Math.max(...BANNER.split('\n').map((l) => l.length))
 
 const recent = computed(() => store.sessions.filter((s) => !s.archivedAt).sort((a, b) => b.lastActivityAt - a.lastActivityAt).slice(0, 5))
 const returning = computed(() => recent.value.length > 0)
@@ -35,7 +38,7 @@ const shortDir = (p: string) => {
   <div class="welcome">
     <div class="welcome-inner">
       <div class="brand">
-        <pre class="banner" aria-label="Echo-Term">{{ BANNER }}</pre>
+        <pre class="banner" aria-label="uTerm" :style="{ '--cols': COLS }">{{ BANNER }}</pre>
         <p class="tagline">Voice-enabled workspace for your coding agents</p>
       </div>
 

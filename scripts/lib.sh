@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for the Echo-Term scripts. Never installs system packages and never calls sudo.
+# Shared helpers for the uTerm scripts. Never installs system packages and never calls sudo.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"

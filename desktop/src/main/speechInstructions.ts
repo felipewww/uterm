@@ -6,7 +6,9 @@ export const SPEECH_INSTRUCTIONS = `VOICE INTERFACE RULES. Your replies are read
 4. Expressive tags: the voice performs these instead of reading them: [chuckle] [laugh] [sigh] [gasp] [groan] [cough] [clearthroat] [sniff] [shush] [happy] [surprised] [whispering] [dramatic] [sarcastic]. Use one in most replies when it fits the mood, but subtly: never more than two per reply, placed right before the words they colour. Good news or success: [happy]. Something light or funny: [chuckle]. A setback or bad news: [sigh]. Something unexpected: [surprised]. For long replies put the tags inside the <voice> block and keep the main text clean; for short plain replies put them directly in the text. Never use tags inside code, commands, file paths or technical detail, and never explain them.`
 
 /** First line of the priming message sent to agents that have no system-prompt flag (Kiro); the Activity hides this message. */
-export const VOICE_SETUP_MARKER = '[Echo-Term voice setup]'
+export const VOICE_SETUP_MARKER = '[uTerm voice setup]'
+/** Sessions started before the rename carry the old marker in their logs. */
+export const LEGACY_VOICE_SETUP_MARKER = '[Echo-Term voice setup]'
 
 /** Kiro has no per-process system prompt, so the instructions go in as the first message; the agent answers with a short greeting. */
 export function voiceSetupPrompt(instructions: string): string {

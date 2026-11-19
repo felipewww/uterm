@@ -48,9 +48,9 @@ describe('EnglishCoach', () => {
     expect(JSON.parse(fetchImpl.mock.calls[0]![1]!.body as string).model).toBe('gpt-5-mini')
   })
   it('is only available when switched on and a key exists', () => {
-    expect(setup().coach.available()).toBe(true)
-    expect(setup({ englishCoach: false }).coach.available()).toBe(false)
-    expect(setup({}, null).coach.available()).toBe(false)
+    expect(setup({ englishCoach: true }).coach.available()).toBe(true)
+    expect(setup().coach.available()).toBe(false) // opt-in: off by default, because it sends what you type to OpenAI
+    expect(setup({ englishCoach: true }, null).coach.available()).toBe(false)
   })
   it('explains failures without leaking the key', async () => {
     await expect(setup({}, null).coach.improve('hi')).rejects.toThrow(/ECHO_TERM_OPENAI_API_KEY/)

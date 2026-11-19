@@ -3,7 +3,7 @@
 //
 //  claude: writes ~/.local/state/echo-term/claude-hooks.settings.json (passed to Claude via --settings).
 //          Your ~/.claude/settings.json is never modified.
-//  codex:  merges Echo-Term entries into ~/.codex/hooks.json, preserving every other hook.
+//  codex:  merges uTerm entries into ~/.codex/hooks.json, preserving every other hook.
 //          Entries are recognised by their command path; install twice = no duplicates.
 //          Codex requires you to trust new hooks once: run `/hooks` inside Codex and approve.
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
@@ -30,7 +30,7 @@ function atomicWrite(path, text) {
   renameSync(tmp, path)
 }
 
-const isOurs = (h) => typeof h?.command === 'string' && (h.command.includes(MARK) || h.command.includes(codexScript))
+const isOurs = (h) => typeof h?.command === 'string' && (h.command.includes(MARK) || h.command.includes('uterm/hooks/') || h.command.includes(codexScript))
 
 function stripOurs(cfg) {
   const hooks = cfg.hooks ?? {}
@@ -68,11 +68,11 @@ if (cmd === 'install') {
   atomicWrite(claudeSettings, JSON.stringify(template('claude', claudeScript), null, 2) + '\n')
   console.log(`claude: wrote ${claudeSettings} (used via --settings; ~/.claude untouched)`)
   installCodex()
-  console.log(`codex:  merged Echo-Term hooks into ${codexHooks}. Run /hooks in Codex once to trust them.`)
+  console.log(`codex:  merged uTerm hooks into ${codexHooks}. Run /hooks in Codex once to trust them.`)
 } else if (cmd === 'uninstall') {
   rmSync(claudeSettings, { force: true })
   uninstallCodex()
-  console.log('removed Echo-Term hooks (other hooks preserved)')
+  console.log('removed uTerm hooks (other hooks preserved)')
 } else if (cmd === 'status') {
   const c = existsSync(claudeSettings)
   let x = false

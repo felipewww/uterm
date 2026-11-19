@@ -1,5 +1,5 @@
 import type { EventDraft } from '@shared/events'
-import { VOICE_SETUP_MARKER } from '../speechInstructions'
+import { LEGACY_VOICE_SETUP_MARKER, VOICE_SETUP_MARKER } from '../speechInstructions'
 
 /**
  * Read-only interpretation of Kiro CLI session logs (~/.kiro/sessions/cli/<id>.jsonl), verified against kiro-cli 2.34.
@@ -27,7 +27,7 @@ export class KiroTranscriptParser {
       this.turnId = typeof d.message_id === 'string' ? d.message_id : this.turnId
       this.pendingTools.clear()
       const prompt = textOf(d.content)
-      if (prompt.startsWith(VOICE_SETUP_MARKER)) return [] // Echo-Term's own priming message: not something the user typed
+      if (prompt.startsWith(VOICE_SETUP_MARKER) || prompt.startsWith(LEGACY_VOICE_SETUP_MARKER)) return [] // uTerm's own priming message: not something the user typed
       return prompt ? [{ type: 'USER_PROMPT_SUBMITTED', timestamp: ts, turnId: this.turnId, payload: { prompt } }] : []
     }
 

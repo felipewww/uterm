@@ -7,7 +7,7 @@ import { MemorySessionRepo } from '../src/main/db/memoryStore'
 import { EventBus } from '../src/main/events/eventBus'
 import { PtyManager, type PtyProcess, type SpawnSpec } from '../src/main/pty/ptyManager'
 import { SessionManager } from '../src/main/sessionManager'
-import { DEFAULT_SETTINGS, type SessionView } from '../src/shared/types'
+import { DEFAULT_SETTINGS, type AgentType, type SessionView } from '../src/shared/types'
 
 class FakePty implements PtyProcess {
   pid = Math.floor(Math.random() * 1e5)
@@ -29,7 +29,7 @@ function setup() {
   const pty = new PtyManager((spec) => { const proc = new FakePty(); procs.push({ spec, proc }); return proc }, ptyHooks)
   const observers: Array<{ hooks: unknown[]; ctx: Parameters<AgentAdapter['createObserver']>[0] }> = []
   const launches: Array<{ native: string | null }> = []
-  const adapter = (type: 'claude' | 'codex'): AgentAdapter => ({
+  const adapter = (type: AgentType): AgentAdapter => ({
     type, label: type, capabilities: { preassignedSessionId: false, intermediateMessages: 'none', permissionRequests: 'none', interactiveQuestions: 'none', notes: [] },
     detect: async () => ({ installed: true, path: `/bin/${type}`, version: '1' }),
     buildLaunch: async (i) => { launches.push({ native: i.nativeSessionId }); return { file: `/bin/${type}`, args: i.nativeSessionId ? ['resume', i.nativeSessionId] : [], env: { ECHO_TERM_SESSION_ID: i.sessionKey } } },
@@ -39,7 +39,7 @@ function setup() {
   const persistenceErrors: string[] = []
   const repo = new MemorySessionRepo()
   const deps = {
-    repo, pty, bus: new EventBus(), adapters: { claude: adapter('claude'), codex: adapter('codex') },
+    repo, pty, bus: new EventBus(), adapters: { claude: adapter('claude'), codex: adapter('codex'), kiro: adapter('kiro') },
     socketPath: '/tmp/x.sock', settings: () => DEFAULT_SETTINGS, speechInstructions: () => null,
     onViewChanged: (v: SessionView) => views.push(v), onPersistenceError: (m: string) => persistenceErrors.push(m)
   }

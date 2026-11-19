@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { AGENT_LABELS } from '@shared/types'
 import { selected, store } from '../store'
 
 const emit = defineEmits<{ settings: [] }>()
@@ -16,7 +17,7 @@ async function stopAudio() { await window.echo.voice.stopPlayback() }
     <div class="card-title">
       <i class="dot" :class="s.runtimeState.toLowerCase()"></i>
       <strong class="card-name">{{ s.title }}</strong>
-      <span class="agent-tag" :class="s.agentType">{{ s.agentType === 'claude' ? 'Claude Code' : 'Codex CLI' }}</span>
+      <span class="agent-tag" :class="s.agentType">{{ AGENT_LABELS[s.agentType].label }}</span>
       <span class="card-path" :title="s.workingDirectory">{{ dir }}</span>
     </div>
 

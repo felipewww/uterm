@@ -9,7 +9,7 @@ export interface ActivityItem {
   spoken?: boolean
 }
 export interface Notice { id: number; level: 'info' | 'warn' | 'error'; message: string }
-export interface AgentInfo { installed: boolean; version?: string }
+export interface AgentInfo { installed: boolean; version?: string; path?: string }
 
 export const store = reactive({
   sessions: [] as SessionView[],

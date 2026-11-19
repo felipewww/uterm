@@ -39,6 +39,22 @@ Codex hooks exist (`~/.codex/hooks.json`) but **require a one-time trust review 
 `SessionStart`, `PermissionRequest`, `Stop` entries (idempotent merge, backup, clean uninstall — verified against a temp
 `CODEX_HOME`) and does not use `--dangerously-bypass-hook-trust`.
 
+## 4b. Kiro CLI — PASS via session-log tailing (kiro-cli 2.34, Linux)
+Run live (`tests/smoke/kiro-smoke.cjs`, real `kiro-cli chat` in a PTY, one no-tool prompt, scratch directory):
+- Starting a session creates `~/.kiro/sessions/cli/<id>.json|.jsonl|.lock|.history` within ~2.5 s. `<id>.json` carries `session_id`,
+  `cwd`, `created_at`, `title`; `.lock` carries the process pid. New sessions are discovered by creation time + `cwd`, like Codex.
+- `<id>.jsonl` is one `{version, kind, data}` per line: `Prompt`, `AssistantMessage` (content blocks `thinking`/`text`/`toolUse`) and
+  `ToolResults`. A turn ends on an `AssistantMessage` without `toolUse`; text before a tool call is progress. Parsed by
+  `KiroTranscriptParser`; checked against two real logs (8-message tool session: 1 prompt, 7 progress, 7 tools, 1 final) and a
+  synthetic fixture (`tests/fixtures/kiro-session.jsonl`, same structure, invented content).
+- `kiro-cli chat --resume-id <id>` reuses the same session files (no new `.json`) and restores the conversation: Resume tails from the end.
+- No workspace-trust prompt appeared in a scratch directory.
+- **Not detectable:** permission prompts and cancelled turns are not written to the log. Kiro hooks (custom agent config) and ACP
+  (`kiro-cli acp`) exist but were not used: a custom agent would change the user's Kiro behaviour, and ACP replaces the CLI UI.
+  `~/.kiro` is read-only for Echo-Term.
+- Detection: `kiro-cli` is looked up in PATH **and** the usual install folders (`~/.local/bin`, `/opt/homebrew/bin`, …) because a
+  GUI-launched app does not inherit the shell PATH (matters on macOS). Covered by unit tests; not run on macOS.
+
 ## 5. Native session id capture and resume — PASS (Claude), partial (Codex)
 - Claude: id pre-assigned; the app was restarted, the persisted session showed `CLOSED` (runtime state is never persisted),
   and **Resume** ran `claude --resume <id>` in the stored directory and restored the same conversation.
@@ -84,5 +100,6 @@ Bugs found and fixed through this testing: IPC handlers registered after the win
 - Claude `PermissionRequest`, `Notification`, `AskUserQuestion`, `StopFailure`, `PostToolUseFailure` payloads live
   (implemented from the official docs, unit-tested with synthetic payloads).
 - Codex hooks (trust flow), Codex permission detection, `codex resume` live, Codex App Server (docs only; not used).
+- Kiro: tool-using turns live inside Echo-Term (only parsed from existing logs), the V3 engine (`--v3`/TUI), macOS paths, permission detection (not possible from the log).
 - Multi-session background speaking with real audio, global mute, the listen-again buttons in Activity, VS Code button, window-focus transitions.
 - AppImage/deb artifacts (only `electron-builder --linux dir` was built and launched), macOS, GPU profile.

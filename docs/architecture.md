@@ -3,7 +3,7 @@
 ```
 Electron Renderer (Vue 3 + xterm.js)  ── IPC (contextIsolation, restricted preload, zod-validated) ──  Electron Main
    sessions · terminals · activity · voice bar · audio playback                    │
-                                                                                    ├─ PtyManager ── node-pty ── claude / codex (native, on the host)
+                                                                                    ├─ PtyManager ── node-pty ── claude / codex / kiro-cli (native, on the host)
                                                                                     ├─ AgentAdapters (Claude, Codex) → AgentObserver
                                                                                     ├─ HookServer (Unix socket, 0600) ← hooks/*/hook.mjs  ┐ structured
                                                                                     ├─ Codex rollout tailer (read-only)                    ┘ channel

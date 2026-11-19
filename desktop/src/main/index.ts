@@ -8,6 +8,7 @@ import { schemas } from '@shared/ipc'
 import { DEFAULT_SETTINGS, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
+import { KiroAdapter } from './agents/kiro'
 import { dbConfigFromEnv, findRepoRoot, loadEnv, socketPath } from './config'
 import { migrate } from './db/migrate'
 import { EventStore, SettingsStore, VoiceProfileStore } from './db/miscStores'
@@ -85,7 +86,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   let dbWarned = false
   const sessions: SessionManager = new SessionManager({
     repo, pty, bus, socketPath: socketPath(),
-    adapters: { claude: new ClaudeCodeAdapter(repoRoot), codex: new CodexAdapter() },
+    adapters: { claude: new ClaudeCodeAdapter(repoRoot), codex: new CodexAdapter(), kiro: new KiroAdapter() },
     settings: () => settings,
     speechInstructions: () => (settings.injectSpeechInstructions ? SPEECH_INSTRUCTIONS : null),
     onViewChanged: (v: SessionView) => send('session:view', { ...v, speaking: v.id === speakingSessionId }),
@@ -220,9 +221,9 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
 
   ipcMain.handle('status:get', async (): Promise<ServiceStatus & { agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
-    const [s, t, claude, codex] = await Promise.all([stt.status(), tts.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect()])
-    return { stt: s.up, tts: t.up, ttsReady: t.ready, db: dbOk, agents: { claude, codex },
-      capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities } }
+    const [s, t, claude, codex, kiro] = await Promise.all([stt.status(), tts.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect(), new KiroAdapter().detect()])
+    return { stt: s.up, tts: t.up, ttsReady: t.ready, db: dbOk, agents: { claude, codex, kiro },
+      capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities, kiro: new KiroAdapter().capabilities } }
   })
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, p) => { clipboard.writeText(parse(schemas.text, p).text) })

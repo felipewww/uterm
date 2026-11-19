@@ -28,7 +28,7 @@ Goal: one visual language, and new themes that cost one CSS file. Shipped themes
 - Text: `--text-primary`, `--text-secondary`, `--text-tertiary`, `--text-on-accent`, `--text-on-warning`, `--text-on-danger`
 - Accent: `--accent`, `--accent-hover`, `--accent-text`, `--accent-soft`, `--accent-outline`, `--accent-alt`
 - Status: `--success`, `--success-soft`, `--warning`, `--warning-soft`, `--warning-outline`, `--danger`, `--danger-soft`, `--danger-solid`, `--danger-solid-hover`
-- Agent identity: `--agent-claude`, `--agent-codex`; mascot: `--mascot-eye`
+- Agent identity: `--agent-claude`, `--agent-codex`, `--agent-kiro`
 - Effects: `--shadow-island`, `--shadow-pop`, `--shadow-modal`, `--overlay`, `--overlay-sunken`, `--scrollbar`, `--scrollbar-hover`, `--mic-gradient`, `--mic-rec-gradient`
 - Terminal: `--term-bg`, `--term-fg`, `--term-cursor`, `--term-selection`, and the 16 `--ansi-*` colors
 

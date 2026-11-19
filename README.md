@@ -1,12 +1,12 @@
 # Echo-Term
 
-A local-first desktop workspace for talking to coding agents. It keeps the **real interactive Claude Code and Codex CLIs**
+A local-first desktop workspace for talking to coding agents. It keeps the **real interactive Claude Code, Codex and Kiro CLIs**
 in embedded terminals, and adds named/resumable sessions, voice input (whisper.cpp) and spoken updates (Chatterbox Turbo),
 with no extra paid APIs and no extra LLM. Linux (Ubuntu) first; macOS later.
 
 ## Quick start (Ubuntu)
 Prerequisites (installed by you; scripts never run sudo): Node.js ≥ 20, Docker + Compose plugin (your user in the `docker`
-group), `build-essential` (for node-pty), Claude Code and/or Codex CLI already logged in, VS Code `code` on PATH (optional).
+group), `build-essential` (for node-pty), at least one of Claude Code, Codex CLI or Kiro CLI already logged in (the app detects which ones are installed, including in `~/.local/bin` and Homebrew folders), VS Code `code` on PATH (optional).
 
 ```bash
 ./scripts/setup.sh    # checks prerequisites, .env, npm install, builds images, downloads Whisper, starts services, migrations, hooks
@@ -21,8 +21,8 @@ Desktop scripts (`cd desktop`): `npm run dev | build | test | lint | typecheck |
 Benchmarks: `node scripts/benchmark-audio.mjs`. Real-CLI smoke test: see `desktop/tests/smoke/agent-smoke.cjs`.
 
 ## Using it
-- **＋** creates a session (agent, title, folder picker) or imports an existing Claude/Codex conversation. Double-click a title to rename.
-- Closing a session ends only its process; **Resume** later runs `claude --resume <id>` / `codex resume <id>` in the stored folder.
+- **＋** creates a session (agent, title, folder picker) or imports an existing Claude/Codex/Kiro conversation. Double-click a title to rename.
+- Closing a session ends only its process; **Resume** later runs `claude --resume <id>` / `codex resume <id>` / `kiro-cli chat --resume-id <id>` in the stored folder.
 - Mic button or `Ctrl+Shift+Space` records → local transcription → edit → **Send** (to the session that was selected when you started recording).
 - Voice modes per session, foreground and background independently: **Silent**, **Essential** (questions/permissions/blockers),
   **Balanced** (+ final results), **Conversational** (+ progress). Defaults: foreground Balanced, background Silent.

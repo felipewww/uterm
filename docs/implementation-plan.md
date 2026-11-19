@@ -6,6 +6,7 @@
 | 1 Infra + terminal workspace | Done | Compose (MySQL/STT/TTS), migrations, Electron, xterm/node-pty, multi-session, titles, persistence, resume, import |
 | 2 Structured events | Done (Claude), partial (Codex) | Event bus, hooks, reorder, activity panel, attention; Codex permissions/questions limited |
 | 3 Voice input | Implemented, mic path untested | Recorder, shortcut, STT, editable preview, safe submit |
+| Agents | Done | Claude Code (hooks), Codex CLI (transcript + hooks), Kiro CLI (transcript). Installed CLIs are auto-detected (PATH + usual install folders). |
 | 4 Voice output | Done | Chatterbox, profiles, per-session voice, 4 modes × fg/bg, global queue, listen-again from Activity, stop |
 | 5 Stabilization | Mostly done | 86 tests, scripts, docs, Linux `dir` package; AppImage/deb not built |
 

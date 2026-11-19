@@ -1,5 +1,11 @@
-export type AgentType = 'claude' | 'codex'
-export const AGENT_TYPES: readonly AgentType[] = ['claude', 'codex']
+export type AgentType = 'claude' | 'codex' | 'kiro'
+export const AGENT_TYPES: readonly AgentType[] = ['claude', 'codex', 'kiro']
+/** Display names: `label` for headers and pickers, `short` for dense rows. */
+export const AGENT_LABELS: Record<AgentType, { label: string; short: string }> = {
+  claude: { label: 'Claude Code', short: 'Claude' },
+  codex: { label: 'Codex CLI', short: 'Codex' },
+  kiro: { label: 'Kiro CLI', short: 'Kiro' }
+}
 
 export type RuntimeState =
   | 'STARTING' | 'IDLE' | 'WORKING' | 'WAITING_FOR_INPUT'

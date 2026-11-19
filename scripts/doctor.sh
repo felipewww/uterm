@@ -29,6 +29,7 @@ case "$r" in *'"ready":true'*) ok "TTS ready (Chatterbox Turbo loaded: $r)";; ''
 echo "— Agents and native dependencies"
 have claude && ok "Claude Code $(claude --version 2>&1 | head -1)" || warn "Claude Code not on PATH"
 have codex  && ok "Codex $(codex --version 2>&1 | head -1)" || warn "Codex CLI not on PATH"
+have kiro-cli && ok "Kiro CLI $(kiro-cli --version 2>&1 | head -1)" || warn "Kiro CLI not on PATH (optional)"
 have code   && ok "VS Code 'code' command found" || warn "'code' not on PATH (Open in VS Code will not work)"
 if [ -d desktop/node_modules/node-pty ]; then
   if ls desktop/node_modules/node-pty/build/Release/pty.node >/dev/null 2>&1 || ls desktop/node_modules/node-pty/prebuilds/*/pty.node >/dev/null 2>&1; then ok "node-pty native module built"; else bad "node-pty not built: cd desktop && npm run rebuild"; fi

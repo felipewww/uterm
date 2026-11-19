@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import type { SessionView } from '@shared/types'
+import { AGENT_LABELS, type SessionView } from '@shared/types'
 import { notify, store } from '../store'
 
 const emit = defineEmits<{ select: [id: string]; create: []; settings: []; home: [] }>()
@@ -38,7 +38,7 @@ const shortDir = (p: string) => {
   const parts = p.replace(/^\/home\/[^/]+/, '~').split('/').filter(Boolean)
   return parts.length > 3 ? `…/${parts.slice(-2).join('/')}` : parts.join('/') || '/'
 }
-const agentName = (s: SessionView) => (s.agentType === 'claude' ? 'Claude' : 'Codex')
+const agentName = (s: SessionView) => AGENT_LABELS[s.agentType].short
 const tip = (s: SessionView) => `${s.title}\n${agentName(s)} · ${s.workingDirectory}\n${stateLabel[s.runtimeState]}${s.muted ? ' · muted' : ''}`
 
 async function startEdit(s: SessionView) {

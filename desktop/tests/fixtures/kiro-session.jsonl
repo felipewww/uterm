@@ -1,0 +1,4 @@
+{"version": "v1", "kind": "Prompt", "data": {"message_id": "p-1", "content": [{"kind": "text", "data": "List the files in this folder"}], "meta": {"timestamp": 1793039677}}}
+{"version": "v1", "kind": "AssistantMessage", "data": {"message_id": "a-1", "content": [{"kind": "thinking", "data": {"text": "", "signature": null}}, {"kind": "text", "data": "I'll look at the folder first."}, {"kind": "toolUse", "data": {"toolUseId": "tu-1", "name": "shell", "input": {"command": "ls -la"}}}]}}
+{"version": "v1", "kind": "ToolResults", "data": {"message_id": "r-1", "content": [{"kind": "toolResult", "data": {"toolUseId": "tu-1", "content": [{"kind": "text", "data": "total 0"}], "status": "success"}}]}}
+{"version": "v1", "kind": "AssistantMessage", "data": {"message_id": "a-2", "content": [{"kind": "thinking", "data": {"text": "", "signature": null}}, {"kind": "text", "data": "The folder is empty."}]}}

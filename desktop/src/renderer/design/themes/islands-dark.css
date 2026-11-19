@@ -29,8 +29,7 @@
  
 
   /* agent identity colors */
-  --mascot-eye: #ffd60a;
-  --agent-claude: #e8895a; --agent-codex: #4cc9a8;
+  --agent-claude: #e8895a; --agent-codex: #4cc9a8; --agent-kiro: #b79cff;
 
   /* effects */
   --shadow-island: 0 4px 16px rgba(0,0,0,.35);

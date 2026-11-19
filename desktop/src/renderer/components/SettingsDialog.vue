@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { VOICE_MODES, type AppSettings, type VoiceMode } from '@shared/types'
+import { AGENT_LABELS, AGENT_TYPES, VOICE_MODES, type AgentType, type AppSettings, type VoiceMode } from '@shared/types'
 import { shortcutFromEvent } from '../shortcut'
 import { notify, selected, store } from '../store'
 import { toWav16k } from '../composables/useRecorder'
@@ -138,7 +138,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <h3 class="pane-title">Sessions</h3>
             <div class="field">
 <div class="field-text"><strong>Default agent</strong><small>Preselected in the New session dialog</small></div>
-              <select v-model="g.defaultAgent"><option value="claude">Claude Code</option><option value="codex">Codex CLI</option></select>
+              <select v-model="g.defaultAgent"><option v-for="t in AGENT_TYPES" :key="t" :value="t" :disabled="!!store.agents[t] && !store.agents[t]!.installed">{{ AGENT_LABELS[t].label }}{{ store.agents[t] && !store.agents[t]!.installed ? ' — not installed' : '' }}</option></select>
 </div>
           </template>
 
@@ -221,7 +221,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <div class="field"><div class="field-text"><strong>TTS service URL</strong></div><input v-model="g.ttsUrl" /></div>
             <h3 class="pane-title">Agent integration</h3>
             <div v-for="(c, name) in store.capabilities" :key="name" class="cap">
-              <strong>{{ name === 'claude' ? 'Claude Code' : 'Codex CLI' }}</strong>
+              <strong>{{ AGENT_LABELS[name as AgentType].label }}</strong>
               <ul class="notes"><li v-for="n in c.notes" :key="n">{{ n }}</li></ul>
             </div>
           </template>

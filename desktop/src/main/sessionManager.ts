@@ -5,6 +5,7 @@ import type { AgentAdapter, AgentObserver } from './agents/adapter'
 import type { SessionRepository } from './db/sessionStore'
 import type { EventBus } from './events/eventBus'
 import type { PtyManager } from './pty/ptyManager'
+import { searchPath } from './agents/exec'
 import { ReorderBuffer } from './hooks/reorderBuffer'
 import { nextState, needsAttention } from './sessionState'
 
@@ -310,5 +311,6 @@ function cleanEnv(): Record<string, string> {
     if (k.startsWith('ECHO_TERM_DB_')) continue // never hand DB credentials to agents
     out[k] = v
   }
+  out.PATH = searchPath(out.PATH ?? '') // agents (and the tools they start) must find each other even when launched from a GUI
   return out
 }

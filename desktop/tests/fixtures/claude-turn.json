@@ -1,0 +1,150 @@
+[
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4982736529241,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "hook_event_name": "SessionStart",
+   "source": "startup",
+   "model": "claude-sonnet-5-5"
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4991395236334,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "permission_mode": "auto",
+   "hook_event_name": "UserPromptSubmit",
+   "prompt": "First, tell me in one sentence what you are about to do. Then read the file hello.txt with the Read tool. Then tell me its contents in one sentence."
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4992671999958,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "permission_mode": "auto",
+   "effort": {
+    "level": "medium"
+   },
+   "hook_event_name": "PreToolUse",
+   "tool_name": "Read",
+   "tool_input": {
+    "file_path": "/tmp/echo-smoke-fixture/hello.txt"
+   },
+   "tool_use_id": "toolu_015T6scLKuuSGuETSszD1f7J"
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4992689785531,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "hook_event_name": "MessageDisplay",
+   "turn_id": "27a1266b-958f-43fc-843c-10bb808f0235",
+   "message_id": "483a6158-5049-4bb4-ac19-3263ac3f24b3",
+   "index": 0,
+   "final": true,
+   "delta": "I'm going to read `hello.txt` in the working directory using the Read tool."
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4992707981338,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "permission_mode": "auto",
+   "effort": {
+    "level": "medium"
+   },
+   "hook_event_name": "PostToolUse",
+   "tool_name": "Read",
+   "tool_input": {
+    "file_path": "/tmp/echo-smoke-fixture/hello.txt"
+   },
+   "tool_response": {
+    "type": "text",
+    "file": {
+     "filePath": "/tmp/echo-smoke-fixture/hello.txt",
+     "content": "echo-term-fixture-host\n",
+     "numLines": 2,
+     "startLine": 1,
+     "totalLines": 2
+    }
+   },
+   "tool_use_id": "toolu_015T6scLKuuSGuETSszD1f7J",
+   "duration_ms": 20
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4993456655960,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "hook_event_name": "MessageDisplay",
+   "turn_id": "27a1266b-958f-43fc-843c-10bb808f0235",
+   "message_id": "98579335-2ded-4298-84d8-6806b7af9458",
+   "index": 0,
+   "final": true,
+   "delta": "The file `hello.txt` contains a single line: `echo-term-fixture-host`."
+  }
+ },
+ {
+  "v": 1,
+  "agent": "claude",
+  "sessionKey": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+  "seq": 4993456747371,
+  "payload": {
+   "session_id": "8c4a97c5-7de3-4cc6-8458-742c29b9e46b",
+   "transcript_path": "/home/user/.claude-me/projects/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b.jsonl",
+   "cwd": "/tmp/echo-smoke-fixture",
+   "scratchpad_dir": "/tmp/claude-1000/-tmp-echo-smoke-fixture/8c4a97c5-7de3-4cc6-8458-742c29b9e46b/scratchpad",
+   "prompt_id": "b6e832e7-44f2-4dc0-96fe-5d077fd7799e",
+   "permission_mode": "auto",
+   "effort": {
+    "level": "medium"
+   },
+   "hook_event_name": "Stop",
+   "stop_hook_active": false,
+   "last_assistant_message": "The file `hello.txt` contains a single line: `echo-term-fixture-host`.",
+   "background_tasks": [],
+   "session_crons": []
+  }
+ }
+]

@@ -1,0 +1,8 @@
+{
+  "description": "Echo-Term lifecycle forwarding (managed by hooks/install.mjs; safe to remove with `./scripts/install-hooks.sh uninstall`).",
+  "hooks": {
+    "SessionStart":      [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
+    "Stop":              [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }]
+  }
+}

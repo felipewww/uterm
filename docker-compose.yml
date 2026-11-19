@@ -1,0 +1,74 @@
+name: echo-term
+
+services:
+  mysql:
+    image: mysql:8.4.6
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?run scripts/setup.sh}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-echo_term}
+      MYSQL_USER: ${MYSQL_USER:-echo_term}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?run scripts/setup.sh}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-33306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # One-shot model downloader. Run by scripts/setup.sh: docker compose --profile setup run --rm stt-models
+  stt-models:
+    profiles: ["setup"]
+    build: ./services/stt
+    entrypoint: ["/bin/bash", "/opt/download-model.sh"]
+    environment:
+      STT_MODEL_FILE: ${STT_MODEL_FILE:-ggml-small.en.bin}
+    volumes:
+      - stt-models:/models
+
+  stt:
+    build: ./services/stt
+    restart: unless-stopped
+    environment:
+      STT_MODEL_FILE: ${STT_MODEL_FILE:-ggml-small.en.bin}
+      STT_THREADS: ${STT_THREADS:-6}
+    ports:
+      - "127.0.0.1:${STT_PORT:-18080}:8080"
+    volumes:
+      - stt-models:/models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  tts:
+    build: ./services/tts
+    restart: unless-stopped
+    environment:
+      TTS_DEVICE: ${TTS_DEVICE:-cpu}
+      TTS_TORCH_THREADS: ${TTS_TORCH_THREADS:-6}
+      HF_HOME: /models/hf
+      VOICES_DIR: /voices
+    ports:
+      - "127.0.0.1:${TTS_PORT:-18090}:8090"
+    volumes:
+      - tts-models:/models
+      - tts-voices:/voices
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8090/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
+volumes:
+  mysql-data:
+  stt-models:
+  tts-models:
+  tts-voices:

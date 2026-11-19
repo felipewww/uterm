@@ -1,0 +1,65 @@
+import { contextBridge, ipcRenderer } from 'electron'
+
+type Unsub = () => void
+const on = <T>(channel: string, cb: (payload: T) => void): Unsub => {
+  const h = (_e: unknown, payload: T) => cb(payload)
+  ipcRenderer.on(channel, h)
+  return () => ipcRenderer.removeListener(channel, h)
+}
+const call = (channel: string, payload?: unknown) => ipcRenderer.invoke(channel, payload)
+
+// Restricted bridge: only these named operations are reachable from the renderer.
+const api = {
+  sessions: {
+    list: () => call('sessions:list'),
+    create: (p: unknown) => call('sessions:create', p),
+    start: (p: unknown) => call('sessions:start', p),
+    listImportable: () => call('sessions:listImportable'),
+    importSession: (p: unknown) => call('sessions:import', p),
+    stop: (p: unknown) => call('sessions:stop', p),
+    rename: (p: unknown) => call('sessions:rename', p),
+    archive: (p: unknown) => call('sessions:archive', p),
+    mute: (p: unknown) => call('sessions:mute', p),
+    update: (p: unknown) => call('sessions:update', p),
+    select: (p: unknown) => call('sessions:select', p),
+    openInVscode: (p: unknown) => call('sessions:openInVscode', p),
+    activity: (p: unknown) => call('sessions:activity', p),
+    pickDirectory: () => call('dialog:pickDirectory')
+  },
+  pty: {
+    write: (p: unknown) => call('pty:write', p),
+    resize: (p: unknown) => call('pty:resize', p),
+    attach: (p: unknown) => call('pty:attach', p)
+  },
+  voice: {
+    transcribe: (wav: ArrayBuffer) => ipcRenderer.invoke('voice:transcribe', wav),
+    send: (p: unknown) => call('voice:send', p),
+    recording: (p: unknown) => call('voice:recording', p),
+    stopPlayback: () => call('voice:stop'),
+    replay: (p: unknown) => call('voice:replay', p),
+    preview: (p: unknown) => call('voice:preview', p),
+    list: () => call('voices:list'),
+    create: (name: string, wav: ArrayBuffer) => ipcRenderer.invoke('voices:create', { name, wav }),
+    remove: (p: unknown) => call('voices:delete', p),
+    audioEnded: (p: unknown) => call('audio:ended', p)
+  },
+  settings: { get: () => call('settings:get'), save: (p: unknown) => call('settings:save', p) },
+  status: { get: () => call('status:get') },
+  clipboard: { read: () => call('clipboard:read'), write: (p: unknown) => call('clipboard:write', p) },
+  events: {
+    onPtyData: (cb: (p: { id: string; data: string }) => void) => on('pty:data', cb),
+    onPtyExit: (cb: (p: { id: string }) => void) => on('pty:exit', cb),
+    onSessionView: (cb: (p: unknown) => void) => on('session:view', cb),
+    onActivity: (cb: (p: unknown) => void) => on('activity:event', cb),
+    onAudioPlay: (cb: (p: { requestId: string; data: ArrayBuffer; speed: number }) => void) => on('audio:play', cb),
+    onAudioStop: (cb: () => void) => on('audio:stop', cb),
+    onAudioState: (cb: (p: { speakingSessionId: string | null; queued: number }) => void) => on('audio:state', cb),
+    onNotice: (cb: (p: { level: 'info' | 'warn' | 'error'; message: string }) => void) => on('notice', cb),
+    onSettings: (cb: (p: unknown) => void) => on('settings:changed', cb),
+    onConfirmQuit: (cb: () => void) => on('app:confirm-quit', cb)
+  },
+  app: { confirmQuit: () => call('app:quit-confirmed') }
+}
+
+contextBridge.exposeInMainWorld('echo', api)
+export type EchoApi = typeof api

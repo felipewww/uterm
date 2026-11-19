@@ -224,7 +224,7 @@ describe('SessionManager', () => {
     t.mgr.handleHook({ agent: 'claude', sessionKey: crypto.randomUUID(), payload: { hook_event_name: 'Stop' } })
     t.mgr.handleHook({ agent: 'codex', sessionKey: v.id, payload: { hook_event_name: 'Stop' } })
     t.mgr.handleHook({ agent: 'claude', sessionKey: v.id, seq: 1, payload: { hook_event_name: 'Stop' } })
-    await new Promise((r) => setTimeout(r, 300))
+    await new Promise((r) => setTimeout(r, 900)) // the reorder window is 200 ms; leave room for a loaded machine
     expect(t.observers[0]!.hooks).toHaveLength(1)
   })
 

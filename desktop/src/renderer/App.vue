@@ -9,6 +9,7 @@ import SessionSidebar from './components/SessionSidebar.vue'
 import SessionToolbar from './components/SessionToolbar.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import TerminalPane from './components/TerminalPane.vue'
+import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
@@ -66,8 +67,9 @@ onMounted(async () => {
     store.settings = await window.echo.settings.get()
     store.sessions = await window.echo.sessions.list()
     store.voices = await window.echo.voice.list()
-    const first = store.sessions.find((s) => s.running) ?? store.sessions.find((s) => !s.archivedAt)
-    if (first) await select(first.id)
+    // Fresh start: show the welcome screen. Only a reloaded window with agents still running goes straight to one.
+    const running = store.sessions.find((s) => s.running)
+    if (running) await select(running.id)
   } catch (err) {
     notify('error', `Startup problem: ${(err as Error).message}`)
   }
@@ -93,12 +95,13 @@ async function quit() {
 
 <template>
   <div class="app" :class="{ 'no-activity': !store.showActivity }" :style="{ '--sidebar-width': layout.sidebarW + 'px', '--activity-width': layout.activityW + 'px' }">
-    <SessionSidebar @select="select" @create="showNew = true" @settings="showSettings = true" />
+    <SessionSidebar @select="select" @home="select(null)" @create="showNew = true" @settings="showSettings = true" />
     <ResizeHandle label="Resize sessions panel" @resize="resizeSidebar" @reset="resetSidebar" />
     <main class="center">
       <section class="terminal-card">
         <SessionToolbar @settings="showSessionSettings = true" />
-        <TerminalPane />
+        <TerminalPane v-show="store.selectedId" />
+        <WelcomePanel v-if="!store.selectedId" @create="showNew = true" @select="select" />
       </section>
     </main>
     <template v-if="store.showActivity">

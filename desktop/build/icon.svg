@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Echo-Term app icon: line-art cat on a graphite rounded square. Source for build/icon.png -->
+  <rect width="1024" height="1024" rx="224" fill="#17181b"/>
+  <g transform="translate(-907.9 -422.2) scale(1.85)">
+    <polygon points="767.5,394 745,395 696,410 600,320 584,408 590,482 572,537 600,570 672,634 767.5,685 863.0,634 935.0,570 963.0,537 945.0,482 951.0,408 935.0,320 839.0,410 790.0,395" fill="#101113" stroke="#dfe1e5" stroke-width="6" stroke-linejoin="round" opacity=".92"/>
+    <g><path d="M572,588 Q630,578 684,590 M585,625 Q640,605 684,606 M610,659 Q650,640 676,632" fill="none" stroke="#dfe1e5" stroke-width="4" stroke-linecap="round" opacity=".85"/>
+      <path d="M649,502 L738,548 Q714,564 684,558 Q655,542 649,502 Z" fill="#ffd60a"/><polygon points="691,514 684,549 697,552" fill="#101113"/></g>
+    <g transform="translate(1535.0 0) scale(-1 1)"><path d="M572,588 Q630,578 684,590 M585,625 Q640,605 684,606 M610,659 Q650,640 676,632" fill="none" stroke="#dfe1e5" stroke-width="4" stroke-linecap="round" opacity=".85"/>
+      <path d="M649,502 L738,548 Q714,564 684,558 Q655,542 649,502 Z" fill="#ffd60a"/><polygon points="691,514 684,549 697,552" fill="#101113"/></g>
+    <polygon points="746,592 789,592 767.5,613" fill="#dfe1e5" stroke="#dfe1e5" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M767.5,613 V628" stroke="#dfe1e5" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

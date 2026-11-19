@@ -1,5 +1,6 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, session, shell } from 'electron'
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ZodType } from 'zod'
 import type { AnyAgentEvent } from '@shared/events'
@@ -246,9 +247,17 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   return { onFocusChange: () => voice.focusChanged(), hasRunning: () => sessions.runningCount() > 0 }
 }
 
+// Window icon. Must be small (<= 192 px): Chromium on X11 silently drops larger ones, leaving the generic gear icon.
+function appIcon(): Electron.NativeImage | undefined {
+  const p = app.isPackaged ? join(process.resourcesPath, 'icon-window.png') : join(app.getAppPath(), 'build/icon-window.png')
+  if (!existsSync(p)) return undefined
+  const img = nativeImage.createFromPath(p)
+  return img.isEmpty() ? undefined : img
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
-    width: 1440, height: 900, minWidth: 900, minHeight: 560, backgroundColor: '#1e1e1e', title: 'Echo-Term',
+    width: 1440, height: 900, minWidth: 900, minHeight: 560, backgroundColor: '#1e1e1e', title: 'Echo-Term', icon: appIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true

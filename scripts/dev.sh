@@ -16,5 +16,12 @@ cd desktop
 flag="$(sandbox_flag)"
 [ -z "$flag" ] || c_warn "Electron SUID sandbox not configured → running with --no-sandbox (dev only; see ./scripts/setup.sh)"
 export ECHO_TERM_ROOT="$ROOT"
+# On a Wayland session the window icon (BrowserWindow "icon") is ignored: Wayland takes it from an installed .desktop file,
+# which only exists for packaged builds. Running through XWayland in dev makes the cat icon show up.
+# Set ECHO_TERM_DEV_WAYLAND=1 to stay on native Wayland (generic icon).
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] && [ -z "${ECHO_TERM_DEV_WAYLAND:-}" ]; then
+  flag="$flag --ozone-platform=x11"
+  c_info "Wayland session: using XWayland in dev so the app icon is shown (ECHO_TERM_DEV_WAYLAND=1 to disable)"
+fi
 # electron-vite forwards arguments after -- to Electron
 exec npx electron-vite dev -- $flag

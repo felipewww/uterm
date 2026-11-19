@@ -40,6 +40,5 @@ async function resume() {
         <p v-if="startError" class="error-text">{{ startError }}</p>
       </div>
     </div>
-    <div v-if="!selected()" class="terminal-overlay"><div class="overlay-card"><h3>Echo-Term</h3><p class="muted">Select a session or create a new one.</p></div></div>
   </div>
 </template>

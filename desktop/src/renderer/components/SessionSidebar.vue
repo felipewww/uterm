@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import type { SessionView } from '@shared/types'
 import { notify, store } from '../store'
 
-const emit = defineEmits<{ select: [id: string]; create: []; settings: [] }>()
+const emit = defineEmits<{ select: [id: string]; create: []; settings: []; home: [] }>()
 const query = ref('')
 const showArchived = ref(false)
 const collapsed = reactive<Record<string, boolean>>({})
@@ -98,6 +98,9 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       <span class="brand">Sessions</span>
       <span class="head-count">{{ totalCount }}</span>
       <span class="head-tools">
+        <button class="tool-btn" :class="{ on: !store.selectedId }" title="Home" aria-label="Home" @click="emit('home')">
+          <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 7.75 8 3l5.5 4.75M4 6.75V13h8V6.75M6.75 13V9.75h2.5V13" /></svg>
+        </button>
         <button class="tool-btn" :class="{ on: showArchived }" :aria-pressed="showArchived" title="Show archived sessions" aria-label="Show archived sessions" @click="showArchived = !showArchived">
           <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3 5.5h10v7.25H3zM2.25 3.25h11.5V5.5H2.25zM6.5 8h3" /></svg>
         </button>

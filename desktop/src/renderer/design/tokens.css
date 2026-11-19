@@ -1,8 +1,9 @@
 /* Scale tokens: shared by every theme. Colors live in themes/*.css, never here. */
 :root {
-  --font-ui: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui: 'JetBrains Sans', 'Noto Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace;
-  --text-xs: 11px; --text-sm: 12px; --text-base: 13px; --text-md: 14px;
+  --text-xs: 12px; --text-sm: 13px; --text-base: 15px; --text-md: 16px;
+  --text-reading: 14px; /* long-form text: agent messages, transcription */
   --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
 
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px;
@@ -11,6 +12,11 @@
 
   --dur-fast: .12s; --dur-base: .2s;
   --z-modal: 50; --z-toast: 60;
+
+  /* flavor tokens: defaults give the flat "islands" look; a theme may override any of them (see carbon.css) */
+  --panel-bg: var(--surface-island); --panel-border: var(--ring); --panel-highlight: transparent;
+  --frame-pattern: none; --frame-pattern-size: 16px;
+  --label-font: var(--font-ui); --label-case: none; --label-tracking: 0;
 
   --sidebar-width: 290px; --activity-width: 340px;
 }

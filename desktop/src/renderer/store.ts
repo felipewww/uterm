@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import type { AnyAgentEvent } from '@shared/events'
 import { DEFAULT_SETTINGS, type AppSettings, type ServiceStatus, type SessionView, type VoiceProfile } from '@shared/types'
 
@@ -24,6 +24,22 @@ export const store = reactive({
   confirmQuit: false,
   showActivity: true
 })
+
+// Panel sizes, remembered per machine.
+export const PANEL_LIMITS = { sidebar: { min: 200, max: 520, def: 290 }, activity: { min: 260, max: 680, def: 340 } } as const
+const LAYOUT_KEY = 'echo-term.layout.v2'
+const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n))
+export const layout = reactive({ sidebarW: PANEL_LIMITS.sidebar.def as number, activityW: PANEL_LIMITS.activity.def as number })
+try {
+  const r = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') as Partial<typeof layout>
+  if (typeof r.sidebarW === 'number') layout.sidebarW = clamp(r.sidebarW, PANEL_LIMITS.sidebar.min, PANEL_LIMITS.sidebar.max)
+  if (typeof r.activityW === 'number') layout.activityW = clamp(r.activityW, PANEL_LIMITS.activity.min, PANEL_LIMITS.activity.max)
+} catch { /* storage unavailable: defaults */ }
+watch(layout, (l) => { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(l)) } catch { /* ignore */ } }, { deep: true })
+export const resizeSidebar = (d: number): void => { layout.sidebarW = clamp(layout.sidebarW + d, PANEL_LIMITS.sidebar.min, PANEL_LIMITS.sidebar.max) }
+export const resizeActivity = (d: number): void => { layout.activityW = clamp(layout.activityW - d, PANEL_LIMITS.activity.min, PANEL_LIMITS.activity.max) } // handle sits left of the panel
+export const resetSidebar = (): void => { layout.sidebarW = PANEL_LIMITS.sidebar.def }
+export const resetActivity = (): void => { layout.activityW = PANEL_LIMITS.activity.def }
 
 let noticeId = 0
 export function notify(level: Notice['level'], message: string, ttl = level === 'info' ? 8000 : 30000): void {

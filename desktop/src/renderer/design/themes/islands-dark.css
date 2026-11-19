@@ -1,5 +1,5 @@
 /* Theme: Islands Dark (default). A theme only defines these semantic tokens; see docs/design-system.md. */
-:root, :root[data-theme='islands-dark'] {
+:root[data-theme='islands-dark'] {
   color-scheme: dark;
 
   /* surfaces */
@@ -18,15 +18,18 @@
 
   /* accent */
   --accent: #3574f0; --accent-hover: #5b93ff; --accent-text: #5b93ff;
-  --accent-soft: rgba(53,116,240,.18); --accent-outline: rgba(91,147,255,.35); --accent-glow: rgba(53,116,240,.35);
+  --accent-soft: rgba(53,116,240,.18); --accent-outline: rgba(91,147,255,.35);
   --accent-alt: #c77dbb;
 
   /* status */
-  --success: #5fc97a; --success-glow: rgba(95,201,122,.6);
-  --warning: #e5b24f; --warning-soft: rgba(229,178,79,.14); --warning-outline: rgba(229,178,79,.5); --warning-glow: rgba(229,178,79,.7);
-  --danger: #f2685b; --danger-soft: rgba(242,104,91,.1); --danger-glow: rgba(242,104,91,.7);
+  --success: #5fc97a; --success-soft: rgba(95,201,122,.14);
+  --warning: #e5b24f; --warning-soft: rgba(229,178,79,.14); --warning-outline: rgba(229,178,79,.5);
+  --danger: #f2685b; --danger-soft: rgba(242,104,91,.1);
   --danger-solid: #8e3030; --danger-solid-hover: #a63a3a;
-  --info-glow: rgba(91,147,255,.7);
+ 
+
+  /* agent identity colors */
+  --agent-claude: #e8895a; --agent-codex: #4cc9a8;
 
   /* effects */
   --shadow-island: 0 4px 16px rgba(0,0,0,.35);

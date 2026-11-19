@@ -1,5 +1,6 @@
 /* Entry point. Order matters: scale tokens, themes, base, primitives, then feature layout. */
 @import './design/tokens.css';
+@import './design/themes/carbon.css';
 @import './design/themes/islands-dark.css';
 @import './design/themes/islands-light.css';
 @import './design/base.css';

@@ -1,0 +1,52 @@
+/* Theme: Carbon (default). Graphite panels, tight corners, cyan accent, mono micro-labels, subtle dot grid. No glow or light effects.. */
+:root[data-theme='carbon'] {
+  color-scheme: dark;
+
+  /* shape: tighter than islands. Pill radius is a small rounded rect here on purpose. */
+  --radius-xs: 2px; --radius-sm: 4px; --radius-md: 5px; --radius-lg: 6px; --radius-xl: 8px; --radius-pill: 4px;
+  --text-base: 15px;
+
+  /* flavor */
+  --panel-bg: var(--surface-island);
+  --panel-border: #2a2d33; --panel-highlight: transparent;
+  --frame-pattern: radial-gradient(rgba(255,255,255,.055) 1px, transparent 1.3px); --frame-pattern-size: 18px;
+  --label-font: var(--font-ui); --label-case: none; --label-tracking: 0;
+
+  /* surfaces */
+  --surface-frame: #0c0d0f; --surface-island: #17181b; --surface-sunken: #101113; --surface-raised: #202226; --surface-hover: #2a2c32;
+  --border-subtle: #30333a; --ring: #2a2d33; --divider: rgba(255,255,255,.06);
+
+  /* text */
+  --text-primary: #d9dce1; --text-secondary: #8b919b; --text-tertiary: #565b64;
+  --text-on-accent: #04141d; --text-on-warning: #1a1100; --text-on-danger: #ffffff;
+
+  /* accent: electric cyan */
+  --accent: #22b8f0; --accent-hover: #5cd0ff; --accent-text: #5cd0ff;
+  --accent-soft: rgba(34,184,240,.12); --accent-outline: rgba(70,200,255,.5);
+  --accent-alt: #b58cff;
+
+  /* status */
+  --success: #3ddc97; --success-soft: rgba(61,220,151,.12);
+  --warning: #ffb454; --warning-soft: rgba(255,180,84,.12); --warning-outline: rgba(255,180,84,.5);
+  --danger: #ff5c6c; --danger-soft: rgba(255,92,108,.1);
+  --danger-solid: #b3303e; --danger-solid-hover: #cc3a49;
+ 
+
+  --agent-claude: #ff9a62; --agent-codex: #55e0c8;
+
+  /* effects */
+  --shadow-island: 0 8px 28px rgba(0,0,0,.5);
+  --shadow-pop: 0 10px 32px rgba(0,0,0,.6);
+  --shadow-modal: 0 24px 70px rgba(0,0,0,.75);
+  --overlay: rgba(4,5,6,.68); --overlay-sunken: rgba(16,17,19,.92);
+  --scrollbar: #33363d; --scrollbar-hover: #4a4e57;
+  --mic-gradient: linear-gradient(135deg, #3cc6ff, #1189c9);
+  --mic-rec-gradient: linear-gradient(135deg, #ff7a6b, #d9402f);
+
+  /* terminal */
+  --term-bg: #101113; --term-fg: #cfd3da; --term-cursor: #5cd0ff; --term-selection: #1d3a4c;
+  --ansi-black: #1a1c20; --ansi-red: #ff5c6c; --ansi-green: #3ddc97; --ansi-yellow: #ffb454;
+  --ansi-blue: #5aa9ff; --ansi-magenta: #c58cff; --ansi-cyan: #4dd8e6; --ansi-white: #cfd3da;
+  --ansi-bright-black: #5a606b; --ansi-bright-red: #ff8591; --ansi-bright-green: #6bf0b5; --ansi-bright-yellow: #ffd08a;
+  --ansi-bright-blue: #8bc3ff; --ansi-bright-magenta: #dcb4ff; --ansi-bright-cyan: #86ecf6; --ansi-bright-white: #ffffff;
+}

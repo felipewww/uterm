@@ -4,15 +4,15 @@ import type { SessionView } from '@shared/types'
 import type { AnyAgentEvent } from '@shared/events'
 import ActivityPanel from './components/ActivityPanel.vue'
 import NewSessionDialog from './components/NewSessionDialog.vue'
+import ResizeHandle from './components/ResizeHandle.vue'
 import SessionSidebar from './components/SessionSidebar.vue'
 import SessionToolbar from './components/SessionToolbar.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import TerminalPane from './components/TerminalPane.vue'
-import VoiceBar from './components/VoiceBar.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { isRecording, startRecording, stopRecording } from './composables/useRecorder'
 import { matchesShortcut } from './shortcut'
-import { ingestEvent, notify, store, upsertSession } from './store'
+import { ingestEvent, layout, notify, resetActivity, resetSidebar, resizeActivity, resizeSidebar, store, upsertSession } from './store'
 import { writeTo } from './terminals'
 
 const showNew = ref(false)
@@ -91,12 +91,12 @@ async function quit() {
 </script>
 
 <template>
-  <div class="app" :class="{ 'no-activity': !store.showActivity }">
+  <div class="app" :class="{ 'no-activity': !store.showActivity }" :style="{ '--sidebar-width': layout.sidebarW + 'px', '--activity-width': layout.activityW + 'px' }">
     <SessionSidebar @select="select" @create="showNew = true" @settings="showSettings = true" />
+    <ResizeHandle label="Resize sessions panel" @resize="resizeSidebar" @reset="resetSidebar" />
     <main class="center">
       <SessionToolbar @settings="showSessionSettings = true" />
       <TerminalPane />
-      <VoiceBar />
       <footer class="statusbar">
         <span :class="store.status.db ? 'ok' : 'bad'">● MySQL</span>
         <span :class="store.status.stt ? 'ok' : 'bad'">● STT</span>
@@ -104,7 +104,10 @@ async function quit() {
         <span v-if="store.audio.speakingSessionId" class="speaking">🔊 speaking · {{ store.audio.queued }} queued</span>
       </footer>
     </main>
-    <ActivityPanel v-if="store.showActivity" />
+    <template v-if="store.showActivity">
+      <ResizeHandle label="Resize activity panel" @resize="resizeActivity" @reset="resetActivity" />
+      <ActivityPanel />
+    </template>
 
     <NewSessionDialog v-if="showNew" @close="showNew = false" @created="created" />
     <SettingsDialog v-if="showSettings" @close="showSettings = false" />

@@ -11,7 +11,7 @@ export function ensureTerminal(id: string): Entry {
   const existing = entries.get(id)
   if (existing) return existing
   const term = new Terminal({
-    fontFamily: "'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace", fontSize: 13, scrollback: 10000,
+    fontFamily: "'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace", fontSize: 14, scrollback: 10000,
     cursorBlink: true, allowProposedApi: true, theme: terminalTheme(), macOptionIsMeta: true
   })
   const fit = new FitAddon()
@@ -41,7 +41,22 @@ export function ensureTerminal(id: string): Entry {
   return entry
 }
 
-onThemeChange(() => { for (const e of entries.values()) e.term.options.theme = terminalTheme() })
+/**
+ * xterm observes theme changes, but its canvas renderer may retain already painted
+ * rows until the next PTY write. Apply the option and explicitly repaint so a
+ * palette switch is visibly immediate even when the agent is idle.
+ */
+function applyTerminalTheme(): void {
+  const theme = terminalTheme()
+  for (const e of entries.values()) {
+    e.term.options.theme = theme
+    e.el.style.backgroundColor = theme.background
+    e.el.querySelectorAll<HTMLElement>('.xterm-viewport').forEach((viewport) => { viewport.style.backgroundColor = theme.background })
+    if (e.opened) e.term.refresh(0, e.term.rows - 1)
+  }
+}
+
+onThemeChange(applyTerminalTheme)
 
 export function writeTo(id: string, data: string): void { ensureTerminal(id).term.write(data) }
 

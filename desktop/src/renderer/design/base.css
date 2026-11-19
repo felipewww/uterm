@@ -1,5 +1,6 @@
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; background: var(--surface-frame); overflow: hidden; }
+.app { background-color: var(--surface-frame); background-image: var(--frame-pattern); background-size: var(--frame-pattern-size) var(--frame-pattern-size); }
 :root { font-family: var(--font-ui); font-size: var(--text-base); color: var(--text-primary); }
 button, input, select, textarea { font: inherit; color: inherit; }
 .muted { color: var(--text-secondary); } .error-text { color: var(--danger); } .warn-text { color: var(--warning); }
@@ -8,3 +9,4 @@ button, input, select, textarea { font: inherit; color: inherit; }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); border: 2px solid transparent; background-clip: padding-box; }
 @keyframes pulse { 50% { opacity: .4; } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 10px; } }

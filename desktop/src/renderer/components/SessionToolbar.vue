@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { currentTerminalBackground, TERMINAL_BACKGROUNDS, setTerminalBackground } from '../design/theme'
 import { selected, store } from '../store'
 
 const emit = defineEmits<{ settings: [] }>()
@@ -20,6 +21,16 @@ async function toggleGlobalMute() { await window.echo.settings.save({ globalMute
       <span class="muted">{{ s.agentType === 'claude' ? 'Claude Code' : 'Codex CLI' }} · {{ s.workingDirectory }}</span>
     </div>
     <div class="toolbar-actions">
+      <details class="terminal-appearance">
+        <summary class="btn" title="Terminal appearance">Terminal</summary>
+        <div class="terminal-appearance-menu">
+          <label>Background
+            <select :value="currentTerminalBackground" @change="setTerminalBackground(($event.target as HTMLSelectElement).value)">
+              <option v-for="background in TERMINAL_BACKGROUNDS" :key="background.id" :value="background.id">{{ background.label }}</option>
+            </select>
+          </label>
+        </div>
+      </details>
       <button class="btn" :class="{ on: s.muted }" title="Mute/unmute this session's voice" @click="toggleMute">{{ s.muted ? '🔇 Unmute' : '🔈 Mute' }}</button>
       <button class="btn" :disabled="!hasAudio" title="Stop audio (agent keeps running)" @click="stopAudio">⏹ Stop audio</button>
       <button class="btn" title="Replay last spoken message" @click="replay">↻ Replay</button>

@@ -104,7 +104,6 @@ void selected
           <label>Recording shortcut
             <input :value="capturing ? 'Press keys…' : g.recordShortcut" readonly @focus="capturing = true" @blur="capturing = false" @keydown="captureShortcut" />
           </label>
-          <label class="check inline"><input v-model="g.autoSubmitTranscription" type="checkbox" /> Auto-submit transcription (only when the agent is idle)</label>
           <label>STT service URL <input v-model="g.sttUrl" /></label>
           <label>TTS service URL <input v-model="g.ttsUrl" /></label>
           <label>Max queued audio items <input v-model.number="g.queueMaxItems" type="number" min="1" max="50" /></label>

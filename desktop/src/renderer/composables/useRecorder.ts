@@ -76,7 +76,6 @@ async function finish(sessionId: string): Promise<void> {
     const text: string = await window.echo.voice.transcribe(wav)
     if (!text) { drafts[sessionId] = { ...d, status: 'error', error: 'No speech detected.' }; return }
     drafts[sessionId] = { status: 'review', seconds: d.seconds, text, error: '', note: '' }
-    if (store.settings.autoSubmitTranscription) await submitDraft(sessionId, true)
   } catch (err) {
     drafts[sessionId] = { ...d, status: 'error', error: `Transcription failed: ${(err as Error).message}. Is the STT service running?` }
   }

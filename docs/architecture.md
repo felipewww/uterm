@@ -50,4 +50,4 @@ screen scraping is used for semantics.
 | Final result | `Stop.last_assistant_message` | `task_complete.last_agent_message` |
 | Permission requests | `PermissionRequest` hook | hook only, needs one-time `/hooks` trust |
 | Interactive questions | `AskUserQuestion` via `PreToolUse` | not exposed → visual only |
-| Speech instructions | `--append-system-prompt` (optional setting) | not injected |
+| Speech instructions | `--append-system-prompt` (optional setting) | `-c developer_instructions=…` per process (skipped if you set your own in config.toml); Kiro: sent as the first message of a new session |

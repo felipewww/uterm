@@ -1,4 +1,4 @@
-import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { CodexTranscriptParser } from './codexTranscript'
@@ -50,6 +50,11 @@ function findRolloutById(id: string): string | null {
   try { return walk(root, 0) } catch { return null }
 }
 
+/** True when ~/.codex/config.toml (or $CODEX_HOME) already defines developer_instructions: ours would silently replace it. */
+export function hasOwnDeveloperInstructions(home = codexHome()): boolean {
+  try { return /^\s*developer_instructions\s*=/m.test(readFileSync(join(home, 'config.toml'), 'utf8')) } catch { return false }
+}
+
 export class CodexAdapter implements AgentAdapter {
   readonly type = 'codex' as const
   readonly label = 'Codex CLI'
@@ -62,7 +67,7 @@ export class CodexAdapter implements AgentAdapter {
       'Assistant commentary/final messages come from read-only tailing of the native rollout JSONL.',
       'Permission requests need the Echo-Term hooks to be trusted once via /hooks inside Codex.',
       'Interactive question events are not exposed by Codex hooks/transcripts: visual only.',
-      'Session-scoped speech instructions are not injected for Codex (no supported non-invasive flag).'
+      'Speech instructions (<voice> summary, expressive tags) are passed per process with -c developer_instructions=…; ~/.codex/config.toml is untouched. Skipped if you already set developer_instructions there.'
     ]
   }
 
@@ -76,7 +81,10 @@ export class CodexAdapter implements AgentAdapter {
 
   async buildLaunch(i: LaunchInput): Promise<LaunchSpec> {
     const path = (await which('codex')) ?? 'codex'
-    const args = i.nativeSessionId ? ['resume', i.nativeSessionId] : []
+    // --no-alt-screen: Codex's full-screen mode has no scrollback in a terminal widget (no scrollbar, no mouse-wheel history); inline mode keeps it.
+    const args = ['--no-alt-screen', ...(i.nativeSessionId ? ['resume', i.nativeSessionId] : [])]
+    // `-c key=value` is a per-process override (a TOML value; a JSON string literal is a valid TOML string). Never overrides instructions the user set themselves.
+    if (i.instructions && !hasOwnDeveloperInstructions()) args.unshift('-c', `developer_instructions=${JSON.stringify(i.instructions)}`) // options go before the subcommand
     return { file: path, args, env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'codex', ECHO_TERM_SOCKET: i.socketPath } }
   }
 

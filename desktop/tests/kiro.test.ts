@@ -6,6 +6,7 @@ import { KiroTranscriptParser } from '../src/main/agents/kiroTranscript'
 import { KiroAdapter, readKiroMeta } from '../src/main/agents/kiro'
 import { extraBinDirs, searchPath, which } from '../src/main/agents/exec'
 import type { EventDraft } from '../src/shared/events'
+import { SPEECH_INSTRUCTIONS, VOICE_SETUP_MARKER, voiceSetupPrompt } from '../src/main/speechInstructions'
 
 const lines = readFileSync(join(__dirname, 'fixtures/kiro-session.jsonl'), 'utf8').split('\n').filter(Boolean)
 const parse = (ls: string[]): EventDraft[] => { const p = new KiroTranscriptParser(); return ls.flatMap((l) => p.parseLine(l)) }
@@ -102,5 +103,30 @@ describe('finding installed CLIs', () => {
     const exe = join(bin, 'fake-kiro-cli'); writeFileSync(exe, '#!/bin/sh\necho 1\n'); chmodSync(exe, 0o755)
     expect(await which('fake-kiro-cli', searchPath('/nonexistent', [bin]))).toBe(exe)
     expect(await which('definitely-not-installed-cli-xyz', searchPath('/nonexistent', [bin]))).toBeNull()
+  })
+})
+
+describe('Kiro speech setup', () => {
+  const input = (over: Record<string, unknown> = {}) => ({ sessionKey: 'k', nativeSessionId: null, workingDirectory: '/tmp', socketPath: '/tmp/s.sock', instructions: SPEECH_INSTRUCTIONS, ...over }) as Parameters<KiroAdapter['buildLaunch']>[0]
+
+  it('a new session starts with the speech instructions as its first message, asking for a greeting', async () => {
+    const l = await new KiroAdapter().buildLaunch(input())
+    expect(l.args[0]).toBe('chat')
+    expect(l.args).toHaveLength(2)
+    expect(l.args[1]!.startsWith(VOICE_SETUP_MARKER)).toBe(true)
+    expect(l.args[1]).toContain(SPEECH_INSTRUCTIONS)
+    expect(l.args[1]).toMatch(/greeting/)
+  })
+  it('resumed sessions and sessions with speech instructions off are launched plainly', async () => {
+    expect((await new KiroAdapter().buildLaunch(input({ nativeSessionId: 'abc-123' }))).args).toEqual(['chat', '--resume-id', 'abc-123'])
+    expect((await new KiroAdapter().buildLaunch(input({ instructions: null }))).args).toEqual(['chat'])
+  })
+  it('the priming message is not shown as something the user typed, but the greeting is kept', () => {
+    const p = new KiroTranscriptParser()
+    const prompt = JSON.stringify({ version: 'v1', kind: 'Prompt', data: { message_id: 'm1', content: [{ kind: 'text', data: voiceSetupPrompt(SPEECH_INSTRUCTIONS) }] } })
+    const reply = JSON.stringify({ version: 'v1', kind: 'AssistantMessage', data: { message_id: 'm2', content: [{ kind: 'text', data: '[happy] Hey there! Ready when you are.' }] } })
+    expect(p.parseLine(prompt)).toEqual([])
+    const out: EventDraft[] = p.parseLine(reply)
+    expect(out.map((e) => e.type)).toEqual(['ASSISTANT_MESSAGE_COMPLETED', 'TURN_COMPLETED'])
   })
 })

@@ -52,6 +52,7 @@ Run live (`tests/smoke/kiro-smoke.cjs`, real `kiro-cli chat` in a PTY, one no-to
 - **Not detectable:** permission prompts and cancelled turns are not written to the log. Kiro hooks (custom agent config) and ACP
   (`kiro-cli acp`) exist but were not used: a custom agent would change the user's Kiro behaviour, and ACP replaces the CLI UI.
   `~/.kiro` is read-only for Echo-Term.
+- Speech instructions: Kiro has no system-prompt flag, so a NEW session is started as `kiro-cli chat "<instructions + ask for a greeting>"` (first message; resumed sessions already carry it). Run live: Kiro answered with a one-line greeting (it even used a `[happy]` tag) and the Activity hides the priming message (marker `[Echo-Term voice setup]`). Imported/resumed Kiro conversations that were not started by Echo-Term do not get the instructions.
 - Detection: `kiro-cli` is looked up in PATH **and** the usual install folders (`~/.local/bin`, `/opt/homebrew/bin`, …) because a
   GUI-launched app does not inherit the shell PATH (matters on macOS). Covered by unit tests; not run on macOS.
 

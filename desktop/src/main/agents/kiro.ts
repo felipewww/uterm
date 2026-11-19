@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { AgentAdapter, AgentObserver, LaunchInput, LaunchSpec, ObserverContext } from './adapter'
 import { run, which } from './exec'
 import { KiroTranscriptParser } from './kiroTranscript'
+import { voiceSetupPrompt } from '../speechInstructions'
 import { TranscriptTail } from './transcriptTail'
 
 export const kiroSessionsDir = () => join(process.env.KIRO_HOME ?? join(homedir(), '.kiro'), 'sessions', 'cli')
@@ -31,7 +32,7 @@ export class KiroAdapter implements AgentAdapter {
       'Messages and tool activity come from read-only tailing of the native session log (~/.kiro/sessions/cli).',
       'Kiro does not write permission prompts to that log, so "needs permission" is not detected: watch the terminal.',
       'Cancelling a turn (Esc) is not logged either, so a cancelled turn can keep showing as working.',
-      'Session-scoped speech instructions are not injected for Kiro. Your Kiro agent config is never touched.'
+      'Speech instructions are sent as the first message of a NEW session (Kiro has no system-prompt flag); Kiro answers with a short greeting. Resumed sessions already carry them.'
     ]
   }
 
@@ -45,7 +46,8 @@ export class KiroAdapter implements AgentAdapter {
 
   async buildLaunch(i: LaunchInput): Promise<LaunchSpec> {
     const path = (await which('kiro-cli')) ?? 'kiro-cli'
-    const args = i.nativeSessionId ? ['chat', '--resume-id', i.nativeSessionId] : ['chat']
+    // A new session starts with the speech instructions as its first message (Kiro has no system-prompt flag); resumed ones already have them.
+    const args = i.nativeSessionId ? ['chat', '--resume-id', i.nativeSessionId] : i.instructions ? ['chat', voiceSetupPrompt(i.instructions)] : ['chat']
     return { file: path, args, env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'kiro', ECHO_TERM_SOCKET: i.socketPath } }
   }
 

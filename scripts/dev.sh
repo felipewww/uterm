@@ -32,19 +32,23 @@ fi
 # refreshes, unlike a bare file path that it caches). Harmless and easy to remove; refreshed whenever the icon changes.
 if [ "$(uname -s)" = "Linux" ]; then
   data="${XDG_DATA_HOME:-$HOME/.local/share}"; apps="$data/applications"; desk="$apps/uterm-dev.desktop"; theme="$data/icons/hicolor"
+  name="uterm-$(cksum < "$ROOT/desktop/build/icon.png" | cut -d' ' -f1)" # a new name whenever the artwork changes: the shell caches icons by name
   want="[Desktop Entry]
 Type=Application
 Name=uTerm (dev)
 Comment=uTerm development build
 Exec=$ROOT/scripts/dev.sh
-Icon=uterm
+Icon=$name
 Terminal=false
 Categories=Development;
 StartupWMClass=uterm"
   changed=0
   for pair in "512:icon.png" "192:icon-window.png"; do
-    size="${pair%%:*}"; src="$ROOT/desktop/build/${pair#*:}"; dst="$theme/${size}x${size}/apps/uterm.png"
+    size="${pair%%:*}"; src="$ROOT/desktop/build/${pair#*:}"; dst="$theme/${size}x${size}/apps/$name.png"
     if ! cmp -s "$src" "$dst" 2>/dev/null; then mkdir -p "$(dirname "$dst")" && cp "$src" "$dst" && changed=1; fi
+  done
+  for old in "$theme"/*/apps/uterm.png "$theme"/*/apps/uterm-[0-9]*.png; do # older artwork
+    [ -e "$old" ] && [ "$(basename "$old")" != "$name.png" ] && rm -f "$old" && changed=1
   done
   if [ "$(cat "$desk" 2>/dev/null)" != "$want" ]; then mkdir -p "$apps" && printf '%s\n' "$want" > "$desk" && changed=1; fi
   if [ "$changed" = 1 ]; then

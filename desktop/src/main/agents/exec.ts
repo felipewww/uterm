@@ -52,3 +52,9 @@ export function run(file: string, args: string[], timeoutMs = 8000, cwd?: string
     })
   })
 }
+
+/**
+ * Packaged apps cannot count on `node` being installed: hooks are run with the app's own Electron binary acting as Node
+ * (ELECTRON_RUN_AS_NODE), found through this variable. In development, plain `node` is used.
+ */
+export const nodeEnv = (): Record<string, string> => (process.defaultApp ? {} : { ECHO_TERM_NODE: process.execPath })

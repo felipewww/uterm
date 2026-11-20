@@ -1,8 +1,8 @@
 {
   "description": "uTerm lifecycle forwarding (managed by hooks/install.mjs; safe to remove with `./scripts/install-hooks.sh uninstall`).",
   "hooks": {
-    "SessionStart":      [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
-    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
-    "Stop":              [{ "hooks": [{ "type": "command", "command": "node \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }]
+    "SessionStart":      [{ "hooks": [{ "type": "command", "command": "/bin/sh -c 'if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi' \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
+    "PermissionRequest": [{ "hooks": [{ "type": "command", "command": "/bin/sh -c 'if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi' \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }],
+    "Stop":              [{ "hooks": [{ "type": "command", "command": "/bin/sh -c 'if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi' \"__HOOK_SCRIPT__\"", "async": true, "timeout": 5 }] }]
   }
 }

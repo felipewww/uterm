@@ -4,8 +4,8 @@ import type { NewSession, SessionRepository } from './sessionStore'
 
 /** In-memory repository: fallback when MySQL is down (terminals keep working) and test double. */
 export class MemorySessionRepo implements SessionRepository {
-  private rows = new Map<string, SessionRecord>()
-  private folders = new Map<string, FolderRecord>()
+  protected rows = new Map<string, SessionRecord>()
+  protected folders = new Map<string, FolderRecord>()
 
   async create(s: NewSession): Promise<SessionRecord> {
     const id = randomUUID(); const now = Date.now()

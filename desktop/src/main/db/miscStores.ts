@@ -4,7 +4,13 @@ import { DEFAULT_SETTINGS, type AppSettings, type VoiceProfile } from '@shared/t
 import type { AnyAgentEvent } from '@shared/events'
 import type { Pool } from './pool'
 
-export class SettingsStore {
+export interface SettingsRepo {
+  load(): Promise<AppSettings>
+  save(patch: Partial<AppSettings>): Promise<void>
+  remove(keys: string[]): Promise<void>
+}
+
+export class SettingsStore implements SettingsRepo {
   constructor(private pool: Pool) {}
 
   async load(): Promise<AppSettings> {
@@ -30,9 +36,17 @@ export class SettingsStore {
 }
 
 /** Relevant events only (not deltas/tool noise), compact payloads. */
-const PERSISTED = new Set(['USER_PROMPT_SUBMITTED', 'AGENT_PROGRESS', 'QUESTION_REQUESTED', 'PERMISSION_REQUESTED', 'AGENT_ERROR', 'TURN_COMPLETED'])
+export const PERSISTED = new Set(['USER_PROMPT_SUBMITTED', 'AGENT_PROGRESS', 'QUESTION_REQUESTED', 'PERMISSION_REQUESTED', 'AGENT_ERROR', 'TURN_COMPLETED'])
 
-export class EventStore {
+export type RecentEvent = { id: string; type: string; payload: unknown; at: number; spoken: boolean; natural?: string }
+/** What the app needs from an activity-history store (MySQL, or local files when there is no database). */
+export interface EventRepo {
+  record(e: AnyAgentEvent): Promise<void>
+  recent(sessionId: string, limit?: number): Promise<RecentEvent[]>
+  recordSpoken(sessionId: string, eventId: string, voiceId: string | null, priority: number, text: string): Promise<void>
+}
+
+export class EventStore implements EventRepo {
   constructor(private pool: Pool) {}
 
   async record(e: AnyAgentEvent): Promise<void> {

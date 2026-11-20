@@ -5,7 +5,7 @@ import { CodexTranscriptParser } from './codexTranscript'
 import { HookPayload } from '../hooks/schemas'
 import { summarizeTool } from '../hooks/claudeNormalizer'
 import type { AgentAdapter, AgentObserver, LaunchInput, LaunchSpec, ObserverContext } from './adapter'
-import { run, which } from './exec'
+import { nodeEnv, run, which } from './exec'
 import { TranscriptTail } from './transcriptTail'
 
 const codexHome = () => process.env.CODEX_HOME ?? join(homedir(), '.codex')
@@ -85,7 +85,7 @@ export class CodexAdapter implements AgentAdapter {
     const args = ['--no-alt-screen', ...(i.nativeSessionId ? ['resume', i.nativeSessionId] : [])]
     // `-c key=value` is a per-process override (a TOML value; a JSON string literal is a valid TOML string). Never overrides instructions the user set themselves.
     if (i.instructions && !hasOwnDeveloperInstructions()) args.unshift('-c', `developer_instructions=${JSON.stringify(i.instructions)}`) // options go before the subcommand
-    return { file: path, args, env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'codex', ECHO_TERM_SOCKET: i.socketPath } }
+    return { file: path, args, env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'codex', ECHO_TERM_SOCKET: i.socketPath, ...nodeEnv() } }
   }
 
   createObserver(ctx: ObserverContext): AgentObserver {

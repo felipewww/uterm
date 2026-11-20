@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { ClaudeNormalizer } from '../hooks/claudeNormalizer'
 import { stateDir } from '../config'
 import type { AgentAdapter, AgentObserver, LaunchInput, LaunchSpec, ObserverContext } from './adapter'
-import { run, which } from './exec'
+import { nodeEnv, run, which } from './exec'
 
 export class ClaudeCodeAdapter implements AgentAdapter {
   readonly type = 'claude' as const
@@ -47,7 +47,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     if (i.instructions) args.push('--append-system-prompt', i.instructions)
     return {
       file: path, args, newNativeSessionId,
-      env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'claude', ECHO_TERM_SOCKET: i.socketPath }
+      env: { ECHO_TERM_SESSION_ID: i.sessionKey, ECHO_TERM_AGENT: 'claude', ECHO_TERM_SOCKET: i.socketPath, ...nodeEnv() }
     }
   }
 

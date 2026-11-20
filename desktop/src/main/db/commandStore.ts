@@ -35,7 +35,7 @@ export class MySqlCommandStore implements CommandRepository {
 }
 
 export class MemoryCommandStore implements CommandRepository {
-  private rows: SavedCommand[] = []
+  protected rows: SavedCommand[] = []
   async list(sessionId: string) { return this.rows.filter((r) => r.sessionId === sessionId).sort((a, b) => a.position - b.position) }
   async get(id: string) { return this.rows.find((r) => r.id === id) ?? null }
   async add(sessionId: string, command: string, label: string | null = null) {

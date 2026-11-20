@@ -12,6 +12,7 @@ export class MySqlCoachHistory implements CoachHistory {
 }
 
 export class MemoryCoachHistory implements CoachHistory {
-  rows: CoachEntry[] = []
+  protected rows: CoachEntry[] = []
+  all(): CoachEntry[] { return this.rows }
   async record(e: CoachEntry) { this.rows.push(e) }
 }

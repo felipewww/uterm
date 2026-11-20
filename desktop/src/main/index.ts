@@ -11,7 +11,8 @@ import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
 import { dbConfigFromEnv, findRepoRoot, loadEnv, readEnvFiles, socketPath } from './config'
 import { migrate } from './db/migrate'
-import { EventStore, SettingsStore, VoiceProfileStore } from './db/miscStores'
+import { EventStore, SettingsStore, VoiceProfileStore, type EventRepo, type SettingsRepo } from './db/miscStores'
+import { LocalDb, SqliteCoachHistory, SqliteCommandStore, SqliteEventStore, SqliteSessionRepo, SqliteSettings, SqliteUsageStore } from './db/sqliteStore'
 import { createPool, type Pool } from './db/pool'
 import { MemorySessionRepo } from './db/memoryStore'
 import { MySqlSessionStore, type SessionRepository } from './db/sessionStore'
@@ -77,8 +78,9 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   setEnvScrub(readEnvFiles(root))
   const dbCfg = dbConfigFromEnv(env)
   let repo: SessionRepository = new MemorySessionRepo()
-  let settingsStore: SettingsStore | null = null
-  let eventStore: EventStore | null = null
+  let settingsStore: SettingsRepo | null = null
+  let localDb: LocalDb | null = null
+  let eventStore: EventRepo | null = null
   let voiceStore: VoiceProfileStore | null = null
   let usageStore: UsageRepository = new MemoryUsageStore()
   let coachHistory: CoachHistory = new MemoryCoachHistory()
@@ -108,6 +110,23 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     }
   }
 
+  // No MySQL (for example the macOS build, which ships without Docker): the same data in a local SQLite file.
+  if (!dbOk) {
+    try {
+      localDb = new LocalDb(join(app.getPath('userData'), 'data', 'uterm.db'))
+      repo = new SqliteSessionRepo(localDb)
+      settingsStore = new SqliteSettings(localDb)
+      eventStore = new SqliteEventStore(localDb)
+      usageStore = new SqliteUsageStore(localDb)
+      coachHistory = new SqliteCoachHistory(localDb)
+      commandStore = new SqliteCommandStore(localDb)
+      settings = await settingsStore.load()
+    } catch (err) {
+      console.error('[local db] unavailable, running from memory:', (err as Error).message)
+      localDb = null
+    }
+  }
+
   const bus = new EventBus()
   const stt = new SttClient(() => settings.sttUrl)
   const tts = new TtsClient(() => settings.ttsUrl)
@@ -130,7 +149,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     onPersistenceError: (m) => { if (!dbWarned) { dbWarned = true; notice('warn', m) } }
   })
   await sessions.load()
-  if (!dbOk) notice('warn', 'MySQL is unavailable: sessions will not be saved this run. Terminals work normally. Run ./scripts/doctor.sh.')
+  if (!dbOk && dbCfg) notice('warn', 'MySQL is unavailable, so this run keeps its data in local files. Run ./scripts/doctor.sh to check Docker.') // no database configured at all (e.g. the Mac build): local files are the normal mode, no warning
 
   let servicesOn = readDesired(root) // the user's on/off choice for the local voice services
   // Cloud keys live in .env (never in the database, never passed to agents). Only the app process reads them.
@@ -296,7 +315,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       clean[k] = v
     }
     settings = { ...settings, ...clean } as AppSettings
-    await settingsStore?.save(clean as Partial<AppSettings>).catch(() => notice('warn', 'Could not save settings to MySQL.'))
+    await settingsStore?.save(clean as Partial<AppSettings>).catch(() => notice('warn', 'Could not save settings.'))
     send('settings:changed', settings)
     voice.focusChanged()
     return settings
@@ -304,7 +323,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
 
   ipcMain.handle('status:get', async (): Promise<ServiceStatus & { enabled: { stt: boolean; tts: boolean }; keys: { openai: boolean; gemini: boolean }; agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
     const [sp, claude, codex, kiro] = await Promise.all([router.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect(), new KiroAdapter().detect()])
-    return { stt: sp.stt, tts: sp.tts, ttsReady: sp.ttsReady, db: dbOk, enabled: servicesOn, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, agents: { claude, codex, kiro },
+    return { stt: sp.stt, tts: sp.tts, ttsReady: sp.ttsReady, db: dbOk || !!localDb, enabled: servicesOn, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, agents: { claude, codex, kiro },
       capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities, kiro: new KiroAdapter().capabilities } }
   })
   ipcMain.handle('services:set', async (_e, p) => {
@@ -369,6 +388,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     writeOpenTabs(tabsFile, runningIds()) // what was open right now
     quitting = true
     await sessions.stopAll()
+    localDb?.close()
     await hookServer.stop()
     await pool?.end().catch(() => undefined)
     app.quit()

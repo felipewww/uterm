@@ -1,15 +1,15 @@
 {
   "hooks": {
-    "SessionStart":       [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "SessionEnd":         [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "UserPromptSubmit":   [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "MessageDisplay":     [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "PreToolUse":         [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "PostToolUse":        [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "PermissionRequest":  [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "Notification":       [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "Stop":               [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
-    "StopFailure":        [{ "hooks": [{ "type": "command", "command": "node", "args": ["__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }]
+    "SessionStart":       [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "SessionEnd":         [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "UserPromptSubmit":   [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "MessageDisplay":     [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "PreToolUse":         [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "PostToolUse":        [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "PostToolUseFailure": [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "PermissionRequest":  [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "Notification":       [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "Stop":               [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }],
+    "StopFailure":        [{ "hooks": [{ "type": "command", "command": "/bin/sh", "args": ["-c", "if [ -n \"$ECHO_TERM_NODE\" ]; then ELECTRON_RUN_AS_NODE=1 exec \"$ECHO_TERM_NODE\" \"$0\"; else exec node \"$0\"; fi", "__HOOK_SCRIPT__"], "async": true, "timeout": 5 }] }]
   }
 }

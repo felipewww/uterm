@@ -16,7 +16,7 @@ const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1)
 
 /** Used when MySQL is down, and in tests. Lost on exit. */
 export class MemoryUsageStore implements UsageRepository {
-  private rows: UsageRecord[] = []
+  protected rows: UsageRecord[] = []
   async record(u: UsageRecord) { this.rows.push({ ...u, at: u.at ?? Date.now() }) }
   async summary(now = new Date()): Promise<UsageSummary> {
     const agg = (since: number): UsageRow[] => {

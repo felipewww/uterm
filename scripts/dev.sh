@@ -27,5 +27,31 @@ if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] && [ -z "${ECHO_TERM_DEV_WAYLAND:-}" 
   flag="$flag --ozone-platform=x11"
   c_info "Wayland session: using XWayland in dev so the app icon is shown (ECHO_TERM_DEV_WAYLAND=1 to disable)"
 fi
+# GNOME (and most Linux docks) take the dock / Alt+Tab icon from a .desktop file that matches the window class ("uterm"), not from the
+# window itself, so a dev run shows the generic gear. Install a user-level launcher and icon (kept in the icon theme, which the shell
+# refreshes, unlike a bare file path that it caches). Harmless and easy to remove; refreshed whenever the icon changes.
+if [ "$(uname -s)" = "Linux" ]; then
+  data="${XDG_DATA_HOME:-$HOME/.local/share}"; apps="$data/applications"; desk="$apps/uterm-dev.desktop"; theme="$data/icons/hicolor"
+  want="[Desktop Entry]
+Type=Application
+Name=uTerm (dev)
+Comment=uTerm development build
+Exec=$ROOT/scripts/dev.sh
+Icon=uterm
+Terminal=false
+Categories=Development;
+StartupWMClass=uterm"
+  changed=0
+  for pair in "512:icon.png" "192:icon-window.png"; do
+    size="${pair%%:*}"; src="$ROOT/desktop/build/${pair#*:}"; dst="$theme/${size}x${size}/apps/uterm.png"
+    if ! cmp -s "$src" "$dst" 2>/dev/null; then mkdir -p "$(dirname "$dst")" && cp "$src" "$dst" && changed=1; fi
+  done
+  if [ "$(cat "$desk" 2>/dev/null)" != "$want" ]; then mkdir -p "$apps" && printf '%s\n' "$want" > "$desk" && changed=1; fi
+  if [ "$changed" = 1 ]; then
+    command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -f -t "$theme" 2>/dev/null || true
+    command -v update-desktop-database >/dev/null && update-desktop-database "$apps" 2>/dev/null || true
+    c_info "Installed the uTerm launcher icon for the dock (if it still shows the old one, log out and in once)"
+  fi
+fi
 # electron-vite forwards arguments after -- to Electron
 exec npx electron-vite dev -- $flag

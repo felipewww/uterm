@@ -20,10 +20,10 @@ const api = {
     importSession: (p: unknown) => call('sessions:import', p),
     stop: (p: unknown) => call('sessions:stop', p),
     rename: (p: unknown) => call('sessions:rename', p),
-    archive: (p: unknown) => call('sessions:archive', p),
     remove: (p: unknown) => call('sessions:delete', p),
     mute: (p: unknown) => call('sessions:mute', p),
     moveToFolder: (p: unknown) => call('sessions:moveToFolder', p),
+    popOut: (p: unknown) => call('sessions:popOut', p),
     update: (p: unknown) => call('sessions:update', p),
     select: (p: unknown) => call('sessions:select', p),
     openInVscode: (p: unknown) => call('sessions:openInVscode', p),
@@ -58,6 +58,11 @@ const api = {
   status: { get: () => call('status:get') },
   cloud: { models: (p: unknown) => call('cloud:models', p), test: (p: unknown) => call('cloud:test', p) },
   coach: { improve: (p: unknown) => call('coach:improve', p) },
+  commands: {
+    list: (p: unknown) => call('commands:list', p), add: (p: unknown) => call('commands:add', p),
+    remove: (p: unknown) => call('commands:remove', p), run: (p: unknown) => call('commands:run', p)
+  },
+  system: { sample: (p: unknown) => call('system:sample', p) },
   usage: { summary: () => call('usage:summary') },
   services: { set: (p: unknown) => call('services:set', p) },
   clipboard: { read: () => call('clipboard:read'), write: (p: unknown) => call('clipboard:write', p) },
@@ -77,7 +82,7 @@ const api = {
     onSettings: (cb: (p: unknown) => void) => on('settings:changed', cb),
     onConfirmQuit: (cb: () => void) => on('app:confirm-quit', cb)
   },
-  app: { confirmQuit: () => call('app:quit-confirmed') }
+  app: { confirmQuit: () => call('app:quit-confirmed'), restoreTabs: () => call('app:restoreTabs') }
 }
 
 contextBridge.exposeInMainWorld('echo', api)

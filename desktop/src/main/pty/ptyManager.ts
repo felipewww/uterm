@@ -39,6 +39,9 @@ export class PtyManager {
     }
   ) {}
 
+  /** Process id of a running session's terminal (the shell or the agent CLI), or null. */
+  pidOf(id: string): number | null { const e = this.entries.get(id); return e && !e.exited ? e.proc.pid : null }
+
   has(id: string): boolean { return this.entries.has(id) && !this.entries.get(id)!.exited }
 
   spawn(id: string, spec: SpawnSpec): number {

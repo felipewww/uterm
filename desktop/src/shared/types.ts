@@ -1,10 +1,13 @@
-export type AgentType = 'claude' | 'codex' | 'kiro'
-export const AGENT_TYPES: readonly AgentType[] = ['claude', 'codex', 'kiro']
+export type AgentType = 'claude' | 'codex' | 'kiro' | 'shell'
+export const AGENT_TYPES: readonly AgentType[] = ['claude', 'codex', 'kiro', 'shell']
+/** The agents (everything except the plain terminal): what can be a default agent, imported, or spoken to. */
+export const CODING_AGENTS: readonly AgentType[] = ['claude', 'codex', 'kiro']
 /** Display names: `label` for headers and pickers, `short` for dense rows. */
 export const AGENT_LABELS: Record<AgentType, { label: string; short: string }> = {
   claude: { label: 'Claude Code', short: 'Claude' },
   codex: { label: 'Codex CLI', short: 'Codex' },
-  kiro: { label: 'Kiro CLI', short: 'Kiro' }
+  kiro: { label: 'Kiro CLI', short: 'Kiro' },
+  shell: { label: 'Terminal', short: 'Shell' }
 }
 
 export type RuntimeState =
@@ -30,13 +33,14 @@ export interface SessionRecord {
   backgroundVoiceMode: VoiceMode | null
   createdAt: number
   lastActivityAt: number
-  archivedAt: number | null
   /** user folder this session is filed in, or null */
   folderId: string | null
   /** Claude config folder (CLAUDE_CONFIG_DIR) this session runs with; null = the environment default */
   configDir: string | null
   /** English coach for this chat: null = follow the global setting, true/false = override it */
   englishCoach: boolean | null
+  /** Plain terminals: the folder the shell was last in, so reopening it starts there */
+  lastCwd: string | null
 }
 
 /** The coach is on for a chat when its own choice says so, else when the global setting does. */
@@ -95,6 +99,16 @@ export interface AppSettings {
   /** Show a more natural (B2–C1) English version of what you said, next to the transcription, before you send it. Needs an OpenAI key. */
   englishCoach: boolean
   englishCoachModel: string
+  /** a short sound when an agent needs you or finishes while you are not looking at it */
+  notifySounds: boolean
+  notifyOnAttention: boolean
+  notifyOnDone: boolean
+  /** 0-1 */
+  notifyVolume: number
+  /** terminal app used by "Open in system terminal": auto, or one of the known apps */
+  externalTerminal: string
+  /** a short sound when recording starts and stops */
+  recordCues: boolean
 }
 
 export type SpeechProvider = 'local' | 'openai' | 'gemini'
@@ -126,7 +140,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   geminiSttModel: 'gemini-2.5-flash',
   cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate',
   englishCoach: false, // opt-in: it sends what you type or say to OpenAI
-  englishCoachModel: 'gpt-4o-mini'
+  englishCoachModel: 'gpt-4o-mini',
+  notifySounds: true,
+  notifyOnAttention: true,
+  notifyOnDone: true,
+  notifyVolume: 0.5,
+  externalTerminal: 'auto',
+  recordCues: true
 }
 
 export interface ServiceStatus { stt: boolean; tts: boolean; ttsReady: boolean; db: boolean }

@@ -2,6 +2,7 @@
 :root[data-theme='islands-light'] {
   color-scheme: light;
 
+  --sb-folder: var(--surface-raised); /* sessions list: folders darker than the panel */
   --surface-frame: #e4e6eb; --surface-island: #ffffff; --surface-sunken: #fafbfc; --surface-raised: #eef0f4; --surface-hover: #e2e5eb;
   --border-subtle: #d3d7de; --ring: rgba(0,0,0,.05); --divider: rgba(0,0,0,.08);
 

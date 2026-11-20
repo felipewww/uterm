@@ -22,7 +22,6 @@ export const schemas = {
   id: z.object({ id: Id }),
   listen: z.object({ id: Id, text: z.string().min(1).max(8000), ref: z.string().min(1).max(64) }),
   rename: z.object({ id: Id, title: z.string().min(1).max(160) }),
-  archive: z.object({ id: Id, archived: z.boolean() }),
   folderCreate: z.object({ name: z.string().min(1).max(80), parentId: Id.nullable().optional() }),
   folderMove: z.object({ id: Id, parentId: Id.nullable() }),
   folderRename: z.object({ id: Id, name: z.string().min(1).max(80) }),
@@ -49,6 +48,10 @@ export const schemas = {
   cloudProvider: z.object({ provider: z.enum(['openai', 'gemini']) }),
   cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional() }),
   coachImprove: z.object({ text: z.string().min(1).max(6000) }),
+  systemSample: z.object({ sessionId: Id.nullable().optional() }),
+  commandAdd: z.object({ sessionId: Id, command: z.string().min(1).max(4000), label: z.string().max(80).nullable().optional() }),
+  commandRun: z.object({ id: Id, run: z.boolean() }),
+  sessionIdOnly: z.object({ sessionId: Id }),
   serviceSet: z.object({ name: z.enum(['stt', 'tts']), enabled: z.boolean() }),
   settingsPatch: z.record(z.string(), z.unknown()),
   text: z.object({ text: z.string().max(100_000) })

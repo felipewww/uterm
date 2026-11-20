@@ -41,7 +41,11 @@ export const store = reactive({
   confirmQuit: false,
   /** session waiting for the user to confirm its deletion */
   confirmDelete: null as SessionView | null,
-  showActivity: true
+  showActivity: true,
+  /** the right-hand panel: the agent's activity, or the computer's resources */
+  /** tabs brought back from the last run: agent sessions wait here (closed) until you resume them */
+  restoredTabs: [] as string[],
+  sideTab: 'activity' as 'activity' | 'computer' | 'commands'
 })
 
 // Panel sizes, remembered per machine.
@@ -192,3 +196,16 @@ export async function refreshUsage(): Promise<void> {
 }
 
 export const usd = (n: number): string => (n > 0 && n < 0.01 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`)
+
+/** Opens a plain shell (no agent) in the folder of the selected session, or in the home folder. Returns the new session id. */
+export async function newTerminal(): Promise<string | undefined> {
+  const dir = selected()?.workingDirectory ?? '~'
+  try {
+    const v = await window.echo.sessions.create({ agentType: 'shell', title: '', workingDirectory: dir })
+    upsertSession(v)
+    return v.id
+  } catch (err) {
+    notify('error', `Could not open a terminal: ${(err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`)
+    return undefined
+  }
+}

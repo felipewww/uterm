@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { coachOnFor } from '@shared/types'
+import { playRecordingCue } from '../chime'
 import { notify, store } from '../store'
 
 export interface Draft {
@@ -45,6 +46,8 @@ export async function startRecording(sessionId: string): Promise<void> {
   cancelled = false; chunks = []; started = Date.now()
   recorder.activeSessionId = sessionId
   drafts[sessionId] = { status: 'recording', seconds: 0, text: '', error: '', note: '' }
+  if (store.settings.recordCues) await playRecordingCue(store.settings.notifyVolume) // the cue ends before the recorder starts, so it is not captured
+  if (cancelled) return
   media = new MediaRecorder(stream)
   media.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data) }
   media.onstop = () => { void finish(sessionId) }
@@ -75,6 +78,7 @@ async function finish(sessionId: string): Promise<void> {
   const blob = new Blob(chunks, { type: media?.mimeType || 'audio/webm' })
   cleanup() // recordings are held in memory only and dropped here
   if (cancelled) return
+  if (store.settings.recordCues) void playRecordingCue(store.settings.notifyVolume) // the microphone is already released
   const d = drafts[sessionId]
   if (!d) return
   if (blob.size < 2000) { drafts[sessionId] = { ...d, status: 'error', error: 'Recording was too short.' }; return }

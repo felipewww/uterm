@@ -22,7 +22,7 @@ const field = (p: P, k: 'Tts' | 'Stt') => (p === 'openai' ? (k === 'Tts' ? 'open
 const clean = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 // The voices in use decide the TTS provider; the STT provider is a setting. "Local still running" = nothing needs it but it holds memory.
 const defaultIsCloud = () => parseVoiceId(props.g.defaultVoiceId).provider !== 'local'
-const anySessionLocal = () => store.sessions.some((x) => !x.archivedAt && parseVoiceId(x.voiceProfileId || props.g.defaultVoiceId).provider === 'local')
+const anySessionLocal = () => store.sessions.some((x) => parseVoiceId(x.voiceProfileId || props.g.defaultVoiceId).provider === 'local')
 const localTtsIdle = () => store.enabled.tts && defaultIsCloud() && !anySessionLocal()
 const localSttIdle = () => store.enabled.stt && props.g.sttProvider !== 'local'
 
@@ -67,16 +67,6 @@ Transcription uses the cloud, so the local speech-to-text service is idle but st
   <div class="field">
     <div class="field-text"><strong>Cloud voice style</strong><small>How cloud voices are asked to sound</small></div>
     <input v-model="s.cloudVoiceStyle" maxlength="200" />
-  </div>
-
-  <h3 class="pane-title">English coach (OpenAI)</h3>
-  <div class="field">
-    <div class="field-text"><strong>Show a more natural version of what I say</strong><small>After each recording, next to the transcription and before sending. Level B2–C1, same meaning. It does not change what is sent or what is spoken back. Needs the OpenAI key.</small></div>
-    <input v-model="s.englishCoach" class="switch" type="checkbox" aria-label="English coach" />
-  </div>
-  <div class="field">
-    <div class="field-text"><strong>Coach model</strong><small>A small, cheap text model</small></div>
-    <input v-model="s.englishCoachModel" spellcheck="false" />
   </div>
 
   <template v-for="p in providers" :key="p">

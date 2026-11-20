@@ -32,13 +32,18 @@ export function findRepoRoot(startDir: string): string | null {
   return null
 }
 
-export function loadEnv(root: string | null): Record<string, string | undefined> {
+/** What uTerm's own .env files define (the repo's and ~/.config/echo-term's). */
+export function readEnvFiles(root: string | null): Record<string, string> {
   const files = [root && join(root, '.env'), join(homedir(), '.config', 'echo-term', '.env')].filter(Boolean) as string[]
   let fileEnv: Record<string, string> = {}
   for (const f of files) {
     if (existsSync(f)) { fileEnv = { ...parseEnvFile(readFileSync(f, 'utf8')), ...fileEnv } }
   }
-  return { ...fileEnv, ...process.env }
+  return fileEnv
+}
+
+export function loadEnv(root: string | null): Record<string, string | undefined> {
+  return { ...readEnvFiles(root), ...process.env }
 }
 
 export function dbConfigFromEnv(env: Record<string, string | undefined>): DbConfig | null {

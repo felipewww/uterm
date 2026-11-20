@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { AGENT_LABELS } from '@shared/types'
-import { generatingFor, selected, store } from '../store'
+import { generatingFor, notify, selected, store } from '../store'
 
 const emit = defineEmits<{ settings: [] }>()
 const s = computed(() => selected())
@@ -9,6 +9,12 @@ const dir = computed(() => s.value?.workingDirectory.replace(/^\/home\/[^/]+/, '
 
 async function toggleMute() { if (s.value) await window.echo.sessions.mute({ id: s.value.id, muted: !s.value.muted }) }
 async function openVscode() { if (s.value) await window.echo.sessions.openInVscode({ id: s.value.id }) }
+async function popOut() {
+  if (!s.value) return
+  try { const app = await window.echo.sessions.popOut({ id: s.value.id }); notify('info', `Opened in ${app}. The session was stopped here so only one copy runs.`, 5000) }
+  catch (e) { notify('error', (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 6000) }
+}
+async function stopSession() { if (s.value) await window.echo.sessions.stop({ id: s.value.id }) }
 async function stopAudio() { await window.echo.voice.stopPlayback() }
 </script>
 
@@ -39,6 +45,13 @@ async function stopAudio() { await window.echo.voice.stopPlayback() }
       </button>
 
       <span class="hdr-sep"></span>
+
+      <button class="hdr-btn" title="Open in your system terminal (stops it here and continues there)" aria-label="Open in system terminal" @click="popOut">
+        <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M9 2.75h4.25V7M13.25 2.75 7.5 8.5M11.5 9.5v2.75a1 1 0 0 1-1 1H3.75a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1H6.5" /></svg>
+      </button>
+      <button v-if="s.running" class="hdr-btn stop" title="Stop this session (ends the agent process; the conversation is kept and can be resumed)" aria-label="Stop this session" @click="stopSession">
+        <svg aria-hidden="true" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.5" /></svg>
+      </button>
 
       <button class="hdr-btn" :class="{ on: store.showActivity }" :aria-pressed="store.showActivity" title="Show or hide the activity panel" aria-label="Toggle activity panel" @click="store.showActivity = !store.showActivity">
         <svg aria-hidden="true" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M10 3v10" /></svg>

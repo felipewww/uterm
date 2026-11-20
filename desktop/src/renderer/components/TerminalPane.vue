@@ -17,6 +17,7 @@ function show() {
 
 const closed = computed(() => { const s = selected(); return !!s && !s.running })
 const resumable = computed(() => !!selected()?.nativeSessionId)
+const isShell = computed(() => selected()?.agentType === 'shell')
 const agent = computed(() => (selected() ? AGENT_LABELS[selected()!.agentType] : null))
 const missing = computed(() => { const a = selected() ? store.agents[selected()!.agentType] : undefined; return !!a && !a.installed })
 const lastMessage = computed(() => {
@@ -43,6 +44,11 @@ watch(() => [store.selectedId, closed.value], async ([id, c]) => {
   await Promise.resolve()
   resumeBtn.value?.focus()
 }, { immediate: true, flush: 'post' })
+// A plain terminal never waits for a resume: choosing a closed one just opens a new shell (in the folder it was in).
+watch(() => store.selectedId, async (id) => {
+  const s = selected()
+  if (id && s && s.agentType === 'shell' && !s.running) { await Promise.resolve(); await resume() }
+}, { immediate: true })
 onMounted(show)
 
 async function openVscode() { if (selected()) await window.echo.sessions.openInVscode({ id: selected()!.id }) }
@@ -79,13 +85,13 @@ async function resume() {
           <figcaption>{{ lastMessage.kind === 'final' ? 'Last result' : 'Last update' }}</figcaption>
           <blockquote>{{ lastMessage.text }}</blockquote>
         </figure>
-        <p class="resume-note">{{ resumable ? 'Resume reopens the agent and continues this same conversation.' : 'No conversation was recorded for this session, so this starts a new one in the same folder.' }}</p>
+        <p class="resume-note">{{ isShell ? 'This terminal is closed. Opening it starts a new shell in the same folder.' : resumable ? 'Resume reopens the agent and continues this same conversation.' : 'No conversation was recorded for this session, so this starts a new one in the same folder.' }}</p>
         <div v-if="missing" class="banner warn">{{ agent!.label }} is not installed on this machine, so this session cannot be started.</div>
         <div v-if="startError" class="banner danger" role="alert">{{ startError }}</div>
         <div class="resume-actions">
           <button ref="resumeBtn" class="btn primary resume-go" :disabled="starting || missing" @click="resume">
             <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5 3.25v9.5L12.5 8z" /></svg>
-            {{ starting ? 'Starting…' : startError ? 'Try again' : resumable ? 'Resume conversation' : 'Start session' }}
+            {{ starting ? 'Starting…' : startError ? 'Try again' : isShell ? 'Open terminal' : resumable ? 'Resume conversation' : 'Start session' }}
             <kbd v-if="!starting" class="kbd on-accent">↵</kbd>
           </button>
           <button class="btn ghost" title="Open the folder in VS Code" @click="openVscode">Open in VS Code</button>

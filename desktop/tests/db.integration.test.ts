@@ -56,7 +56,7 @@ describe.skipIf(!process.env.CI && !existsSync(envFile))('MySQL integration', ()
     expect(second.alreadyApplied).toEqual(first.applied)
   }, 60_000) // five migrations of DDL on a fresh database take a few seconds
 
-  it('persists sessions, enforces unique native ids per agent, archives, finds by native id', async (ctx) => {
+  it('persists sessions, enforces unique native ids per agent, finds by native id', async (ctx) => {
     if (!available) return ctx.skip()
     const pool = mysql.createPool({ host, port, ...{ user: testUser, password: testPass, database: dbName }, timezone: 'Z' })
     const store = new MySqlSessionStore(pool as never)
@@ -77,9 +77,11 @@ describe.skipIf(!process.env.CI && !existsSync(envFile))('MySQL integration', ()
     expect((await store.get(a.id))!.englishCoach).toBe(true)
     await store.update(a.id, { englishCoach: null })
     expect((await store.get(a.id))!.englishCoach).toBeNull()
-    await store.archive(a.id, true)
-    expect((await store.list()).map((s) => s.id)).not.toContain(a.id)
-    expect((await store.list({ includeArchived: true })).map((s) => s.id)).toContain(a.id)
+    expect((await store.list()).map((x) => x.id)).toContain(a.id)
+    await store.delete(c.id)
+    expect(await store.get(c.id)).toBeNull()
+    const cols = ((await pool.query('SHOW COLUMNS FROM sessions')) as unknown as [Array<{ Field: string }>])[0].map((r) => r.Field)
+    expect(cols).not.toContain('archived_at') // archiving was removed (migration 0009)
     await pool.end()
   })
 

@@ -26,6 +26,7 @@ runs on your machine; cloud voices and an English-practice coach are optional.
 - Named, resumable sessions (`claude --resume`, `codex resume`, `kiro-cli chat --resume-id`) and one-click import of existing conversations.
 - Nested folders with drag and drop, search, and live indicators: running sessions are highlighted with their state (ready, working, needs input, error).
 - Several Claude accounts: run a session with its own config folder (for example `~/.claude-work`).
+- Plain terminals: open a bare shell (no agent) next to your agent sessions for your own commands, from the `>_` button in the tab bar or the sessions header (in the selected session's folder), or from New session → Terminal. Voice input is never typed into it.
 - Installed CLIs are detected automatically (including `~/.local/bin` and Homebrew folders).
 
 **Voice, local by default**
@@ -68,11 +69,12 @@ shows the voice as "warming up". If Electron aborts with a SUID-sandbox error, `
 Other scripts: `./scripts/doctor.sh` (diagnostics), `./scripts/stop.sh` (stop containers, keep data), `./scripts/tts-gpu.sh` (GPU voice; `--cpu` to go back).
 
 ## Using it
-- **＋** in the sessions list creates a session (agent, title, folder) or imports an existing conversation. Double-click a title to rename; right-click for more (move to folder, archive, delete, open in VS Code…).
+- **＋** in the sessions list creates a session (agent, title, folder) or imports an existing conversation. Double-click a title to rename; right-click for more (move to folder, delete, open in VS Code…).
 - The mic button, or `Ctrl+Shift+Space`, records. Review and edit the transcription, then **Send** — it goes to the session that was selected when you started recording.
 - **Voice modes** per session: *Silent*, *Essential* (questions, permissions, blockers), *Balanced* (+ final results), *Conversational* (+ progress), set separately for when the session is in front and when it is in the background.
+- **Notification sounds**: when an agent needs you (question, approval, blocking error) or finishes while you are looking elsewhere, a short sound plays and its tab shows *Approve* / *Answer* / *Done*; recording start and stop have their own cue. Everything is configurable in Settings → General → Notifications.
 - The **STT/TTS chips** at the bottom of the sessions list show their state; click one to stop or start the local service (and free its memory).
-- **Settings**: General (theme), Voice (default voice, speed, modes, English coach), Cloud voice (providers, models, test), Usage, Microphone, Services.
+- **Settings**: General (theme), Voice (default voice, speed, modes), English coach, Cloud voice (providers, models, test), Usage, Microphone, Services.
 
 ## Cloud voice, keys and cost
 Add the keys you want to `.env` (created by setup; git-ignored; mode 600):

@@ -57,11 +57,7 @@ const time = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit'
 </script>
 
 <template>
-  <aside class="activity">
-    <div class="activity-head">
-      <span>Activity</span>
-      <span class="muted">{{ selected()?.runtimeState.replaceAll('_', ' ').toLowerCase() }}</span>
-    </div>
+  <div class="activity-body">
     <div ref="list" class="chat">
       <article v-for="it in items" :key="it.id" class="msg" :class="[it.kind, { spoken: it.spoken, playing: playing(it), generating: generating(it) }]">
         <!-- you -->
@@ -106,9 +102,9 @@ const time = (t: number) => new Date(t).toLocaleTimeString([], { hour: '2-digit'
           </template>
         </template>
       </article>
-      <div v-if="!items.length" class="empty">Structured agent activity appears here. The terminal stays the source of truth.</div>
+      <div v-if="!items.length" class="empty">{{ selected()?.agentType === 'shell' ? 'This is a plain terminal: nothing is tracked or spoken here.' : 'Structured agent activity appears here. The terminal stays the source of truth.' }}</div>
     </div>
     <div v-if="op" class="current-op"><span class="op-dot"></span>{{ op }}</div>
     <VoiceBar />
-  </aside>
+  </div>
 </template>

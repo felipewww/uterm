@@ -12,13 +12,13 @@ export class MemorySessionRepo implements SessionRepository {
     const r: SessionRecord = {
       id, agentType: s.agentType, nativeSessionId: s.nativeSessionId ?? null, title: s.title, workingDirectory: s.workingDirectory,
       transcriptPath: s.transcriptPath ?? null, voiceProfileId: s.voiceProfileId ?? null, playbackSpeed: null,
-      foregroundVoiceMode: null, backgroundVoiceMode: null, createdAt: now, lastActivityAt: now, archivedAt: null, folderId: null, configDir: s.configDir ?? null, englishCoach: null
+      foregroundVoiceMode: null, backgroundVoiceMode: null, createdAt: now, lastActivityAt: now, folderId: null, configDir: s.configDir ?? null, englishCoach: null, lastCwd: null
     }
     this.rows.set(id, r)
     return r
   }
   async get(id: string) { return this.rows.get(id) ?? null }
-  async list(opts: { includeArchived?: boolean } = {}) { return [...this.rows.values()].filter((r) => opts.includeArchived || !r.archivedAt) }
+  async list() { return [...this.rows.values()] }
   async update(id: string, patch: Parameters<SessionRepository['update']>[1]) { const r = this.rows.get(id); if (r) this.rows.set(id, { ...r, ...patch }) }
   async setNativeSessionId(id: string, n: string): Promise<'ok' | 'duplicate'> {
     const r = this.rows.get(id)
@@ -28,7 +28,6 @@ export class MemorySessionRepo implements SessionRepository {
     return 'ok'
   }
   async touch(id: string, at = Date.now()) { const r = this.rows.get(id); if (r) this.rows.set(id, { ...r, lastActivityAt: at }) }
-  async archive(id: string, a: boolean) { const r = this.rows.get(id); if (r) this.rows.set(id, { ...r, archivedAt: a ? Date.now() : null }) }
   async delete(id: string) { this.rows.delete(id) }
   async findByNative(agent: AgentType, n: string) { return [...this.rows.values()].find((r) => r.agentType === agent && r.nativeSessionId === n) ?? null }
   async listFolders() { return [...this.folders.values()] }

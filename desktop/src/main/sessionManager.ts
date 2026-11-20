@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
 import type { AgentType, AppSettings, FolderRecord, RuntimeState, SessionRecord, SessionView } from '@shared/types'
 import type { AnyAgentEvent, EventDraft } from '@shared/events'
 import type { AgentAdapter, AgentObserver } from './agents/adapter'
@@ -7,6 +8,7 @@ import type { SessionRepository } from './db/sessionStore'
 import type { EventBus } from './events/eventBus'
 import type { PtyManager } from './pty/ptyManager'
 import { searchPath } from './agents/exec'
+import { cwdOfPid } from './cwd'
 import { ReorderBuffer } from './hooks/reorderBuffer'
 import { nextState, needsAttention } from './sessionState'
 
@@ -32,6 +34,8 @@ export interface SessionManagerDeps {
   onViewChanged(view: SessionView): void
   onFoldersChanged?(folders: FolderRecord[]): void
   onSessionRemoved?(id: string): void
+  /** where a process is (defaults to /proc or lsof); injectable for tests */
+  cwdOf?(pid: number): Promise<string | null>
   onPersistenceError(message: string): void
 }
 
@@ -45,7 +49,7 @@ export class SessionManager {
   constructor(private d: SessionManagerDeps) {}
 
   async load(): Promise<void> {
-    this.records = new Map((await this.d.repo.list({ includeArchived: true })).map((r) => [r.id, r]))
+    this.records = new Map((await this.d.repo.list()).map((r) => [r.id, r]))
     this.folders = new Map((await this.d.repo.listFolders()).map((f) => [f.id, f]))
   }
 
@@ -86,12 +90,12 @@ export class SessionManager {
   }
 
   async create(input: { agentType: AgentType; title: string; workingDirectory: string; configDir?: string | null }): Promise<SessionView> {
-    const dir = input.workingDirectory
+    const dir = input.agentType === 'shell' && input.workingDirectory === '~' ? homedir() : input.workingDirectory // a bare terminal may start in the home folder
     if (!existsSync(dir) || !statSync(dir).isDirectory()) throw new Error(`Directory does not exist: ${dir}`)
     const configDir = this.checkConfigDir(input.agentType, input.configDir)
     const s = this.d.settings()
     const rec = await this.d.repo.create({
-      agentType: input.agentType, title: input.title.trim() || dirName(dir), workingDirectory: dir,
+      agentType: input.agentType, title: input.title.trim() || (input.agentType === 'shell' ? `Terminal · ${dirName(dir)}` : dirName(dir)), workingDirectory: dir,
       voiceProfileId: s.defaultVoiceId, configDir
     })
     this.records.set(rec.id, rec)
@@ -155,7 +159,7 @@ export class SessionManager {
 
     try {
       this.d.pty.spawn(id, {
-        file: launch.file, args: launch.args, cwd: rec.workingDirectory, cols, rows,
+        file: launch.file, args: launch.args, cwd: rec.agentType === 'shell' && rec.lastCwd && existsSync(rec.lastCwd) ? rec.lastCwd : rec.workingDirectory, cols, rows,
         env: { ...cleanEnv(), TERM: 'xterm-256color', COLORTERM: 'truecolor', ...(rec.configDir && rec.agentType === 'claude' ? { CLAUDE_CONFIG_DIR: rec.configDir } : {}), ...launch.env }
       })
     } catch (err) {
@@ -252,6 +256,7 @@ export class SessionManager {
   }
 
   async stop(id: string): Promise<void> {
+    await this.refreshCwd(id) // before the shell goes away
     await this.d.pty.kill(id)
     this.onPtyExit(id, 0)
   }
@@ -259,6 +264,8 @@ export class SessionManager {
   async stopAll(): Promise<void> {
     await Promise.all([...this.runtime.keys()].filter((id) => this.isRunning(id)).map((id) => this.stop(id)))
   }
+
+  runningIds(): string[] { return [...this.runtime.keys()].filter((id) => this.isRunning(id)) }
 
   runningCount(): number { return [...this.runtime.keys()].filter((id) => this.isRunning(id)).length }
 
@@ -347,6 +354,30 @@ export class SessionManager {
   }
 
   /** Permanently removes the session from uTerm (running agent stopped first). The agent's own conversation files are never touched. */
+  /** Remembers where a plain terminal's shell is now, so reopening it starts in the same folder. */
+  async refreshCwd(id: string): Promise<void> {
+    const rec = this.records.get(id)
+    if (!rec || rec.agentType !== 'shell') return
+    const pid = this.d.pty.pidOf(id)
+    const cwd = pid ? await (this.d.cwdOf ?? cwdOfPid)(pid) : null
+    if (!cwd || cwd === rec.lastCwd) return
+    const now = this.records.get(id)
+    if (!now) return
+    this.records.set(id, { ...now, lastCwd: cwd })
+    this.publishView(id)
+    await this.safely('remember the terminal folder', () => this.d.repo.update(id, { lastCwd: cwd }))
+  }
+  async refreshAllCwds(): Promise<void> { for (const id of this.records.keys()) if (this.isRunning(id)) await this.refreshCwd(id) }
+
+  /** Pastes a saved command into a plain terminal; `run` also presses Enter. The user asked for it with a click: nothing else ever does this. */
+  runCommand(id: string, command: string, run: boolean): boolean {
+    const rec = this.records.get(id)
+    if (!rec || rec.agentType !== 'shell' || !this.isRunning(id)) return false
+    this.d.pty.write(id, `\x1b[200~${command.replace(/\x1b/g, '')}\x1b[201~`)
+    if (run) setTimeout(() => this.d.pty.write(id, '\r'), 120)
+    return true
+  }
+
   async delete(id: string): Promise<void> {
     if (!this.records.has(id)) return
     if (this.isRunning(id)) await this.stop(id)
@@ -358,15 +389,6 @@ export class SessionManager {
     await this.safely('delete the session', () => this.d.repo.delete(id))
   }
 
-  async archive(id: string, archived: boolean): Promise<void> {
-    if (archived && this.isRunning(id)) await this.stop(id)
-    const rec = this.records.get(id)
-    if (!rec) return
-    this.records.set(id, { ...rec, archivedAt: archived ? Date.now() : null })
-    this.publishView(id)
-    await this.safely('archive the session', () => this.d.repo.archive(id, archived))
-  }
-
   /**
    * Voice-transcript delivery. Text is never sent into a permission menu or an
    * interactive question (the user must answer those natively), and automatic
@@ -375,6 +397,7 @@ export class SessionManager {
   sendText(id: string, text: string, opts: { auto: boolean; force?: boolean }): { sent: boolean; reason?: 'not-running' | 'prompt-active' | 'not-idle' } {
     const rt = this.runtime.get(id)
     if (!rt || !this.isRunning(id)) return { sent: false, reason: 'not-running' }
+    if (this.records.get(id)?.agentType === 'shell') return { sent: false, reason: 'not-running' } // never type transcribed speech into a plain shell: Enter would run it
     const blocked = rt.state === 'WAITING_FOR_PERMISSION' || rt.state === 'WAITING_FOR_INPUT'
     if (blocked && !opts.force) return { sent: false, reason: 'prompt-active' }
     if (opts.auto && rt.state !== 'IDLE') return { sent: false, reason: 'not-idle' }
@@ -391,12 +414,21 @@ export const HOOK_REORDER_MS = 200
 
 const dirName = (p: string): string => p.split('/').filter(Boolean).pop() ?? 'session'
 
+/**
+ * uTerm's own .env (database passwords, COMPOSE_FILE for its GPU override…) may reach the app's environment when it is started through a
+ * script that sources it. None of that belongs in the user's terminals or agents: it would hand them secrets and make `docker compose`
+ * in any project read uTerm's COMPOSE_FILE. A variable is dropped only when its value is exactly the one uTerm's .env defines.
+ */
+let envScrub: Record<string, string> = {}
+export function setEnvScrub(fromEnvFiles: Record<string, string>): void { envScrub = fromEnvFiles }
+
 function cleanEnv(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(process.env)) {
     if (v === undefined) continue
     if (k.startsWith('ELECTRON_') || k === 'NODE_OPTIONS') continue // don't leak Electron internals into the agent
     if (k === 'CLAUDE_CODE_CHILD_SESSION') continue // set when launched from inside another Claude session
+    if (envScrub[k] !== undefined && envScrub[k] === v) continue // came from uTerm's own .env
     if (k.startsWith('ECHO_TERM_DB_')) continue // never hand DB credentials to agents
     if (/^ECHO_TERM_.*(API_KEY|SECRET|TOKEN)$/.test(k)) continue // nor cloud-provider keys (agents and the tools they run must not see them)
     out[k] = v

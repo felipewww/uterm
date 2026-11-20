@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { cancelRecording, coachEnabled, discardDraft, drafts, isRecording, recorder, runCoach, startRecording, stopRecording, submitDraft, useMine, useNatural } from '../composables/useRecorder'
 import { coachOnFor } from '@shared/types'
+import { focusTerminal } from '../terminals'
 import { selected, store } from '../store'
 
 const s = computed(() => selected())
@@ -18,11 +19,20 @@ const coachOn = computed(() => !!s.value && coachEnabled(s.value.id))
 const coachNeedsKey = computed(() => coachWanted.value && !store.keys.openai)
 const coachOffHere = computed(() => !coachWanted.value && s.value?.englishCoach === false)
 async function setCoach(on: boolean) { if (s.value) await window.echo.sessions.update({ id: s.value.id, patch: { englishCoach: on } }) }
+// Recording takes the keyboard: focus leaves the terminal for the recorder (so typing cannot reach the agent), and moves to the transcription when it is ready.
+const recRow = ref<HTMLElement | null>(null)
+const draftEl = ref<HTMLTextAreaElement | null>(null)
+watch(() => draft.value?.status, async (st, prev) => {
+  await nextTick()
+  if (st === 'recording') recRow.value?.focus()
+  else if (st === 'review' && prev === 'transcribing') draftEl.value?.focus()
+})
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
 const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttOff.value ? 'Speech-to-text is off' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
 const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttOff.value ? 'Turn it on with the STT chip at the bottom left' : sttNoKey.value ? 'Add the key to .env (Settings → Cloud voice)' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
 
+function discardRecording() { const id = s.value?.id; cancelRecording(); if (id) focusTerminal(id) }
 async function toggle() {
   if (!s.value) return
   if (isRecording()) stopRecording()
@@ -40,7 +50,7 @@ async function rerecord() {
 </script>
 
 <template>
-  <div v-if="s" class="composer" :class="draft?.status ?? 'idle'">
+  <div v-if="s && s.agentType !== 'shell'" class="composer" :class="draft?.status ?? 'idle'">
     <!-- idle -->
     <div v-if="!draft" class="composer-row">
       <button class="mic" :disabled="!s.running || recordingElsewhere" title="Record voice message" aria-label="Record voice message" @click="toggle">
@@ -52,13 +62,13 @@ async function rerecord() {
 
     <!-- recording -->
     <template v-else-if="draft.status === 'recording'">
-      <div class="composer-row">
+      <div ref="recRow" class="composer-row rec-focus" tabindex="-1">
         <span class="rec-time"><i class="rec-dot"></i>{{ mmss(draft.seconds) }}</span>
         <div class="wave" aria-hidden="true"><i v-for="n in bars" :key="n" :style="{ '--i': n }"></i></div>
-        <button class="btn ghost icon-only" title="Cancel recording" aria-label="Cancel recording" @click="cancelRecording"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" /></svg></button>
-        <button class="mic rec" title="Stop and transcribe" aria-label="Stop and transcribe" @click="toggle"><svg aria-hidden="true" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1" /></svg></button>
+        <button class="btn ghost icon-only" title="Discard recording (Esc)" aria-label="Discard recording" @click="discardRecording"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8" /></svg></button>
+        <button class="mic rec" title="Stop and transcribe (Enter)" aria-label="Stop and transcribe" @click="toggle"><svg aria-hidden="true" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1" /></svg></button>
       </div>
-      <p class="composer-hint">Recording for <strong>{{ s.title }}</strong> · press stop to transcribe</p>
+      <p class="composer-hint">Recording for <strong>{{ s.title }}</strong> · <kbd class="kbd">Enter</kbd> to finish · <kbd class="kbd">Esc</kbd> to discard</p>
     </template>
 
     <!-- transcribing -->
@@ -79,7 +89,7 @@ async function rerecord() {
     <!-- review -->
     <template v-else>
       <div class="composer-label"><span>Transcription</span><span class="to">→ {{ s.title }}</span></div>
-      <textarea v-model="draft.text" class="draft" placeholder="Review the transcription before sending…" @keydown.ctrl.enter.prevent="send" @keydown.meta.enter.prevent="send"></textarea>
+      <textarea ref="draftEl" v-model="draft.text" class="draft" placeholder="Review the transcription before sending…" @keydown.ctrl.enter.prevent="send" @keydown.meta.enter.prevent="send"></textarea>
       <div v-if="coachOn" class="coach" :class="draft.coach?.status ?? 'loading'">
         <div class="composer-label">
           <span>More natural English</span>

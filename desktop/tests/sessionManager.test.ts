@@ -1,5 +1,5 @@
 import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { AgentAdapter } from '../src/main/agents/adapter'
@@ -39,7 +39,7 @@ function setup() {
   const persistenceErrors: string[] = []
   const repo = new MemorySessionRepo()
   const deps = {
-    repo, pty, bus: new EventBus(), adapters: { claude: adapter('claude'), codex: adapter('codex'), kiro: adapter('kiro') },
+    repo, pty, bus: new EventBus(), adapters: { claude: adapter('claude'), codex: adapter('codex'), kiro: adapter('kiro'), shell: adapter('shell') },
     socketPath: '/tmp/x.sock', settings: () => DEFAULT_SETTINGS, speechInstructions: () => null,
     onViewChanged: (v: SessionView) => views.push(v), onPersistenceError: (m: string) => persistenceErrors.push(m)
   }
@@ -124,6 +124,55 @@ describe('SessionManager', () => {
     expect((await t.repo.get(v.id))!.englishCoach).toBe(false)
     await t.mgr.updateSettings(v.id, { englishCoach: null })
     expect(t.mgr.getRecord(v.id)!.englishCoach).toBeNull()
+  })
+
+  it('opens a plain terminal: home folder for "~", a clear title, and never accepts transcribed speech', async () => {
+    const t = setup()
+    const v = await t.mgr.create({ agentType: 'shell', title: '', workingDirectory: '~' })
+    expect(v.workingDirectory).toBe(homedir())
+    expect(v.title).toMatch(/^Terminal · /)
+    expect(v.running).toBe(true)
+    expect(t.mgr.sendText(v.id, 'rm -rf /', { auto: false, force: true })).toEqual({ sent: false, reason: 'not-running' }) // Enter would run it
+    expect(t.procs.at(-1)!.proc.written).toEqual([])
+    await expect(t.mgr.create({ agentType: 'claude', title: '', workingDirectory: '~' })).rejects.toThrow(/does not exist/) // "~" is only for terminals
+  })
+
+  it('remembers the folder a plain terminal was in, reopens there, and pastes saved commands only on request', async () => {
+    const t = setup()
+    const where = dir(); const elsewhere = dir()
+    ;(t.deps as { cwdOf?: (pid: number) => Promise<string | null> }).cwdOf = async () => elsewhere
+    const v = await t.mgr.create({ agentType: 'shell', title: 'Langtune', workingDirectory: where })
+    expect(t.procs.at(-1)!.spec.cwd).toBe(where)
+    await t.mgr.refreshCwd(v.id)
+    expect(t.mgr.getRecord(v.id)!.lastCwd).toBe(elsewhere)
+    expect((await t.repo.get(v.id))!.lastCwd).toBe(elsewhere)
+    expect(t.mgr.runCommand(v.id, 'npm run dev', false)).toBe(true)
+    expect(t.procs.at(-1)!.proc.written).toEqual(['\x1b[200~npm run dev\x1b[201~']) // pasted, not run
+    expect(t.mgr.runCommand(v.id, 'ls', true)).toBe(true)
+    await new Promise((r) => setTimeout(r, 200))
+    expect(t.procs.at(-1)!.proc.written.at(-1)).toBe('\r')
+    await t.mgr.stop(v.id)
+    await t.mgr.start(v.id, 80, 24)
+    expect(t.procs.at(-1)!.spec.cwd).toBe(elsewhere) // back where it was
+    const agent = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
+    expect(t.mgr.runCommand(agent.id, 'ls', true)).toBe(false) // never into an agent
+    await t.mgr.refreshCwd(agent.id)
+    expect(t.mgr.getRecord(agent.id)!.lastCwd).toBeNull()
+  })
+
+  it('keeps uTerm’s own .env out of terminals (COMPOSE_FILE would break docker compose in other projects)', async () => {
+    const { setEnvScrub } = await import('../src/main/sessionManager')
+    process.env.COMPOSE_FILE = 'docker-compose.yml:docker-compose.gpu.yml'; process.env.MYSQL_ROOT_PASSWORD = 'from-env-file'
+    process.env.MYSQL_USER = 'mine' // the user's own variable, different from the .env value
+    setEnvScrub({ COMPOSE_FILE: 'docker-compose.yml:docker-compose.gpu.yml', MYSQL_ROOT_PASSWORD: 'from-env-file', MYSQL_USER: 'echo' })
+    try {
+      const t = setup()
+      await t.mgr.create({ agentType: 'shell', title: 'T', workingDirectory: dir() })
+      const env = t.procs.at(-1)!.spec.env
+      expect(env.COMPOSE_FILE).toBeUndefined()
+      expect(env.MYSQL_ROOT_PASSWORD).toBeUndefined()
+      expect(env.MYSQL_USER).toBe('mine')
+    } finally { setEnvScrub({}); delete process.env.COMPOSE_FILE; delete process.env.MYSQL_ROOT_PASSWORD; delete process.env.MYSQL_USER }
   })
 
   it('ignores empty folder names and moves to unknown folders', async () => {
@@ -284,14 +333,6 @@ describe('SessionManager', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(t.persistenceErrors[0]).toMatch(/Terminals keep running/)
     expect(t.mgr.isRunning(v.id)).toBe(true)
-  })
-
-  it('archiving a running session stops it first', async () => {
-    const t = setup()
-    const v = await t.mgr.create({ agentType: 'claude', title: 'A', workingDirectory: dir() })
-    await t.mgr.archive(v.id, true)
-    expect(t.mgr.isRunning(v.id)).toBe(false)
-    expect(t.mgr.getRecord(v.id)!.archivedAt).not.toBeNull()
   })
 })
 

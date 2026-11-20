@@ -16,12 +16,11 @@ export interface NewSession {
 export interface SessionRepository {
   create(s: NewSession): Promise<SessionRecord>
   get(id: string): Promise<SessionRecord | null>
-  list(opts?: { includeArchived?: boolean }): Promise<SessionRecord[]>
+  list(): Promise<SessionRecord[]>
   update(id: string, patch: Partial<Pick<SessionRecord,
-    'title' | 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode' | 'transcriptPath' | 'englishCoach'>>): Promise<void>
+    'title' | 'voiceProfileId' | 'playbackSpeed' | 'foregroundVoiceMode' | 'backgroundVoiceMode' | 'transcriptPath' | 'englishCoach' | 'lastCwd'>>): Promise<void>
   setNativeSessionId(id: string, nativeId: string): Promise<'ok' | 'duplicate'>
   touch(id: string, at?: number): Promise<void>
-  archive(id: string, archived: boolean): Promise<void>
   /** Removes the session and (by cascade) its stored activity and spoken messages. */
   delete(id: string): Promise<void>
   findByNative(agent: AgentType, nativeId: string): Promise<SessionRecord | null>
@@ -34,7 +33,6 @@ export interface SessionRepository {
   setFolder(sessionId: string, folderId: string | null): Promise<void>
 }
 
-const toMs = (d: Date | null): number | null => (d ? d.getTime() : null)
 
 function rowToSession(r: RowDataPacket): SessionRecord {
   return {
@@ -45,15 +43,16 @@ function rowToSession(r: RowDataPacket): SessionRecord {
     foregroundVoiceMode: r.foreground_voice_mode as VoiceMode | null,
     backgroundVoiceMode: r.background_voice_mode as VoiceMode | null,
     createdAt: (r.created_at as Date).getTime(), lastActivityAt: (r.last_activity_at as Date).getTime(),
-    archivedAt: toMs(r.archived_at), folderId: r.folder_id ?? null, configDir: r.config_dir ?? null,
-    englishCoach: r.english_coach === null || r.english_coach === undefined ? null : !!r.english_coach
+    folderId: r.folder_id ?? null, configDir: r.config_dir ?? null,
+    englishCoach: r.english_coach === null || r.english_coach === undefined ? null : !!r.english_coach,
+    lastCwd: r.last_cwd ?? null
   }
 }
 
 const COLUMN: Record<string, string> = {
   title: 'title', voiceProfileId: 'voice_profile_id', playbackSpeed: 'playback_speed',
   foregroundVoiceMode: 'foreground_voice_mode', backgroundVoiceMode: 'background_voice_mode',
-  transcriptPath: 'transcript_path', englishCoach: 'english_coach'
+  transcriptPath: 'transcript_path', englishCoach: 'english_coach', lastCwd: 'last_cwd'
 }
 
 export class MySqlSessionStore implements SessionRepository {
@@ -74,10 +73,8 @@ export class MySqlSessionStore implements SessionRepository {
     return rows[0] ? rowToSession(rows[0]) : null
   }
 
-  async list(opts: { includeArchived?: boolean } = {}): Promise<SessionRecord[]> {
-    const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * FROM sessions ${opts.includeArchived ? '' : 'WHERE archived_at IS NULL'} ORDER BY last_activity_at DESC`
-    )
+  async list(): Promise<SessionRecord[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>('SELECT * FROM sessions ORDER BY last_activity_at DESC')
     return rows.map(rowToSession)
   }
 
@@ -104,10 +101,6 @@ export class MySqlSessionStore implements SessionRepository {
 
   async touch(id: string, at = Date.now()): Promise<void> {
     await this.pool.execute('UPDATE sessions SET last_activity_at = ? WHERE id = ?', [new Date(at), id])
-  }
-
-  async archive(id: string, archived: boolean): Promise<void> {
-    await this.pool.execute('UPDATE sessions SET archived_at = ? WHERE id = ?', [archived ? new Date() : null, id])
   }
 
   async listFolders(): Promise<FolderRecord[]> {

@@ -1,31 +1,24 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref } from 'vue'
 import { AGENT_LABELS, type SessionView } from '@shared/types'
 import { parseVoiceId } from '@shared/voices'
 import { notify, selected, store, toggleService, usd, voiceOf } from '../store'
+import SidebarNodes from './SidebarNodes.vue'
+import type { SidebarNode } from './sidebarTypes'
 
-const emit = defineEmits<{ select: [id: string]; create: []; settings: []; usage: []; home: [] }>()
+const emit = defineEmits<{ select: [id: string]; create: []; settings: []; usage: [] }>()
 const query = ref('')
-const showArchived = ref(false)
+// Folders start collapsed: only an explicit `false` means open. (While filtering, matching folders are shown open so results are never hidden.)
 const collapsed = reactive<Record<string, boolean>>({})
 const editingId = ref<string | null>(null)
 const editText = ref('')
-const editInput = ref<HTMLInputElement[] | HTMLInputElement | null>(null)
 const menu = ref<{ x: number; y: number; s: SessionView } | null>(null)
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   return store.sessions
-    .filter((s) => (showArchived.value ? true : !s.archivedAt))
     .filter((s) => !q || s.title.toLowerCase().includes(q) || s.workingDirectory.toLowerCase().includes(q) || s.agentType.includes(q))
 })
-type Row =
-  | { kind: 'folder'; key: string; id: string; name: string; depth: number; count: number }
-  | { kind: 'new'; key: string; depth: number }
-  | { kind: 'empty'; key: string; folderId: string; depth: number }
-  | { kind: 'session'; key: string; s: SessionView; depth: number; lead?: boolean }
-  | { kind: 'root-drop'; key: string }
-type FolderRow = Extract<Row, { kind: 'folder' }>
 const filtering = computed(() => !!query.value.trim())
 const folderIds = computed(() => new Set(store.folders.map((f) => f.id)))
 // A folder whose parent is unknown is shown at the top level.
@@ -45,37 +38,39 @@ function isInside(candidate: string | null, id: string): boolean {
 }
 
 const newFolder = ref<{ parentId: string | null; text: string } | null>(null) // a folder being named
-const rows = computed<Row[]>(() => {
-  const out: Row[] = []
-  const walk = (pid: string | null, depth: number) => {
-    if (newFolder.value && newFolder.value.parentId === pid) out.push({ kind: 'new', key: 'new', depth })
+const tree = computed<SidebarNode[]>(() => {
+  const build = (pid: string | null): SidebarNode[] => {
+    const out: SidebarNode[] = []
+    if (newFolder.value && newFolder.value.parentId === pid) out.push({ kind: 'new', key: 'new', parentId: pid })
     for (const f of childFolders(pid)) {
       const count = countIn(f.id)
       if (filtering.value && !count) continue // while filtering, hide folders with no match
-      out.push({ kind: 'folder', key: 'f:' + f.id, id: f.id, name: f.name, depth, count })
-      if (collapsed['f:' + f.id]) continue
-      walk(f.id, depth + 1)
-      for (const s of sessionsIn(f.id)) out.push({ kind: 'session', key: s.id, s, depth: depth + 1 })
-      if (!filtering.value && !childFolders(f.id).length && !sessionsIn(f.id).length && !(newFolder.value && newFolder.value.parentId === f.id)) out.push({ kind: 'empty', key: 'e:' + f.id, folderId: f.id, depth: depth + 1 })
+      const key = 'f:' + f.id
+      const isCollapsed = !filtering.value && collapsed[key] !== false
+      const children: SidebarNode[] = isCollapsed ? [] : [...build(f.id), ...sessionsIn(f.id).map((s): SidebarNode => ({ kind: 'session', key: s.id, s }))]
+      if (!isCollapsed && !filtering.value && children.length === 0) children.push({ kind: 'empty', key: 'e:' + f.id, folderId: f.id })
+      out.push({ kind: 'folder', key, id: f.id, name: f.name, count, collapsed: isCollapsed, children })
     }
+    return out
   }
-  walk(null, 0)
-  const loose = liveFirst(filtered.value.filter((s) => !s.folderId || !folderIds.value.has(s.folderId)))
-  const hasFolders = out.length > 0
-  loose.forEach((s, i) => out.push({ kind: 'session', key: s.id, s, depth: 0, lead: i === 0 && hasFolders }))
-  if (dragId.value) out.push({ kind: 'root-drop', key: 'root-drop' })
+  return build(null)
+})
+const loose = computed(() => liveFirst(filtered.value.filter((s) => !s.folderId || !folderIds.value.has(s.folderId))))
+const looseNodes = computed<SidebarNode[]>(() => loose.value.map((s): SidebarNode => ({ kind: 'session', key: s.id, s })))
+const visible = computed(() => {
+  const out: SessionView[] = []
+  const walk = (ns: SidebarNode[]) => { for (const n of ns) { if (n.kind === 'folder') walk(n.children); else if (n.kind === 'session') out.push(n.s) } }
+  walk(tree.value); out.push(...loose.value)
   return out
 })
-const visible = computed(() => rows.value.flatMap((r) => (r.kind === 'session' ? [r.s] : [])))
 
 // folders: create / rename / delete / move
 const editingFolder = ref<string | null>(null)
 const folderText = ref('')
-const folderInput = ref<HTMLInputElement[] | HTMLInputElement | null>(null)
 const folderMenu = ref<{ x: number; y: number; id: string; name: string } | null>(null)
 async function focusFolderInput() {
   await nextTick()
-  const el = Array.isArray(folderInput.value) ? folderInput.value[0] : folderInput.value
+  const el = document.querySelector<HTMLInputElement>('.sb-folder-input')
   el?.focus(); el?.select()
 }
 async function startNewFolder(parentId: string | null = null) {
@@ -155,9 +150,9 @@ const ttsProvider = computed(() => parseVoiceId(voiceOf(selected())).provider)
 const provider = (n: 'stt' | 'tts') => (n === 'stt' ? store.settings.sttProvider : ttsProvider.value)
 const cloud = (n: 'stt' | 'tts') => provider(n) !== 'local'
 const cloudReady = (n: 'stt' | 'tts') => { const p = provider(n); return p !== 'local' && store.keys[p] }
+// The dot is always the LOCAL service (running, loading, off, down). The cloud mark says a cloud provider is in use and whether its key is there.
 const svcClass = (n: 'stt' | 'tts') => {
   if (store.serviceBusy[n]) return 'busy'
-  if (cloud(n)) return cloudReady(n) ? 'ok' : 'bad' // cloud: ready when its key is present
   if (!store.enabled[n]) return 'off'
   if (n === 'tts') return store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'
   return store.status.stt ? 'ok' : 'bad'
@@ -165,14 +160,16 @@ const svcClass = (n: 'stt' | 'tts') => {
 const svcTitle = (n: 'stt' | 'tts') => {
   const name = n === 'stt' ? 'Speech-to-text' : 'Text-to-speech'
   if (store.serviceBusy[n]) return `${name}: working…`
-  const local = !store.enabled[n] ? 'the local service is off (memory freed). Click to turn it on' : 'the local service is running. Click to turn it off and free its memory'
-  if (cloud(n)) return `${name} via ${provider(n) === 'openai' ? 'OpenAI' : 'Gemini'} (cloud)${cloudReady(n) ? '' : ': API key missing'}; ${local}`
-  if (!store.enabled[n]) return `${name} is off (memory freed). Click to turn on`
-  const state = n === 'tts' ? (store.status.ttsReady ? 'ready' : store.status.tts ? 'loading the model' : 'offline') : (store.status.stt ? 'ready' : 'offline')
-  return `${name}: ${state}. Click to turn off and free its memory`
+  const localState = !store.enabled[n] ? 'off (memory freed)' : n === 'tts' ? (store.status.ttsReady ? 'running' : store.status.tts ? 'loading the model' : 'offline') : (store.status.stt ? 'running' : 'offline')
+  const action = store.enabled[n] ? 'Click to turn it off and free its memory' : 'Click to turn it on'
+  if (cloud(n)) return `${name} uses ${provider(n) === 'openai' ? 'OpenAI' : 'Gemini'} (cloud)${cloudReady(n) ? '' : ', but its API key is missing'}. The local service is ${localState}. ${action}`
+  return `${name}: ${localState}. ${action}`
 }
-const liveCount = computed(() => store.sessions.filter((s) => s.running && !s.archivedAt).length)
-const totalCount = computed(() => store.sessions.filter((s) => !s.archivedAt).length)
+// expand / collapse every folder at once: if any is open the button collapses all, otherwise it opens all
+const anyOpen = computed(() => store.folders.some((f) => collapsed['f:' + f.id] === false))
+function toggleAllFolders() { const close = anyOpen.value; for (const f of store.folders) collapsed['f:' + f.id] = close }
+const liveCount = computed(() => store.sessions.filter((s) => s.running).length)
+const totalCount = computed(() => store.sessions.length)
 
 const stateLabel: Record<string, string> = {
   STARTING: 'Starting', IDLE: 'Ready', WORKING: 'Working', WAITING_FOR_INPUT: 'Needs input',
@@ -189,12 +186,15 @@ const shortDir = (p: string) => {
 }
 // A non-default Claude account is shown next to the agent name: ~/.claude-me -> "Claude (me)".
 const agentName = (s: SessionView) => AGENT_LABELS[s.agentType].short + (s.configDir ? ` (${s.configDir.split('/').filter(Boolean).pop()?.replace(/^\.claude[-_.]?/, '') || 'alt'})` : '')
+/** Only what deserves a word: a calm session says nothing. */
+const statusText = (s: SessionView) => (!s.running ? '' : ({ WORKING: 'Working', STARTING: 'Starting', WAITING_FOR_INPUT: 'Needs input', WAITING_FOR_PERMISSION: 'Needs approval', ERROR: 'Error' } as Record<string, string>)[s.runtimeState] ?? '')
+const statusTone = (s: SessionView) => (s.runtimeState === 'ERROR' ? 'bad' : s.runtimeState.startsWith('WAITING') ? 'warn' : '')
 const tip = (s: SessionView) => `${s.title}\n${agentName(s)} · ${s.workingDirectory}\n${stateLabel[s.runtimeState]}${s.muted ? ' · muted' : ''}`
 
 async function startEdit(s: SessionView) {
   editingId.value = s.id; editText.value = s.title
   await nextTick()
-  const el = Array.isArray(editInput.value) ? editInput.value[0] : editInput.value
+  const el = document.querySelector<HTMLInputElement>('.sb-edit-input')
   el?.focus(); el?.select()
 }
 async function commitEdit() {
@@ -203,7 +203,6 @@ async function commitEdit() {
   if (id && editText.value.trim()) await window.echo.sessions.rename({ id, title: editText.value.trim() })
 }
 async function close(s: SessionView) { await window.echo.sessions.stop({ id: s.id }) }
-async function archive(s: SessionView) { await window.echo.sessions.archive({ id: s.id, archived: !s.archivedAt }) }
 
 // keyboard: ↑/↓ move the selection, F2 renames
 function onKey(e: KeyboardEvent) {
@@ -231,7 +230,7 @@ function openMenu(e: MouseEvent, s: SessionView) {
   folderMenu.value = null
   menu.value = { x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 300), s }
 }
-function openFolderMenu(e: MouseEvent, f: FolderRow) {
+function openFolderMenu(e: MouseEvent, f: { id: string; name: string }) {
   menu.value = null
   folderMenu.value = { x: Math.min(e.clientX, window.innerWidth - 220), y: Math.min(e.clientY, window.innerHeight - 300), id: f.id, name: f.name }
 }
@@ -245,6 +244,11 @@ async function copyPath(s: SessionView) {
 async function toggleGlobalMute() { await window.echo.settings.save({ globalMute: !store.settings.globalMute }) }
 async function openVscode(s: SessionView) { await window.echo.sessions.openInVscode({ id: s.id }) }
 function onWindowKey(e: KeyboardEvent) { if (e.key === 'Escape') closeMenu() }
+provide('sbx', reactive({
+  collapsed, dragId, dropKey, editingFolder, folderText, newFolder, editingId, editText,
+  startRenameFolder, commitRenameFolder, commitNewFolder, openFolderMenu, onDragStart, onDragOver, onDragEnd, onDrop,
+  select: (id: string) => emit('select', id), startEdit, commitEdit, openMenu, close, remove: (s: SessionView) => { store.confirmDelete = s }, ago, shortDir, agentName, tip, statusText, statusTone
+}))
 onMounted(() => { window.addEventListener('click', closeMenu); window.addEventListener('blur', closeMenu); window.addEventListener('keydown', onWindowKey) })
 onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.removeEventListener('blur', closeMenu); window.removeEventListener('keydown', onWindowKey) })
 </script>
@@ -256,11 +260,9 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       <span class="head-count">{{ totalCount }}</span>
       <span v-if="liveCount" class="head-live" :title="`${liveCount} running`"><i></i>{{ liveCount }} live</span>
       <span class="head-tools">
-        <button class="tool-btn" :class="{ on: !store.selectedId }" title="Home" aria-label="Home" @click="emit('home')">
-          <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 7.75 8 3l5.5 4.75M4 6.75V13h8V6.75M6.75 13V9.75h2.5V13" /></svg>
-        </button>
-        <button class="tool-btn" :class="{ on: showArchived }" :aria-pressed="showArchived" title="Show archived sessions" aria-label="Show archived sessions" @click="showArchived = !showArchived">
-          <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3 5.5h10v7.25H3zM2.25 3.25h11.5V5.5H2.25zM6.5 8h3" /></svg>
+        <button v-if="store.folders.length" class="tool-btn" :title="anyOpen ? 'Collapse all folders' : 'Expand all folders'" :aria-label="anyOpen ? 'Collapse all folders' : 'Expand all folders'" @click="toggleAllFolders">
+          <svg v-if="anyOpen" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 3.5 3.5 3.5 3.5-3.5M4.5 12.5 8 9l3.5 3.5" /></svg>
+          <svg v-else aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 7 3.5-3.5L11.5 7M4.5 9 8 12.5 11.5 9" /></svg>
         </button>
         <button class="tool-btn" title="New folder" aria-label="New folder" @click="startNewFolder(null)">
           <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M2 4.25h4l1.5 1.75H14v6.5H2zM8 8v3M6.5 9.5h3" /></svg>
@@ -280,69 +282,17 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     </label>
 
     <div class="session-groups" role="listbox" aria-label="Sessions" tabindex="0" @keydown="onKey">
-      <div v-for="row in rows" :key="row.key" class="tree-row" :class="['row-' + row.kind, { 'row-lead': 'lead' in row && row.lead }]" :style="{ '--depth': 'depth' in row ? row.depth : 0 }">
-        <!-- folder -->
-        <div
-          v-if="row.kind === 'folder'" class="group-title folder" :class="{ 'drop-target': dropKey === row.key, dragging: dragId === row.id }"
-          role="button" tabindex="-1" :aria-expanded="!collapsed[row.key]" :draggable="editingFolder !== row.id"
-          @click="collapsed[row.key] = !collapsed[row.key]" @contextmenu.prevent="openFolderMenu($event, row)" @dblclick.stop="startRenameFolder(row.id, row.name)"
-          @dragstart="onDragStart($event, 'folder', row.id)" @dragend="onDragEnd" @dragover="onDragOver($event, row.key, row.id)" @dragleave="dropKey = null" @drop="onDrop($event, row.id)"
-        >
-          <svg class="chev" :class="{ collapsed: collapsed[row.key] }" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 6.25 3.5 3.5 3.5-3.5" /></svg>
-          <svg class="folder-ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M2 4.25h4l1.5 1.75H14v6.5H2z" /></svg>
-          <input v-if="editingFolder === row.id" ref="folderInput" v-model="folderText" class="rename" aria-label="Folder name" @click.stop @dblclick.stop @keydown.enter="commitRenameFolder" @keydown.esc.stop="editingFolder = null" @blur="commitRenameFolder" />
-          <span v-else class="group-name">{{ row.name }}</span><span class="count">{{ row.count }}</span>
-        </div>
-
-        <!-- folder being named -->
-        <div v-else-if="row.kind === 'new' && newFolder" class="group-title folder">
-          <svg class="chev" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 6.25 3.5 3.5 3.5-3.5" /></svg>
-          <svg class="folder-ico" aria-hidden="true" viewBox="0 0 16 16"><path d="M2 4.25h4l1.5 1.75H14v6.5H2z" /></svg>
-          <input ref="folderInput" v-model="newFolder.text" class="rename" placeholder="Folder name" aria-label="New folder name" @keydown.enter="commitNewFolder" @keydown.esc.stop="newFolder = null" @blur="commitNewFolder" />
-        </div>
-
-        <div v-else-if="row.kind === 'empty'" class="folder-empty" :class="{ 'drop-target': dropKey === row.key }" @dragover="onDragOver($event, row.key, row.folderId)" @dragleave="dropKey = null" @drop="onDrop($event, row.folderId)">Empty. Drag items here.</div>
-
-        <div v-else-if="row.kind === 'root-drop'" class="root-drop" :class="{ 'drop-target': dropKey === row.key }" @dragover="onDragOver($event, row.key, null)" @dragleave="dropKey = null" @drop="onDrop($event, null)">Drop here for top level</div>
-
-        <!-- session -->
-        <div
-          v-else-if="row.kind === 'session'" class="session" draggable="true" role="option" :aria-selected="row.s.id === store.selectedId" :data-sid="row.s.id" :title="tip(row.s)"
-          :class="['st-' + row.s.runtimeState.toLowerCase(), { live: row.s.running, 'in-folder': row.depth > 0, dragging: dragId === row.s.id, selected: row.s.id === store.selectedId, attention: row.s.needsAttention, archived: !!row.s.archivedAt, closed: !row.s.running }]"
-          @click="emit('select', row.s.id)" @dblclick.stop="startEdit(row.s)" @dragstart="onDragStart($event, 'session', row.s.id)" @dragend="onDragEnd" @contextmenu.prevent="openMenu($event, row.s)"
-        >
-          <i class="dot" :class="row.s.runtimeState.toLowerCase()"></i>
-          <div class="session-main">
-            <div class="session-line">
-              <input v-if="editingId === row.s.id" ref="editInput" v-model="editText" class="rename" @click.stop @dblclick.stop @keydown.enter="commitEdit" @keydown.esc.stop="editingId = null" @blur="commitEdit" />
-              <span v-else class="session-title">{{ row.s.title }}</span>
-              <span v-if="row.s.speaking" class="speaking" title="Speaking"><span class="eq"><i></i><i></i><i></i></span></span>
-              <svg v-else-if="row.s.muted" class="muted-icon" aria-label="Muted" viewBox="0 0 16 16"><path d="M2.5 6v4h2.5l3.5 3V3L5 6zM11.5 6l3 4M14.5 6l-3 4" /></svg>
-              <span class="session-time">{{ ago(row.s.lastActivityAt) }}</span>
-              <span class="session-actions" @click.stop>
-                <button v-if="row.s.running" class="icon-btn small" title="Stop session (keeps history)" aria-label="Stop session" @click="close(row.s)">
-                  <svg aria-hidden="true" viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1" /></svg>
-                </button>
-                <button class="icon-btn small" :title="row.s.archivedAt ? 'Unarchive' : 'Archive'" :aria-label="row.s.archivedAt ? 'Unarchive session' : 'Archive session'" @click="archive(row.s)">
-                  <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M3 5.5h10v7.25H3zM2.25 3.25h11.5V5.5H2.25zM6.5 8h3" /></svg>
-                </button>
-              </span>
-            </div>
-            <div class="session-sub">
-              <span class="agent-tag" :class="row.s.agentType">{{ agentName(row.s) }}</span>
-              <span class="path">{{ shortDir(row.s.workingDirectory) }}</span>
-              <span v-if="row.s.running" class="session-state">{{ stateLabel[row.s.runtimeState] }}</span>
-            </div>
-          </div>
-        </div>
+      <div class="sb-list">
+        <SidebarNodes :nodes="tree" />
+        <div v-if="loose.length" class="sb-loose" :class="{ spaced: tree.length }"><SidebarNodes :nodes="looseNodes" /></div>
+        <div v-if="dragId" class="root-drop" :class="{ 'drop-target': dropKey === 'root-drop' }" @dragover="onDragOver($event, 'root-drop', null)" @dragleave="dropKey = null" @drop="onDrop($event, null)">Drop here for top level</div>
       </div>
 
       <div v-if="!filtered.length" class="empty-state">
         <template v-if="query || store.sessions.length">
           <strong>No matches</strong>
-          <span>{{ query ? `Nothing matches “${query}”.` : 'All sessions are archived.' }}</span>
-          <button v-if="query" class="btn small" @click="query = ''">Clear filter</button>
-          <button v-else class="btn small" @click="showArchived = true">Show archived</button>
+          <span>Nothing matches “{{ query }}”.</span>
+          <button class="btn small" @click="query = ''">Clear filter</button>
         </template>
         <template v-else>
           <strong>No sessions yet</strong>
@@ -359,8 +309,8 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div class="sidebar-foot">
       <span class="services">
         <span class="svc" :class="store.status.db ? 'ok' : 'bad'" :title="store.status.db ? 'MySQL connected' : 'MySQL unavailable (history is kept in memory only)'"><i></i>MySQL</span>
-        <button class="svc" :class="svcClass('stt')" :disabled="store.serviceBusy.stt" :title="svcTitle('stt')" @click="toggleService('stt')"><i></i>STT<template v-if="cloud('stt')"> ☁</template></button>
-        <button class="svc" :class="svcClass('tts')" :disabled="store.serviceBusy.tts" :title="svcTitle('tts')" @click="toggleService('tts')"><i></i>TTS<template v-if="cloud('tts')"> ☁</template><template v-else-if="store.enabled.tts && store.status.tts && !store.status.ttsReady"> …</template></button>
+        <button class="svc" :class="svcClass('stt')" :disabled="store.serviceBusy.stt" :title="svcTitle('stt')" @click="toggleService('stt')"><i></i>STT<svg v-if="cloud('stt')" class="cloud-mark" :class="cloudReady('stt') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
+        <button class="svc" :class="svcClass('tts')" :disabled="store.serviceBusy.tts" :title="svcTitle('tts')" @click="toggleService('tts')"><i></i>TTS<svg v-if="cloud('tts')" class="cloud-mark" :class="cloudReady('tts') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg><template v-else-if="store.enabled.tts && store.status.tts && !store.status.ttsReady"> …</template></button>
       </span>
       <span class="foot-tools">
       <button class="tool-btn" :class="{ warn: store.settings.globalMute }" :aria-pressed="store.settings.globalMute" :title="store.settings.globalMute ? 'All voice output is muted. Click to unmute' : 'Mute all voice output'" aria-label="Mute all voice output" @click="toggleGlobalMute">
@@ -376,7 +326,6 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div v-if="menu" class="menu" role="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }" @click.stop @contextmenu.prevent>
       <button class="menu-item" role="menuitem" @click="act(() => startEdit(menu!.s))">Rename<kbd class="kbd">F2</kbd></button>
       <button v-if="menu.s.running" class="menu-item" role="menuitem" @click="act(() => close(menu!.s))">Stop session</button>
-      <button class="menu-item" role="menuitem" @click="act(() => archive(menu!.s))">{{ menu.s.archivedAt ? 'Unarchive' : 'Archive' }}</button>
       <div class="menu-sep"></div>
       <div class="menu-label">Move to folder</div>
       <button v-for="f in folderOptions()" :key="f.id" class="menu-item" role="menuitem" :style="{ paddingLeft: 10 + f.depth * 12 + 'px' }" @click="act(() => moveTo(menu!.s, f.id))">{{ f.name }}<span v-if="menu.s.folderId === f.id" class="menu-check">✓</span></button>

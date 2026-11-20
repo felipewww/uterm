@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, coachOnFor, type AgentType, type Ap
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
-import { dbConfigFromEnv, findRepoRoot, loadEnv, socketPath } from './config'
+import { dbConfigFromEnv, findRepoRoot, loadEnv, readEnvFiles, socketPath } from './config'
 import { migrate } from './db/migrate'
 import { EventStore, SettingsStore, VoiceProfileStore } from './db/miscStores'
 import { createPool, type Pool } from './db/pool'
@@ -20,10 +20,16 @@ import { HookServer } from './hooks/hookServer'
 import { listImportable } from './importer'
 import { PtyManager } from './pty/ptyManager'
 import { nodePtyFactory } from './pty/nodePtyFactory'
-import { SessionManager } from './sessionManager'
+import { SessionManager, setEnvScrub } from './sessionManager'
 import { SPEECH_INSTRUCTIONS } from './speechInstructions'
 import { claudeProfiles } from './agents/claudeProfiles'
 import { readDesired, setService, type ServiceName } from './services'
+import { ShellAdapter } from './agents/shell'
+import { SystemSampler } from './system'
+import { popOut } from './externalTerminal'
+import { readOpenTabs, writeOpenTabs } from './openTabs'
+import { userShell } from './agents/shell'
+import { MemoryCommandStore, MySqlCommandStore, type CommandRepository } from './db/commandStore'
 import { SpeechRouter, selfTest } from './voice/speechRouter'
 import { cloudVoiceLabel, isCloudVoice, legacyDefaultVoice } from '@shared/voices'
 import { listModels, type CloudProvider } from './voice/cloud'
@@ -68,6 +74,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   // Packaged builds ship hooks/ and database/ as extraResources (outside the asar).
   const root = app.isPackaged ? process.resourcesPath : findRepoRoot(app.getAppPath())
   const env = loadEnv(root)
+  setEnvScrub(readEnvFiles(root))
   const dbCfg = dbConfigFromEnv(env)
   let repo: SessionRepository = new MemorySessionRepo()
   let settingsStore: SettingsStore | null = null
@@ -75,6 +82,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   let voiceStore: VoiceProfileStore | null = null
   let usageStore: UsageRepository = new MemoryUsageStore()
   let coachHistory: CoachHistory = new MemoryCoachHistory()
+  let commandStore: CommandRepository = new MemoryCommandStore()
 
   if (dbCfg && root) {
     try {
@@ -86,6 +94,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       voiceStore = new VoiceProfileStore(pool)
       usageStore = new MySqlUsageStore(pool)
       coachHistory = new MySqlCoachHistory(pool)
+      commandStore = new MySqlCommandStore(pool)
       settings = await settingsStore.load()
       // Earlier builds had a global "voice provider" setting. The provider now belongs to the voice id (shared/voices.ts): carry it over once.
       const legacy = settings as unknown as Record<string, unknown>
@@ -112,7 +121,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   let dbWarned = false
   const sessions: SessionManager = new SessionManager({
     repo, pty, bus, socketPath: socketPath(),
-    adapters: { claude: new ClaudeCodeAdapter(repoRoot), codex: new CodexAdapter(), kiro: new KiroAdapter() },
+    adapters: { claude: new ClaudeCodeAdapter(repoRoot), codex: new CodexAdapter(), kiro: new KiroAdapter(), shell: new ShellAdapter() },
     settings: () => settings,
     speechInstructions: () => (settings.injectSpeechInstructions ? SPEECH_INSTRUCTIONS : null),
     onViewChanged: (v: SessionView) => send('session:view', { ...v, speaking: v.id === speakingSessionId }),
@@ -199,7 +208,6 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   ipcMain.handle('sessions:stop', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.stop(requireSession(a.id)) })
   ipcMain.handle('sessions:rename', (_e, p) => { const a = parse(schemas.rename, p); return sessions.rename(requireSession(a.id), a.title) })
   ipcMain.handle('sessions:delete', async (_e, p) => { const a = parse(schemas.id, p); voice.queue.cancelSession(a.id); await sessions.delete(requireSession(a.id)); voice.focusChanged() })
-  ipcMain.handle('sessions:archive', (_e, p) => { const a = parse(schemas.archive, p); return sessions.archive(requireSession(a.id), a.archived) })
   ipcMain.handle('folders:list', () => sessions.folderList())
   ipcMain.handle('folders:create', (_e, p) => { const a = parse(schemas.folderCreate, p); return sessions.createFolder(a.name, a.parentId ?? null) })
   ipcMain.handle('folders:move', (_e, p) => { const a = parse(schemas.folderMove, p); return sessions.moveFolder(a.id, a.parentId) })
@@ -282,6 +290,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     const clean: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(patch)) {
       if (!(k in DEFAULT_SETTINGS) || typeof v !== typeof (DEFAULT_SETTINGS as never)[k]) continue
+      if (k === 'externalTerminal' && !['auto', 'ptyxis', 'gnome-terminal', 'konsole', 'xfce4-terminal', 'kitty', 'alacritty', 'wezterm', 'x-terminal-emulator'].includes(v as string)) continue
       if (k === 'sttProvider' && !SPEECH_PROVIDERS.includes(v as never)) continue
       if (typeof v === 'string' && v.length > 300) continue
       clean[k] = v
@@ -313,9 +322,39 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     })
   })
   ipcMain.handle('coach:improve', (_e, p) => coach.improve(parse(schemas.coachImprove, p).text))
+  // "Open in system terminal": stop uTerm's copy first (two processes must never share one conversation), then open the user's terminal app
+  ipcMain.handle('sessions:popOut', async (_e, p) => {
+    const a = parse(schemas.id, p); requireSession(a.id)
+    if (sessions.isRunning(a.id)) await sessions.stop(a.id)
+    const rec = sessions.getRecord(a.id)!
+    const cwd = rec.agentType === 'shell' && rec.lastCwd && existsSync(rec.lastCwd) ? rec.lastCwd : rec.workingDirectory
+    if (!existsSync(cwd)) throw new Error(`The folder no longer exists: ${cwd}`)
+    return popOut({ preferred: settings.externalTerminal, cwd, shell: userShell(), input: { agent: rec.agentType, nativeSessionId: rec.nativeSessionId, configDir: rec.configDir } })
+  })
+  // plain terminals: remember where the shell is (every few seconds), and the commands the user chose to keep
+  setInterval(() => { void sessions.refreshAllCwds() }, 4000).unref()
+  ipcMain.handle('commands:list', (_e, p) => commandStore.list(requireSession(parse(schemas.sessionIdOnly, p).sessionId)))
+  ipcMain.handle('commands:add', (_e, p) => { const a = parse(schemas.commandAdd, p); return commandStore.add(requireSession(a.sessionId), a.command.trim(), a.label?.trim() || null) })
+  ipcMain.handle('commands:remove', (_e, p) => commandStore.remove(parse(schemas.id, p).id))
+  ipcMain.handle('commands:run', async (_e, p) => {
+    const a = parse(schemas.commandRun, p)
+    const c = await commandStore.get(a.id)
+    return c ? sessions.runCommand(c.sessionId, c.command, a.run) : false
+  })
+  const sampler = new SystemSampler()
+  ipcMain.handle('system:sample', (_e, p) => { const a = parse(schemas.systemSample, p ?? {}); return sampler.sample(a.sessionId ? pty.pidOf(a.sessionId) : null) })
   ipcMain.handle('usage:summary', () => usageStore.summary())
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, p) => { clipboard.writeText(parse(schemas.text, p).text) })
+
+  // Tabs to bring back on the next launch: remembered while the app runs (so a crash keeps them) and once more right before quitting.
+  const tabsFile = join(app.getPath('userData'), 'open-tabs.json')
+  const restoreIds = readOpenTabs(tabsFile) // what the previous run left open
+  const runningIds = () => sessions.runningIds()
+  let lastSaved = ''
+  const saveTabs = () => { if (quitting) return; const ids = runningIds(); const j = JSON.stringify(ids); if (j !== lastSaved) { lastSaved = j; writeOpenTabs(tabsFile, ids) } }
+  setInterval(saveTabs, 3000).unref()
+  ipcMain.handle('app:restoreTabs', () => restoreIds.filter((id) => { try { return !!sessions.getRecord(id) } catch { return false } }))
 
   app.on('before-quit', (e) => {
     if (quitting) return
@@ -327,6 +366,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     quitting = true
   })
   ipcMain.handle('app:quit-confirmed', async () => {
+    writeOpenTabs(tabsFile, runningIds()) // what was open right now
     quitting = true
     await sessions.stopAll()
     await hookServer.stop()
@@ -350,7 +390,8 @@ function createWindow(): void {
     width: 1440, height: 900, minWidth: 900, minHeight: 560, backgroundColor: '#1e1e1e', title: 'uTerm', icon: appIcon(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true
+      contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true,
+      autoplayPolicy: 'no-user-gesture-required' // notification sounds must play without a click
     }
   })
   win.webContents.on('did-finish-load', () => { for (const n of pendingNotices.splice(0)) send('notice', n) })

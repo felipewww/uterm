@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { AGENT_LABELS, AGENT_TYPES, VOICE_MODES, type AgentType, type AppSettings, type VoiceMode } from '@shared/types'
+import { AGENT_LABELS, CODING_AGENTS, VOICE_MODES, type AgentType, type AppSettings, type VoiceMode } from '@shared/types'
 import { shortcutFromEvent } from '../shortcut'
 import { notify, selected, store, toggleService } from '../store'
 import CloudVoicePane from './CloudVoicePane.vue'
+import { playChime, playRecordingCue } from '../chime'
 import VoicePicker from './VoicePicker.vue'
 import { cloudVoiceLabel } from '@shared/voices'
 import UsagePane from './UsagePane.vue'
@@ -33,11 +34,12 @@ const text = (n: 'stt' | 'tts') => {
   return store.status.stt ? 'Ready' : 'Offline'
 }
 
-type Pane = 'general' | 'voice' | 'cloud' | 'usage' | 'input' | 'services'
-const pane = ref<Pane>((['general', 'voice', 'cloud', 'usage', 'input', 'services'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
+type Pane = 'general' | 'voice' | 'english' | 'cloud' | 'usage' | 'input' | 'services'
+const pane = ref<Pane>((['general', 'voice', 'english', 'cloud', 'usage', 'input', 'services'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
 const panes: Array<{ id: Pane; label: string; icon: string }> = [
   { id: 'general', label: 'General', icon: 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M5.5 3v3M10.5 6.5v3M7 10v3' },
   { id: 'voice', label: 'Voice', icon: 'M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5M12.5 3.75a6 6 0 0 1 0 8.5' },
+  { id: 'english', label: 'English coach', icon: 'M2.5 4h6M5.5 4v1.5M3.5 9c1.6-.6 3-1.9 3.6-3.5M4.5 7.2c.7 1.4 1.9 2.4 3.3 2.9M9 13l2.5-6 2.5 6M9.8 11.2h3.4' },
   { id: 'cloud', label: 'Cloud voice', icon: 'M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z' },
   { id: 'usage', label: 'Usage', icon: 'M3 13V8.5M6.5 13V4M10 13V7M13.5 13V2.5' },
   { id: 'input', label: 'Microphone', icon: 'M6 2.5h4a1.5 1.5 0 0 1 1.5 1.5v3a3.5 3.5 0 0 1-7 0V4A1.5 1.5 0 0 1 6 2.5zM3.25 7.5a4.75 4.75 0 0 0 9.5 0M8 12.25v2M5.75 14.25h4.5' },
@@ -157,10 +159,36 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 <div class="field-text"><strong>Terminal background</strong><small>Applies immediately</small></div>
               <select :value="currentTerminalBackground" @change="setTerminalBackground(($event.target as HTMLSelectElement).value)"><option v-for="b in TERMINAL_BACKGROUNDS" :key="b.id" :value="b.id">{{ b.label }}</option></select>
 </div>
+            <h3 class="pane-title">System terminal</h3>
+            <div class="field">
+              <div class="field-text"><strong>Terminal app</strong><small>Used by “Open in system terminal”. Auto picks the first one installed</small></div>
+              <select v-model="g.externalTerminal"><option v-for="t in ['auto', 'ptyxis', 'gnome-terminal', 'konsole', 'xfce4-terminal', 'kitty', 'alacritty', 'wezterm', 'x-terminal-emulator']" :key="t" :value="t">{{ t }}</option></select>
+            </div>
+            <h3 class="pane-title">Notifications</h3>
+            <div class="field">
+<div class="field-text"><strong>Play a sound</strong><small>When an agent needs you or finishes while you are looking elsewhere. Silent for the session in front, while recording, and when muted</small></div>
+              <input v-model="g.notifySounds" class="switch" type="checkbox" aria-label="Notification sounds" />
+</div>
+            <div class="field" :class="{ dim: !g.notifySounds }">
+<div class="field-text"><strong>When it needs me</strong><small>A question, an approval, a blocking error. Two rising notes</small></div>
+              <div class="row"><input v-model="g.notifyOnAttention" class="switch" type="checkbox" aria-label="Sound when an agent needs me" :disabled="!g.notifySounds" /><button class="btn small" :disabled="!g.notifySounds" @click="playChime('attention', g.notifyVolume)">Play</button></div>
+</div>
+            <div class="field" :class="{ dim: !g.notifySounds }">
+<div class="field-text"><strong>When it finishes</strong><small>A task is done. One soft pop</small></div>
+              <div class="row"><input v-model="g.notifyOnDone" class="switch" type="checkbox" aria-label="Sound when an agent finishes" :disabled="!g.notifySounds" /><button class="btn small" :disabled="!g.notifySounds" @click="playChime('done', g.notifyVolume)">Play</button></div>
+</div>
+            <div class="field">
+<div class="field-text"><strong>Recording cue</strong><small>A short sound when a recording starts and when it stops</small></div>
+              <div class="row"><input v-model="g.recordCues" class="switch" type="checkbox" aria-label="Recording cue" /><button class="btn small" :disabled="!g.recordCues" @click="playRecordingCue(g.notifyVolume)">Play</button></div>
+</div>
+            <div class="field" :class="{ dim: !g.notifySounds && !g.recordCues }">
+<div class="field-text"><strong>Volume</strong></div>
+              <input v-model.number="g.notifyVolume" type="range" min="0" max="1" step="0.05" :disabled="!g.notifySounds && !g.recordCues" aria-label="Notification volume" />
+</div>
             <h3 class="pane-title">Sessions</h3>
             <div class="field">
 <div class="field-text"><strong>Default agent</strong><small>Preselected in the New session dialog</small></div>
-              <select v-model="g.defaultAgent"><option v-for="t in AGENT_TYPES" :key="t" :value="t" :disabled="!!store.agents[t] && !store.agents[t]!.installed">{{ AGENT_LABELS[t].label }}{{ store.agents[t] && !store.agents[t]!.installed ? ' — not installed' : '' }}</option></select>
+              <select v-model="g.defaultAgent"><option v-for="t in CODING_AGENTS" :key="t" :value="t" :disabled="!!store.agents[t] && !store.agents[t]!.installed">{{ AGENT_LABELS[t].label }}{{ store.agents[t] && !store.agents[t]!.installed ? ' — not installed' : '' }}</option></select>
 </div>
           </template>
 
@@ -173,11 +201,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <div class="field">
 <div class="field-text"><strong>Default voice</strong><small>Used by every chat unless it picks its own. Includes cloud voices.</small></div>
               <VoicePicker v-model="g.defaultVoiceId" preview-button />
-</div>
-            <h3 class="pane-title">English practice</h3>
-            <div class="field">
-<div class="field-text"><strong>English coach</strong><small>After each recording, show a more natural B2–C1 version next to your transcription before you send. Needs the OpenAI key (Settings → Cloud voice). Each chat can override this.</small></div>
-              <input v-model="g.englishCoach" class="switch" type="checkbox" aria-label="English coach" />
 </div>
             <div class="field">
 <div class="field-text"><strong>Playback speed</strong><small>0.5 – 2</small></div>
@@ -224,6 +247,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <p class="muted fine">Only import recordings you are authorized to use (3–30 s). Reference clips stay in the local TTS volume.</p>
           </template>
 
+          <template v-else-if="pane === 'english'">
+            <h3 class="pane-title">English coach</h3>
+            <p class="hint">Practise English while you work. For what you say or type, the coach writes a more natural version at a <strong>B2–C1</strong> level (same meaning, no forced vocabulary) and shows it next to your text. It never changes what is sent to the agent or what is spoken back.</p>
+            <div class="field">
+              <div class="field-text"><strong>Turn the English coach on</strong><small>Global switch. Each chat can override it in its voice settings (the speaker button in the chat header)</small></div>
+              <input v-model="g.englishCoach" class="switch" type="checkbox" aria-label="English coach" />
+            </div>
+            <div class="field">
+              <div class="field-text"><strong>Model</strong><small>A small, cheap OpenAI text model</small></div>
+              <input v-model="g.englishCoachModel" spellcheck="false" />
+            </div>
+            <div class="svc-row"><i :class="store.keys.openai ? 'ok' : 'bad'"></i><strong>OpenAI key</strong><span>{{ store.keys.openai ? 'Found in .env' : 'Missing. Add ECHO_TERM_OPENAI_API_KEY=… to .env and restart the app' }}</span><span></span></div>
+            <h3 class="pane-title">How it shows up</h3>
+            <ul class="notes"><li><strong>Voice messages:</strong> after you record, the box shows your transcription and the natural version below it. “Use this version” swaps it in, “Back to mine” restores yours, “Redo” regenerates. Nothing is sent until you press Send.</li><li><strong>Typed messages:</strong> sent as usual from the terminal; the natural version appears under your message in the Activity panel, with no approval step.</li><li><strong>History:</strong> every pair is saved locally for later review.</li></ul>
+            <p class="hint warn-note">This sends what you say or type to OpenAI. It is off by default, and its estimated cost appears under Usage. Press <strong>Save</strong> to apply.</p>
+          </template>
           <CloudVoicePane v-else-if="pane === 'cloud'" :g="g" />
           <UsagePane v-else-if="pane === 'usage'" />
 

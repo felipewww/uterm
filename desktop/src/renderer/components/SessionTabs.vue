@@ -102,13 +102,17 @@ const tip = (s: SessionView) => `${s.title}\n${label(s)} · ${s.workingDirectory
 const dragId = ref<string | null>(null)
 const drop = ref<{ id: string; after: boolean } | null>(null)
 function onDragStart(e: DragEvent, s: SessionView) {
-  dragId.value = s.id
   e.dataTransfer?.setData('text/plain', s.id)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  // Mark it as dragged only after the browser has taken its drag image: changing the dragged element during dragstart can cancel the drag,
+  // and agent tabs re-render constantly (state, speaking, flags) while a terminal's never does.
+  setTimeout(() => { dragId.value = s.id }, 0)
 }
 function onDragOver(e: DragEvent, s: SessionView) {
-  if (!dragId.value || !isTab(s) || dragId.value === s.id) return
-  e.preventDefault()
+  if (!dragId.value || !isTab(s)) return
+  e.preventDefault() // accept the drop everywhere on a tab (also on itself), so the drag is never refused mid-way
+  if (dragId.value === s.id) { drop.value = null; return }
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   drop.value = { id: s.id, after: e.clientX > r.left + r.width / 2 }
 }

@@ -29,7 +29,7 @@ onMounted(() => { void poll(); timer = window.setInterval(poll, 1500) })
 onBeforeUnmount(() => clearInterval(timer))
 
 const sel = computed(() => selected())
-const gib = (kb: number) => (kb / 1048576).toFixed(kb >= 10 * 1048576 ? 0 : 1)
+const gib = (kb: number) => (kb / 1048576).toFixed(1) // one decimal always: 14.2 must not read as 14 or 15
 const size = (kb: number) => (kb >= 1048576 ? `${(kb / 1048576).toFixed(1)} GiB` : `${Math.round(kb / 1024)} MiB`)
 const pct = (n: number) => `${Math.round(n)}%`
 const level = (n: number) => (n >= 85 ? 'hot' : n >= 60 ? 'warm' : 'ok')

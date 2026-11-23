@@ -80,6 +80,7 @@ export interface AppSettings {
   recordShortcut: string
   autoSubmitTranscription: boolean
   microphoneId: string
+  speakerId: string
   /** Address of a Chatterbox TTS server (the repo's Docker one, or any server with the same API). Used when ttsEngine is 'chatterbox'. */
   ttsUrl: string
   /** What speaks the "local" voices: the operating system's own voice (default, nothing to install) or a Chatterbox server at ttsUrl. */
@@ -134,6 +135,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recordShortcut: ON_MAC ? 'Meta+Shift+Space' : OLD_DEFAULT_RECORD_SHORTCUT,
   autoSubmitTranscription: false,
   microphoneId: '',
+  speakerId: '',
   ttsUrl: 'http://127.0.0.1:18090',
   ttsEngine: 'system',
   queueMaxItems: 8,

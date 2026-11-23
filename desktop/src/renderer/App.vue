@@ -14,6 +14,7 @@ import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
 import { cancelRecording, discardDraft, drafts, isRecording, recorder, startRecording, stopRecording, submitDraft } from './composables/useRecorder'
 import { playChime } from './chime'
+import { setOutputDevice } from './audioOutput'
 import { chimeFor } from './notify'
 import { isEditableTarget, isSendCombo, matchesShortcut, recordingKeyAction } from './shortcut'
 import { ingestEvent, layout, markSpoken, notify, resetActivity, refreshStatus, refreshUsage, removeSession, resetSidebar, setNatural, resizeActivity, resizeSidebar, store, upsertSession } from './store'
@@ -28,6 +29,7 @@ let statusTimer: number | undefined
 let usageTimer: number | undefined
 
 const cancelDelete = ref<HTMLButtonElement | null>(null)
+watch(() => store.settings.speakerId, (id) => setOutputDevice(id ?? ''), { immediate: true })
 watch(() => store.confirmDelete, async (s) => { if (s) { await nextTick(); cancelDelete.value?.focus() } }) // the safe choice has the focus
 async function confirmDeleteSession() {
   const s = store.confirmDelete

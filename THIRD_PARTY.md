@@ -13,8 +13,8 @@ uTerm is MIT-licensed (see `LICENSE`). It builds on, and runs in containers, the
 | [FastAPI](https://fastapi.tiangolo.com/), [PyTorch](https://pytorch.org/) | TTS service | MIT / BSD-3 |
 
 ## Sounds
-Two short sound effects from [Freesound](https://freesound.org), both released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (no attribution required; credited here anyway):
-- `desktop/src/renderer/assets/sounds/notification.mp3`: "Notification Sound" by [yfjesse](https://freesound.org/people/yfjesse/sounds/235911/).
+The "needs you" notification is synthesised by the app (`desktop/src/renderer/chime.ts`). The "done" sound and the recording cue are short sound effects from [Freesound](https://freesound.org) released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) (no attribution required; credited here anyway):
+- `desktop/src/renderer/assets/sounds/done.mp3`: "WaterDrop" by [NoisyRedFox](https://freesound.org/people/NoisyRedFox/sounds/868240/).
 - `desktop/src/renderer/assets/sounds/recording-cue.mp3`: "Message Notification 4" by [AnthonyRox](https://freesound.org/people/AnthonyRox/sounds/740423/).
 
 The full dependency list, with exact versions, is in `desktop/package-lock.json` and `services/*/requirements.txt`.

@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import { wavDuration } from '../wavInfo'
+import { applyOutput } from '../audioOutput'
 
 /**
  * The renderer owns playback. Main synthesises a message as a few WAV chunks and pushes them here as they are ready;
@@ -53,6 +54,7 @@ function locate(t: Track, seconds: number): { index: number; offset: number } {
 function ensureAudio(): HTMLAudioElement {
   audio ??= new Audio()
   audio.preservesPitch = true
+  applyOutput(audio)
   return audio
 }
 

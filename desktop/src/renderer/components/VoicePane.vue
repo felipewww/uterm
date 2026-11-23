@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ON_MAC, VOICE_MODES, type AppSettings, type SpeechProvider, type TtsEngine, type VoiceMode } from '@shared/types'
 import { GEMINI_VOICES, OPENAI_VOICES, cloudVoiceId, parseVoiceId } from '@shared/voices'
 import { prettyShortcut, shortcutFromEvent } from '../shortcut'
@@ -90,11 +90,17 @@ async function removeVoice(id: string) { await window.echo.voice.remove({ voiceI
 
 // --- microphone and recording shortcut (speech input)
 const mics = ref<MediaDeviceInfo[]>([])
+const speakers = ref<MediaDeviceInfo[]>([])
+async function listDevices() {
+  try { const all = await navigator.mediaDevices.enumerateDevices(); mics.value = all.filter((d) => d.kind === 'audioinput'); speakers.value = all.filter((d) => d.kind === 'audiooutput' && d.deviceId !== 'default' && d.deviceId !== 'communications') } catch { /* no permission yet */ }
+}
 const capturing = ref(false)
 onMounted(async () => {
-  try { mics.value = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput') } catch { /* no permission yet */ }
+  await listDevices()
+  navigator.mediaDevices?.addEventListener?.('devicechange', listDevices) // headset plugged in or switched off
   try { store.voices = await window.echo.voice.list() } catch { /* the list stays as it was */ }
 })
+onBeforeUnmount(() => navigator.mediaDevices?.removeEventListener?.('devicechange', listDevices))
 function captureShortcut(e: KeyboardEvent) {
   const sc = shortcutFromEvent(e)
   if (sc) { s.recordShortcut = sc; capturing.value = false }
@@ -144,6 +150,10 @@ const nameOf = (cards: Card[], id: string) => cards.find((c) => c.id === id)?.na
     <div v-if="voiceOptions.length" class="field wide">
       <div class="field-text"><strong>Voice</strong><small>The default for every chat. Each chat can pick its own from the speaker button</small></div>
       <div class="row key-row"><select v-model="s.defaultVoiceId" aria-label="Default voice"><option v-for="v in voiceOptions" :key="v.id" :value="v.id">{{ v.label }}</option></select><button class="btn small" :disabled="!s.defaultVoiceId" @click="previewVoice(s.defaultVoiceId)">Preview</button></div>
+    </div>
+    <div class="field">
+      <div class="field-text"><strong>Speaker</strong><small>Where voices and notification sounds play. A headset that is switched off falls back to the system default</small></div>
+      <select v-model="s.speakerId" aria-label="Speaker"><option value="">System default</option><option v-for="d in speakers" :key="d.deviceId" :value="d.deviceId">{{ d.label || d.deviceId.slice(0, 8) }}</option></select>
     </div>
     <div class="field">
       <div class="field-text"><strong>Playback speed</strong><small>0.5 – 2</small></div>

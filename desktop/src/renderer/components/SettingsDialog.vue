@@ -2,8 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { AGENT_LABELS, CODING_AGENTS, VOICE_MODES, type AgentType, type AppSettings, type VoiceMode } from '@shared/types'
 import { shortcutFromEvent } from '../shortcut'
-import { notify, selected, store, toggleService } from '../store'
-import CloudVoicePane from './CloudVoicePane.vue'
+import { notify, selected, store } from '../store'
+import VoiceEnginesPane from './VoiceEnginesPane.vue'
+import ApiKeyField from './ApiKeyField.vue'
 import { playChime, playRecordingCue } from '../chime'
 import VoicePicker from './VoicePicker.vue'
 import { cloudVoiceLabel } from '@shared/voices'
@@ -23,27 +24,16 @@ const voiceFile = ref<File | null>(null)
 const busy = ref(false)
 /** Human name of a voice id, for "Use the default (…)". */
 const voiceName = (id: string) => store.voices.find((v) => v.id === id)?.name ?? cloudVoiceLabel(id) ?? id
-const dot = (n: 'stt' | 'tts') => {
-  if (!store.enabled[n]) return 'off'
-  if (n === 'tts') return store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'
-  return store.status.stt ? 'ok' : 'bad'
-}
-const text = (n: 'stt' | 'tts') => {
-  if (!store.enabled[n]) return 'Off (memory freed)'
-  if (n === 'tts') return store.status.ttsReady ? 'Ready' : store.status.tts ? 'Loading the model…' : 'Offline'
-  return store.status.stt ? 'Ready' : 'Offline'
-}
-
-type Pane = 'general' | 'voice' | 'english' | 'cloud' | 'usage' | 'input' | 'services'
-const pane = ref<Pane>((['general', 'voice', 'english', 'cloud', 'usage', 'input', 'services'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
+type Pane = 'general' | 'voice' | 'engines' | 'english' | 'usage' | 'input' | 'system'
+const pane = ref<Pane>((['general', 'voice', 'engines', 'english', 'usage', 'input', 'system'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
 const panes: Array<{ id: Pane; label: string; icon: string }> = [
   { id: 'general', label: 'General', icon: 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M5.5 3v3M10.5 6.5v3M7 10v3' },
   { id: 'voice', label: 'Voice', icon: 'M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5M12.5 3.75a6 6 0 0 1 0 8.5' },
+  { id: 'engines', label: 'Voice engines', icon: 'M3 5.5h10M3 10.5h10M6 3.5v4M10.5 8.5v4' },
   { id: 'english', label: 'English coach', icon: 'M2.5 4h6M5.5 4v1.5M3.5 9c1.6-.6 3-1.9 3.6-3.5M4.5 7.2c.7 1.4 1.9 2.4 3.3 2.9M9 13l2.5-6 2.5 6M9.8 11.2h3.4' },
-  { id: 'cloud', label: 'Cloud voice', icon: 'M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z' },
   { id: 'usage', label: 'Usage', icon: 'M3 13V8.5M6.5 13V4M10 13V7M13.5 13V2.5' },
   { id: 'input', label: 'Microphone', icon: 'M6 2.5h4a1.5 1.5 0 0 1 1.5 1.5v3a3.5 3.5 0 0 1-7 0V4A1.5 1.5 0 0 1 6 2.5zM3.25 7.5a4.75 4.75 0 0 0 9.5 0M8 12.25v2M5.75 14.25h4.5' },
-  { id: 'services', label: 'Services', icon: 'M2.5 3.5h11v3.5h-11zM2.5 9h11v3.5h-11zM4.75 5.25h.01M4.75 10.75h.01' }
+  { id: 'system', label: 'System', icon: 'M2.5 3.5h11v3.5h-11zM2.5 9h11v3.5h-11zM4.75 5.25h.01M4.75 10.75h.01' }
 ]
 const modes = VOICE_MODES as readonly VoiceMode[]
 const modeHelp: Record<VoiceMode, string> = {
@@ -234,6 +224,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               <input v-model.number="g.progressExpiryMs" type="number" min="1000" step="1000" />
 </div>
 
+            <template v-if="g.ttsEngine === 'chatterbox'">
             <h3 class="pane-title">Voice profiles</h3>
             <div v-for="v in store.voices" :key="v.id" class="voice-row-item">
               <span>{{ v.name }}</span>
@@ -244,7 +235,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               <input type="file" accept="audio/*" @change="(e) => (voiceFile = (e.target as HTMLInputElement).files?.[0] ?? null)" />
               <button class="btn" :disabled="busy" @click="createVoice">{{ busy ? 'Creating…' : 'Add voice' }}</button>
             </div>
-            <p class="muted fine">Only import recordings you are authorized to use (3–30 s). Reference clips stay in the local TTS volume.</p>
+            <p class="muted fine">Only import recordings you are authorized to use (3–30 s). Reference clips stay on your Chatterbox server.</p>
+            </template>
           </template>
 
           <template v-else-if="pane === 'english'">
@@ -258,12 +250,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               <div class="field-text"><strong>Model</strong><small>A small, cheap OpenAI text model</small></div>
               <input v-model="g.englishCoachModel" spellcheck="false" />
             </div>
-            <div class="svc-row"><i :class="store.keys.openai ? 'ok' : 'bad'"></i><strong>OpenAI key</strong><span>{{ store.keys.openai ? 'Found in .env' : 'Missing. Add ECHO_TERM_OPENAI_API_KEY=… to .env and restart the app' }}</span><span></span></div>
+            <ApiKeyField provider="openai" hint="The same OpenAI key used for cloud voices. Stored encrypted on this computer" />
             <h3 class="pane-title">How it shows up</h3>
             <ul class="notes"><li><strong>Voice messages:</strong> after you record, the box shows your transcription and the natural version below it. “Use this version” swaps it in, “Back to mine” restores yours, “Redo” regenerates. Nothing is sent until you press Send.</li><li><strong>Typed messages:</strong> sent as usual from the terminal; the natural version appears under your message in the Activity panel, with no approval step.</li><li><strong>History:</strong> every pair is saved locally for later review.</li></ul>
             <p class="hint warn-note">This sends what you say or type to OpenAI. It is off by default, and its estimated cost appears under Usage. Press <strong>Save</strong> to apply.</p>
           </template>
-          <CloudVoicePane v-else-if="pane === 'cloud'" :g="g" />
+          <VoiceEnginesPane v-else-if="pane === 'engines'" :g="g" />
           <UsagePane v-else-if="pane === 'usage'" />
 
           <template v-else-if="pane === 'input'">
@@ -281,14 +273,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <template v-else>
             <h3 class="pane-title">Status</h3>
             <div class="svc-list">
-              <div class="svc-row"><i :class="store.status.db ? 'ok' : 'bad'"></i><strong>MySQL</strong><span>{{ store.status.db ? 'Connected' : 'Unavailable. History is kept in memory only' }}</span></div>
-              <div class="svc-row"><i :class="dot('stt')"></i><strong>Speech-to-text</strong><span>{{ text('stt') }}</span><button class="btn small" :disabled="store.serviceBusy.stt" @click="toggleService('stt')">{{ store.serviceBusy.stt ? 'Working…' : store.enabled.stt ? 'Turn off' : 'Turn on' }}</button></div>
-              <div class="svc-row"><i :class="dot('tts')"></i><strong>Text-to-speech</strong><span>{{ text('tts') }}</span><button class="btn small" :disabled="store.serviceBusy.tts" @click="toggleService('tts')">{{ store.serviceBusy.tts ? 'Working…' : store.enabled.tts ? 'Turn off' : 'Turn on' }}</button></div>
+              <div class="svc-row"><i :class="store.status.db ? 'ok' : 'bad'"></i><strong>Local database</strong><span>{{ store.status.db ? 'Sessions, activity and settings are saved on this computer (SQLite)' : 'Could not be opened. History is kept in memory only' }}</span><span></span></div>
+              <div class="svc-row"><i :class="store.status.stt ? 'ok' : 'bad'"></i><strong>Speech-to-text</strong><span>{{ store.settings.sttProvider === 'local' ? (store.status.stt ? 'Whisper, built into the app' : 'Not available on this computer') : 'Cloud: ' + store.settings.sttProvider }}</span><button class="btn small" @click="pane = 'engines'">Choose engine</button></div>
+              <div class="svc-row"><i :class="store.status.tts ? 'ok' : 'bad'"></i><strong>Text-to-speech</strong><span>{{ store.settings.ttsEngine === 'chatterbox' ? 'Chatterbox server' : 'System voice' }}{{ store.status.tts ? '' : ' (unavailable)' }}</span><button class="btn small" @click="pane = 'engines'">Choose engine</button></div>
             </div>
-            <p class="hint">Turning a voice service off stops its Docker container and frees its memory (about 0.7 GB for speech-to-text and 4–6 GB for text-to-speech). It stays off until you turn it on, even after restarting the app, so you can work with an agent without them running. The chips at the bottom of the sessions list do the same.</p>
-            <h3 class="pane-title">Endpoints</h3>
-            <div class="field"><div class="field-text"><strong>STT service URL</strong></div><input v-model="g.sttUrl" /></div>
-            <div class="field"><div class="field-text"><strong>TTS service URL</strong></div><input v-model="g.ttsUrl" /></div>
             <h3 class="pane-title">Agent integration</h3>
             <div v-for="(c, name) in store.capabilities" :key="name" class="cap">
               <strong>{{ AGENT_LABELS[name as AgentType].label }}</strong>

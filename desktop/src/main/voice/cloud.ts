@@ -2,7 +2,7 @@ import { stripSpeechTags } from '@shared/voiceTag'
 
 /**
  * Cloud speech providers (opt-in; the default stays the local Docker services). Keys come from the environment
- * (ECHO_TERM_OPENAI_API_KEY / ECHO_TERM_GEMINI_API_KEY) and are only ever sent to the provider's own API host.
+ * (typed in Settings and kept encrypted, see secrets.ts) and are only ever sent to the provider's own API host.
  * Everything here takes an injectable `fetch` so it can be unit-tested without a key.
  */
 export type CloudProvider = 'openai' | 'gemini'
@@ -32,7 +32,7 @@ export class CloudError extends Error {
 
 function need(cfg: CloudConfig, p: CloudProvider): string {
   const k = cfg.getKey(p)
-  if (!k) throw new CloudError(`${p === 'openai' ? 'OpenAI' : 'Gemini'} key not set: add ECHO_TERM_${p.toUpperCase()}_API_KEY to .env and restart the app.`)
+  if (!k) throw new CloudError(`${p === 'openai' ? 'OpenAI' : 'Gemini'} key not set: add it in Settings → Voice engines.`)
   return k
 }
 

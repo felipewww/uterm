@@ -126,7 +126,7 @@ export async function submitDraft(sessionId: string, auto: boolean, force = fals
   if (!auto && res.reason === 'prompt-active') notify('info', d.note)
 }
 
-/** Decode (webm/opus) -> mono 16 kHz PCM -> WAV, so whisper.cpp needs no ffmpeg. */
+/** Decode (webm/opus) -> mono 16 kHz PCM -> WAV, so no ffmpeg is needed. */
 async function toWav16k(blob: Blob): Promise<ArrayBuffer> {
   const ctx = new AudioContext()
   const decoded = await ctx.decodeAudioData(await blob.arrayBuffer())

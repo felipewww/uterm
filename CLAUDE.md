@@ -1,11 +1,11 @@
 # uTerm — notes for coding agents
 
-Monorepo of **independent** projects (no npm workspaces): `desktop/` (Electron + Vue 3 + TS strict), `services/stt`,
-`services/tts` (FastAPI + Chatterbox), `database/migrations`, `hooks/`, `scripts/`, `docs/`.
+Monorepo of **independent** projects (no npm workspaces): `desktop/` (Electron + Vue 3 + TS strict), `services/tts`
+(optional Chatterbox server, FastAPI), `hooks/`, `scripts/`, `docs/`. The app needs no Docker: one SQLite file, Whisper inside the app, system voice by default;
+dev and the installed app behave the same (no `.env`, API keys live in the encrypted store, see `desktop/src/main/secrets.ts`).
 
 ## Commands
-- Desktop: `cd desktop && npm run typecheck && npm run lint && npm run test` (vitest; DB integration tests use the Docker MySQL
-  and skip themselves when it's down). Build: `npm run build`. Dev app: `./scripts/dev.sh`.
+- Desktop: `cd desktop && npm run typecheck && npm run lint && npm run test` (vitest). Build: `npm run build`. Dev app: `./scripts/dev.sh`.
 - TTS tests (mocked engine): `docker run --rm -v "$PWD/services/tts":/w -w /w python:3.11.11-slim-bookworm sh -c 'pip install -q fastapi==0.115.6 python-multipart==0.0.20 pytest==8.3.4 httpx==0.28.1 && python -m pytest -q'`
 - Real-model checks are separate: `node scripts/benchmark-audio.mjs`, `desktop/tests/smoke/agent-smoke.cjs` (run with `ELECTRON_RUN_AS_NODE=1 npx electron …` because node-pty is built for Electron's ABI).
 

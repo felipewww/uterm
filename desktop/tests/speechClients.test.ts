@@ -1,7 +1,7 @@
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, describe, expect, it } from 'vitest'
-import { SttClient, cleanTranscript } from '../src/main/voice/sttClient'
+import { cleanTranscript } from '../src/main/voice/nativeStt'
 import { TtsClient } from '../src/main/voice/ttsClient'
 
 let srv: http.Server | undefined
@@ -13,24 +13,8 @@ async function serve(handler: http.RequestListener): Promise<string> {
   return `http://127.0.0.1:${(srv.address() as AddressInfo).port}`
 }
 
-describe('SttClient', () => {
-  it('posts multipart audio to /inference and cleans the transcript', async () => {
-    let contentType = ''
-    const url = await serve((req, res) => {
-      contentType = String(req.headers['content-type'])
-      expect(req.url).toBe('/inference')
-      req.resume(); req.on('end', () => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ text: ' [BLANK_AUDIO] Fix the login bug.\n ' })) })
-    })
-    const text = await new SttClient(() => url).transcribe(new Uint8Array(100))
-    expect(contentType).toMatch(/multipart\/form-data/)
-    expect(text).toBe('Fix the login bug.')
-  })
-  it('reports server errors; status() is false when the service is down', async () => {
-    const url = await serve((_req, res) => { res.statusCode = 500; res.end('boom') })
-    await expect(new SttClient(() => url).transcribe(new Uint8Array(10))).rejects.toThrow(/STT 500/)
-    expect((await new SttClient(() => 'http://127.0.0.1:9').status()).up).toBe(false)
-  })
-  it('cleanTranscript strips non-speech markers', () => {
+describe('cleanTranscript', () => {
+  it('strips non-speech markers', () => {
     expect(cleanTranscript('(music) hello  [NOISE]  world')).toBe('hello world')
   })
 })

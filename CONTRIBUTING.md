@@ -4,9 +4,8 @@ Thanks for your interest in uTerm! Small, focused pull requests are easiest to r
 
 ## Set up
 ```bash
-./scripts/setup.sh                # first time: prerequisites, .env, images, models, services, hooks
-cd desktop && npm install
-npm run dev                       # or ../scripts/dev.sh to also start the Docker services
+./scripts/setup.sh                # first time: prerequisites, dependencies, hooks
+npm run dev                       # in desktop/, or ../scripts/dev.sh (no Docker needed)
 ```
 
 ## Before you open a PR
@@ -14,7 +13,7 @@ npm run dev                       # or ../scripts/dev.sh to also start the Docke
 cd desktop
 npm run typecheck && npm run lint && npm run test && npm run build
 ```
-Database integration tests use the Docker MySQL and skip themselves when it is down. Python tests for the TTS service are in
+Python tests for the TTS service are in
 `CLAUDE.md` / `docs/`. Please add or update tests with your change, and keep `docs/technical-validation.md` honest about what you
 did **not** test.
 
@@ -28,5 +27,5 @@ did **not** test.
 - Add a new agent by implementing `AgentAdapter` (see `desktop/src/main/agents`); do not touch the PTY manager, audio queue or voice policy.
 
 ## Reporting bugs and security issues
-Bugs: open an issue with steps, your OS, Node/Docker versions and the relevant lines from `./scripts/doctor.sh`.
+Bugs: open an issue with steps, your OS, Node versions and the relevant lines from `./scripts/doctor.sh`.
 Security problems: see `SECURITY.md` (please do not file them publicly).

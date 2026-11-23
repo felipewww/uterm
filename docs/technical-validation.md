@@ -63,7 +63,7 @@ Run live (`tests/smoke/kiro-smoke.cjs`, real `kiro-cli chat` in a PTY, one no-to
   (accepts a UUID) but **not executed live**.
 - Duplicate protection: a native conversation can't run in two sessions (unit-tested).
 
-## 6–7. Whisper.cpp in Docker — PASS
+## 6–7. Whisper.cpp in Docker — PASS (historical: replaced by the in-app Whisper, see the next section)
 Official image (pinned by digest) with `whisper-server`; `small.en` (465 MB) downloaded into a persistent volume by
 `setup.sh`. 9.6 s of audio transcribed in **1.8 s (RTF 0.19)**, 3 runs, accurate ("24 tests" for "twenty four"); container RSS **≈650 MB**.
 The renderer converts recordings to 16 kHz mono WAV, so no ffmpeg is needed in the STT image.
@@ -99,12 +99,21 @@ Quality was not assessed by ear.
 ## End-to-end checks that passed in the running app
 Create session → real Claude → prompt injected with bracketed paste → hooks → reorder → normalization → activity panel
 (progress + result) → state IDLE; app restart → session listed as closed → resume; conversational mode → final result
-synthesized by Chatterbox and played (`spoken_messages` row stored); events persisted in MySQL and history reloaded.
+synthesized by Chatterbox and played (`spoken_messages` row stored); events persisted in MySQL (the database at that time; it is SQLite now) and history reloaded.
 Bugs found and fixed through this testing: IPC handlers registered after the window loaded; `sessions:select` payload shape
 (which also left the renderer deaf to events); window close with live agents left a windowless zombie process.
 
 ## Cloud voice (OpenAI, Gemini) — implemented, NOT run against the real APIs
 Written from the providers' public documentation and covered by unit tests with a mocked `fetch` (request shapes, key in a header, WAV wrapping of Gemini's 16-bit PCM, error mapping, model discovery, usage totals, cost estimates, router and self-test). Nothing was called with a real key from this development environment: the first real calls are the **Test** buttons in Settings → Cloud voice. Model names (e.g. `gemini-2.5-flash-preview-tts`) and list prices change; both are editable/estimated in the app. Gemini/OpenAI transcription of 16 kHz WAV uploads was not exercised.
+
+## Standard setup without Docker (SQLite, in-app Whisper, system voice, key store) — PARTLY verified
+- **Verified on Linux:** unit tests (secret store with a fake cipher, router fallbacks, SQLite stores); the built app started against a copy of the
+  real data and loaded the 10 sessions, 347 events, folders and settings imported from the old MySQL by `scripts/import-mysql.mjs`; the Settings → Voice engines screen
+  rendered; saving and removing an API key went through Electron `safeStorage` (keyring available here); keys from an old `.env` moved into the store on first launch;
+  Whisper (ONNX) transcribed a sample correctly in about 2 s on this CPU.
+- **Not verified:** everything on macOS (the Whisper model/ONNX/sharp packaging, `say` and `afconvert`, Keychain-backed `safeStorage`, speed on Apple Silicon);
+  the system voice on Linux here (this machine has no `espeak-ng`, so the app reports it as unavailable); a live Chatterbox server through the new engine setting
+  (the client code is unchanged and covered by its unit tests); the fallback to the system voice with a real dead server.
 
 ## Not tested (be skeptical of these)
 - Microphone capture (`MediaRecorder` → WAV → STT) in the renderer and the recording shortcut: no human voice available;

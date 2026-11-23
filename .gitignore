@@ -25,4 +25,6 @@ coverage/
 *.bin
 .claude/settings.local.json
 docker-compose.gpu.generated.yml
-.services.local
+
+# built-in speech model bundled into the macOS build (downloaded once by scripts/fetch-stt-model.sh)
+desktop/build/models/

@@ -29,13 +29,11 @@ runs on your machine; cloud voices and an English-practice coach are optional.
 - Plain terminals: open a bare shell (no agent) next to your agent sessions for your own commands, from the `>_` button in the tab bar or the sessions header (in the selected session's folder), or from New session → Terminal. Voice input is never typed into it.
 - Installed CLIs are detected automatically (including `~/.local/bin` and Homebrew folders).
 
-**Voice, local by default**
-- **Speech to text** with [whisper.cpp](https://github.com/ggml-org/whisper.cpp): record, review and edit the transcription, then send.
-- **Spoken replies** with [Chatterbox Turbo](https://github.com/resemble-ai/chatterbox): the agent's progress, questions and results are read aloud according to a per-session mode (silent, essential, balanced, conversational), different for foreground and background sessions.
-- Voice cloning from a short reference clip, per-chat voices, playback speed.
-- An audio player on every spoken message: scrub, pause and replay from memory.
-- Optional NVIDIA GPU for roughly 4–5× faster speech (`./scripts/tts-gpu.sh`).
-- STT/TTS run in Docker and can be switched off from the UI to free memory when you do not need them.
+**Voice, local by default, nothing to install**
+- **Speech to text** with Whisper running inside the app (ONNX Runtime, no Docker, your audio never leaves the computer): record, review and edit the transcription, then send. The ~80 MB model is bundled in the macOS build and downloaded once on Linux.
+- **Spoken replies** read the agent's progress, questions and results aloud according to a per-session mode (silent, essential, balanced, conversational), different for foreground and background sessions. The default voice is the one built into your computer (`say` on macOS, `espeak-ng` on Linux).
+- **Settings → Voice engines** picks the engine for each direction: system voice, a [Chatterbox](https://github.com/resemble-ai/chatterbox) server you run yourself (natural voices, voice cloning, optional NVIDIA GPU), or a cloud provider.
+- Per-chat voices, playback speed, and an audio player on every spoken message: scrub, pause and replay from memory.
 
 **Cloud voice (optional, off by default)**
 - Use **Google Gemini** or **OpenAI** voices and transcription instead of, or next to, the local ones; each chat can pick its own voice.
@@ -51,53 +49,38 @@ runs on your machine; cloud voices and an English-practice coach are optional.
 
 ## Requirements
 - Linux (developed and tested on Ubuntu). macOS and Windows are untested.
-- Node.js ≥ 20, Docker with the Compose plugin (your user in the `docker` group), `build-essential` (for node-pty).
+- Node.js ≥ 22 and `build-essential` (for node-pty). Docker is **not** needed.
 - At least one agent CLI installed and logged in: Claude Code, Codex CLI or Kiro CLI.
-- For local voice: roughly 6 GB of RAM free for text-to-speech on CPU (≈ 0.7 GB for speech-to-text); a few GB of disk for models.
-  An NVIDIA GPU is optional.
+- For voice: nothing extra for speech recognition (the Whisper model is small). On Linux install `espeak-ng` for the system voice. A Chatterbox server (optional) wants roughly 6 GB of RAM on CPU, or an NVIDIA GPU.
 
 ## Quick start
 ```bash
 git clone https://github.com/felipewww/uterm.git
 cd uterm
-./scripts/setup.sh    # checks prerequisites, creates .env with random local passwords, installs, builds images, downloads models, applies migrations, installs hooks
-./scripts/dev.sh      # starts the Docker services and launches the app (development mode)
+./scripts/setup.sh    # checks prerequisites, installs dependencies, installs hooks
+./scripts/dev.sh      # launches the app (development mode). Same data, database and voice engines as the installed app
 ```
-The scripts never run `sudo`. The first text-to-speech start downloads several GB of model weights; the app opens immediately and
-shows the voice as "warming up". If Electron aborts with a SUID-sandbox error, `dev.sh` falls back to `--no-sandbox` for development and prints the manual fix.
+The scripts never run `sudo`. The first recording downloads the small Whisper model. If Electron aborts with a SUID-sandbox error, `dev.sh` falls back to `--no-sandbox` for development and prints the manual fix.
 
-Other scripts: `./scripts/doctor.sh` (diagnostics), `./scripts/stop.sh` (stop containers, keep data), `./scripts/tts-gpu.sh` (GPU voice; `--cpu` to go back).
+Other scripts: `./scripts/doctor.sh` (diagnostics). Optional Chatterbox server: `docker compose up -d tts` (then Settings → Voice engines → Chatterbox server), `./scripts/tts-gpu.sh` for the GPU flavour (`--cpu` to go back), `./scripts/stop.sh` to stop it.
+
+Your data lives in one SQLite file in the app's data folder (`~/.config/echo-term-desktop/data/uterm.db` on Linux). Coming from the older Docker/MySQL version? `cd desktop && npm i --no-save mysql2 && cd .. && node scripts/import-mysql.mjs` copies your history over (the app also moves API keys from an old `.env` file into its own encrypted store on first launch).
 
 ## Using it
 - **＋** in the sessions list creates a session (agent, title, folder) or imports an existing conversation. Double-click a title to rename; right-click for more (move to folder, delete, open in VS Code…).
 - The mic button, or `Ctrl+Shift+Space`, records. Review and edit the transcription, then **Send** — it goes to the session that was selected when you started recording.
 - **Voice modes** per session: *Silent*, *Essential* (questions, permissions, blockers), *Balanced* (+ final results), *Conversational* (+ progress), set separately for when the session is in front and when it is in the background.
 - **Notification sounds**: when an agent needs you (question, approval, blocking error) or finishes while you are looking elsewhere, a short sound plays and its tab shows *Approve* / *Answer* / *Done*; recording start and stop have their own cue. Everything is configurable in Settings → General → Notifications.
-- The **STT/TTS chips** at the bottom of the sessions list show their state; click one to stop or start the local service (and free its memory).
-- **Settings**: General (theme), Voice (default voice, speed, modes), English coach, Cloud voice (providers, models, test), Usage, Microphone, Services.
+- The **STT/TTS chips** at the bottom of the sessions list show which engine is in use and whether it works; click one to change it.
+- **Settings**: General (theme), Voice (default voice, speed, modes), **Voice engines** (speech output and input engines, Chatterbox address, API keys, models, test), English coach, Usage, Microphone, System.
 
 ## Cloud voice, keys and cost
-Add the keys you want to `.env` (created by setup; git-ignored; mode 600):
-
-```bash
-ECHO_TERM_GEMINI_API_KEY=...   # https://aistudio.google.com/apikey
-ECHO_TERM_OPENAI_API_KEY=...   # https://platform.openai.com/api-keys
-```
-Restart the app, open **Settings → Cloud voice**, press **Refresh model lists** and **Test**. Pick a cloud voice as the default voice or per chat.
+Open **Settings → Voice engines**, paste your key in the OpenAI or Google Gemini section (get one at https://aistudio.google.com/apikey or https://platform.openai.com/api-keys), press **Refresh model lists** and **Test**, then pick the cloud engine for speech output and/or input. A cloud voice can also be chosen per chat.
 Model names change over time, so they are editable. Costs are **estimates** computed from reported usage and public list prices; your provider's dashboard has the real bill.
-Keys are never stored in the database, never logged and never passed to the agents uTerm launches. See [SECURITY.md](SECURITY.md) for exactly what leaves your machine.
+Keys are typed into the app and stored encrypted by your operating system's key storage (Keychain on macOS, the keyring on Linux). They are never stored in the database, never logged, never shown again and never passed to the agents uTerm launches. See [SECURITY.md](SECURITY.md) for exactly what leaves your machine.
 
-## Configuration (`.env`)
-| Variable | Purpose |
-|---|---|
-| `MYSQL_*`, `ECHO_TERM_DB_*` | Local database (random passwords generated by `setup.sh`) |
-| `MYSQL_PORT`, `STT_PORT`, `TTS_PORT` | Host ports, all bound to `127.0.0.1` |
-| `STT_MODEL_FILE`, `STT_THREADS` | Whisper model and threads |
-| `TTS_DEVICE`, `TTS_TORCH_THREADS` | `cpu` or `cuda`; torch threads |
-| `ECHO_TERM_GEMINI_API_KEY`, `ECHO_TERM_OPENAI_API_KEY` | Optional cloud providers |
-| `COMPOSE_FILE` | Written by `tts-gpu.sh` to select the GPU configuration |
-
-The on/off choice for the local voice services is stored in `.services.local` (git-ignored), which `dev.sh` and `doctor.sh` respect.
+## Configuration
+Everything is configured in the app (Settings). The only file read at the repository level is `.env`, and only by the optional Chatterbox Docker server (see `.env.example`): `TTS_PORT`, `TTS_DEVICE` (`cpu` or `cuda`), `TTS_TORCH_THREADS`, and `COMPOSE_FILE` (written by `tts-gpu.sh`).
 
 ## How it works
 ```mermaid
@@ -109,11 +92,11 @@ flowchart LR
     PTY["node-pty"] --> CLI["claude / codex / kiro-cli (real CLIs)"]
     HOOKS["hook socket + transcript tailers"] --> BUS["event bus"]
     BUS --> POLICY["voice policy → audio queue"]
-    BUS --> DB[("MySQL")]
+    BUS --> DB[("SQLite")]
   end
   UI <-- "IPC (validated)" --> Main
-  POLICY --> TTS["local TTS (Chatterbox) or cloud voice"]
-  UI --> STT["local STT (whisper.cpp) or cloud"]
+  POLICY --> TTS["system voice, Chatterbox server, or cloud voice"]
+  UI --> STT["Whisper in the app, or cloud"]
 ```
 The terminal bytes and the structured event channel never mix: nothing is inferred by reading the screen. Details in [`docs/architecture.md`](docs/architecture.md).
 
@@ -123,7 +106,7 @@ cd desktop
 npm run dev        # electron-vite dev server
 npm run typecheck && npm run lint && npm run test && npm run build
 ```
-- `desktop/` — Electron app (main, preload, renderer, shared types). `services/stt` and `services/tts` — the Docker voice services. `database/migrations` — MySQL schema. `hooks/` — agent hook forwarder and installer. `scripts/` — setup and tooling. `docs/` — architecture, design system, validation notes.
+- `desktop/` — Electron app (main, preload, renderer, shared types). `services/tts` — the optional Chatterbox voice server (Docker). `hooks/` — agent hook forwarder and installer. `scripts/` — setup and tooling. `docs/` — architecture, design system, validation notes.
 - Add an agent by implementing `AgentAdapter` (`desktop/src/main/agents`).
 - Design tokens and themes (Carbon, Islands Dark, Islands Light): [`docs/design-system.md`](docs/design-system.md).
 - Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -132,7 +115,7 @@ npm run typecheck && npm run lint && npm run test && npm run build
 uTerm is young software, developed and verified on one Linux machine. [`docs/technical-validation.md`](docs/technical-validation.md) lists what was measured and, just as important, **what was not tested** (macOS, packaged builds, parts of the Kiro/Codex permission flows, live cloud providers beyond the built-in test, the microphone path on other hardware). Bug reports with `./scripts/doctor.sh` output are very welcome.
 
 ## Privacy and security
-No telemetry. Ports bind to `127.0.0.1`; the hook socket is `0600`; recordings stay in memory; containers do not mount your home folder or agent credentials; secrets live only in `.env`. Cloud features are opt-in and listed, with exactly what they send, in [SECURITY.md](SECURITY.md), which also explains how to report a vulnerability.
+No telemetry. Ports bind to `127.0.0.1`; the hook socket is `0600`; recordings stay in memory; the optional Chatterbox container does not mount your home folder or agent credentials; API keys live only in the app's encrypted key store. Cloud features are opt-in and listed, with exactly what they send, in [SECURITY.md](SECURITY.md), which also explains how to report a vulnerability.
 
 ## License
 [MIT](LICENSE). Third-party components and trademark notes: [THIRD_PARTY.md](THIRD_PARTY.md).

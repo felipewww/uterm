@@ -6,9 +6,9 @@ uTerm is MIT-licensed (see `LICENSE`). It builds on, and runs in containers, the
 |---|---|---|
 | [Electron](https://www.electronjs.org/), [Vue 3](https://vuejs.org/), [Vite](https://vitejs.dev/) | Desktop shell and UI | MIT |
 | [xterm.js](https://xtermjs.org/), [node-pty](https://github.com/microsoft/node-pty) | Embedded terminals | MIT |
-| [mysql2](https://github.com/sidorares/node-mysql2), [zod](https://zod.dev/) | Database access, input validation | MIT |
-| [MySQL](https://www.mysql.com/) 8.4 (Docker image) | Local database | GPL-2.0 (the server runs unmodified in its own container) |
-| [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and OpenAI Whisper models | Local speech-to-text | MIT |
+| [zod](https://zod.dev/) | Input validation | MIT |
+| [transformers.js](https://github.com/huggingface/transformers.js) and [ONNX Runtime](https://onnxruntime.ai/) | Whisper speech-to-text inside the app | Apache-2.0 / MIT |
+| OpenAI Whisper model (ONNX conversion `onnx-community/whisper-base`) | Local speech-to-text model | MIT / Apache-2.0 (check the model card before redistributing) |
 | [Chatterbox / Chatterbox Turbo](https://github.com/resemble-ai/chatterbox) by Resemble AI | Local text-to-speech and voice cloning | MIT (output carries Resemble's Perth watermark) |
 | [FastAPI](https://fastapi.tiangolo.com/), [PyTorch](https://pytorch.org/) | TTS service | MIT / BSD-3 |
 

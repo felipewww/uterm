@@ -6,26 +6,11 @@ ok()   { c_ok "$*"; }
 bad()  { c_err "$*"; fail=$((fail+1)); }
 warn() { c_warn "$*"; }
 
-[ -f .env ] && ok ".env present" || { bad ".env missing (run ./scripts/setup.sh)"; exit 1; }
-set -a; . ./.env; set +a
-
-echo "— Docker"
-if have docker && docker info >/dev/null 2>&1; then ok "Docker $(docker --version | cut -d' ' -f3 | tr -d ,)"; else bad "Docker unavailable"; fi
-docker compose version >/dev/null 2>&1 && ok "Compose $(docker compose version --short)" || bad "Docker Compose plugin missing"
-for s in mysql stt tts; do
-  if [ "$s" != mysql ] && ! service_on "$s"; then ok "$s: turned off in the app (memory freed)"; continue; fi
-  st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(compose ps -q $s 2>/dev/null)" 2>/dev/null || echo "not created")"
-  [ "$st" = "healthy" ] && ok "$s container: healthy" || bad "$s container: $st (docker compose logs $s)"
-done
-
-echo "— Database"
-if node scripts/migrate.mjs >/tmp/echo-doctor-migrate.log 2>&1; then ok "MySQL reachable as app user; migrations: $(tail -1 /tmp/echo-doctor-migrate.log)"; else bad "MySQL/migrations failed: $(tail -1 /tmp/echo-doctor-migrate.log | sed 's/password=[^ ]*/password=***/')"; fi
-
-echo "— Speech services"
-if curl -fsS -m 3 "http://127.0.0.1:${STT_PORT:-18080}/health" >/dev/null 2>&1; then ok "STT health"; else bad "STT not reachable on :${STT_PORT:-18080}"; fi
-if docker run --rm -v echo-term_stt-models:/m:ro --entrypoint sh ghcr.io/ggml-org/whisper.cpp:main -c "test -s /m/${STT_MODEL_FILE:-ggml-small.en.bin}" >/dev/null 2>&1; then ok "Whisper model file present (${STT_MODEL_FILE:-ggml-small.en.bin})"; else bad "Whisper model missing: ./scripts/setup.sh"; fi
-r="$(curl -sS -m 3 "http://127.0.0.1:${TTS_PORT:-18090}/ready" 2>/dev/null || true)"
-case "$r" in *'"ready":true'*) ok "TTS ready (Chatterbox Turbo loaded: $r)";; '') bad "TTS not reachable on :${TTS_PORT:-18090}";; *) warn "TTS up but model not ready yet: $r";; esac
+echo "— Speech"
+have espeak-ng || [ "$(uname -s)" = "Darwin" ] && ok "system voice available" || warn "no system voice: sudo apt install espeak-ng (or use a cloud voice)"
+if [ -d desktop/node_modules/@huggingface/transformers ]; then ok "built-in speech recognition installed (Whisper; the model downloads on first use)"; else bad "desktop dependencies not installed"; fi
+r="$(curl -sS -m 2 "http://127.0.0.1:${TTS_PORT:-18090}/ready" 2>/dev/null || true)"
+case "$r" in *'"ready":true'*) ok "optional Chatterbox server: ready";; '') ok "optional Chatterbox server: not running (fine unless you chose it in Settings)";; *) warn "Chatterbox server up but the model is not ready yet: $r";; esac
 
 echo "— Agents and native dependencies"
 have claude && ok "Claude Code $(claude --version 2>&1 | head -1)" || warn "Claude Code not on PATH"

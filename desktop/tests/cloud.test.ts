@@ -58,9 +58,9 @@ describe('OpenAI', () => {
     expect(err).not.toContain(KEY) // …but never the key, even if the provider echoes it
     await expect(openAiSpeak(cfg(async () => json({}, 429)), 'Hi', 'coral')).rejects.toThrow(/rate limited or out of quota/)
   })
-  it('tells you which .env variable to set when there is no key', async () => {
-    await expect(openAiSpeak(cfg(async () => json({}), { openai: null }), 'Hi', 'coral')).rejects.toThrow(/ECHO_TERM_OPENAI_API_KEY/)
-    await expect(geminiSpeak(cfg(async () => json({}), { gemini: null }), 'Hi', 'Kore')).rejects.toThrow(/ECHO_TERM_GEMINI_API_KEY/)
+  it('tells you where to add the key when there is none', async () => {
+    await expect(openAiSpeak(cfg(async () => json({}), { openai: null }), 'Hi', 'coral')).rejects.toThrow(/Settings → Voice engines/)
+    await expect(geminiSpeak(cfg(async () => json({}), { gemini: null }), 'Hi', 'Kore')).rejects.toThrow(/Settings → Voice engines/)
   })
 })
 
@@ -140,22 +140,45 @@ describe('usage totals', () => {
 })
 
 describe('SpeechRouter', () => {
-  const setup = (over: Partial<AppSettings> = {}, fetchImpl?: CloudConfig['fetch']) => {
-    const local = { tts: { synthesize: vi.fn(async () => new Uint8Array([1])), status: async () => ({ up: true, ready: true }) }, stt: { transcribe: vi.fn(async () => 'local text'), status: async () => ({ up: true }) } }
+  const setup = (over: Partial<AppSettings> = {}, fetchImpl?: CloudConfig['fetch'], opts: { system?: boolean; chatterboxUp?: boolean; nativeStt?: boolean } = {}) => {
+    const { system = true, chatterboxUp = true, nativeStt = true } = opts
+    const local = {
+      tts: { synthesize: vi.fn(async () => { if (!chatterboxUp) throw new Error('down'); return new Uint8Array([1]) }), status: async () => ({ up: chatterboxUp, ready: chatterboxUp }) },
+      systemTts: { available: async () => system, synthesize: vi.fn(async () => new Uint8Array([9])) },
+      nativeStt: nativeStt ? { transcribe: vi.fn(async () => 'built-in text') } : undefined
+    }
     const usage = new MemoryUsageStore()
+    const errors: string[] = []
     const settings = { ...DEFAULT_SETTINGS, ...over }
-    const router = new SpeechRouter({ settings: () => settings, getKey: (p) => (p === 'openai' ? KEY : null), local: local as never, usage: () => usage, servicesOn: () => ({ stt: true, tts: true }), fetch: fetchImpl })
-    return { router, local, usage }
+    const router = new SpeechRouter({ settings: () => settings, getKey: (p) => (p === 'openai' ? KEY : null), local: local as never, usage: () => usage, fetch: fetchImpl, onError: (m) => errors.push(m) })
+    return { router, local, usage, errors }
   }
-  it('a local voice id goes to the local service and records nothing', async () => {
+  it('the system voice is the default and records nothing', async () => {
     const { router, local, usage } = setup()
-    expect(await router.synthesize('hi', 'default', new AbortController().signal)).toEqual(new Uint8Array([1]))
-    expect(local.tts.synthesize).toHaveBeenCalledWith('hi', 'default', expect.anything())
+    expect(await router.synthesize('hi', 'default', new AbortController().signal)).toEqual(new Uint8Array([9]))
+    expect(local.systemTts.synthesize).toHaveBeenCalled()
+    expect(local.tts.synthesize).not.toHaveBeenCalled()
     expect((await usage.summary()).all).toEqual([])
+  })
+  it('the Chatterbox engine goes to the server, and falls back to the system voice (with one warning) when it is down', async () => {
+    const ok = setup({ ttsEngine: 'chatterbox' })
+    expect(await ok.router.synthesize('hi', 'abc', new AbortController().signal)).toEqual(new Uint8Array([1]))
+    expect(ok.local.tts.synthesize).toHaveBeenCalledWith('hi', 'abc', expect.anything())
+    const down = setup({ ttsEngine: 'chatterbox' }, undefined, { chatterboxUp: false })
+    await down.router.synthesize('a', 'abc', new AbortController().signal)
+    await down.router.synthesize('b', 'abc', new AbortController().signal)
+    expect(down.local.systemTts.synthesize).toHaveBeenCalledTimes(2)
+    expect(down.errors).toHaveLength(1)
+  })
+  it('speech to text built into the app is used for "local"; without it the user is told what to do', async () => {
+    const { router, local } = setup()
+    expect(await router.transcribe(new Uint8Array(100))).toBe('built-in text')
+    expect(local.nativeStt!.transcribe).toHaveBeenCalled()
+    await expect(setup({}, undefined, { nativeStt: false }).router.transcribe(new Uint8Array(100))).rejects.toThrow(/OpenAI or Gemini/)
   })
   it('the provider comes from the voice id, so different chats can use different providers', async () => {
     const calls: Array<{ url: string; body: string }> = []
-    const { router, local, usage } = setup({}, async (url, init) => { calls.push({ url, body: String(init?.body) }); return new Response(wavBytes(6)) })
+    const { router, local, usage } = setup({ ttsEngine: 'chatterbox' }, async (url, init) => { calls.push({ url, body: String(init?.body) }); return new Response(wavBytes(6)) })
     await router.synthesize('Hello', 'openai:coral', new AbortController().signal)
     await router.synthesize('Hello', 'default', new AbortController().signal)
     expect(calls).toHaveLength(1)
@@ -166,8 +189,9 @@ describe('SpeechRouter', () => {
     expect(row).toMatchObject({ provider: 'openai', kind: 'tts', calls: 1 })
     expect(row.costUsd).toBeCloseTo(0.0015, 5)
   })
-  it('usability is decided per voice: cloud voices need their key, local voices need the service', () => {
+  it('usability is decided per voice: cloud voices need their key, local voices need the system voice or the server', async () => {
     const { router } = setup()
+    await router.checkSystem()
     expect(router.ttsUsable('openai:coral')).toBe(true)
     expect(router.ttsUsable('gemini:Kore')).toBe(false) // no Gemini key in this test
     expect(router.ttsUsable('default')).toBe(true)
@@ -175,9 +199,11 @@ describe('SpeechRouter', () => {
     expect(router.voiceKey('gemini:Kore')).toContain('gemini|')
     expect(router.voiceKey('default')).toBe('local')
   })
-  it('status reports the local services, whichever provider is selected', async () => {
-    expect(await setup().router.status()).toEqual({ stt: true, tts: true, ttsReady: true })
-    expect(await setup({ sttProvider: 'gemini' }).router.status()).toEqual({ stt: true, tts: true, ttsReady: true })
+  it('status reports what this computer can do, whichever provider is selected', async () => {
+    expect(await setup().router.status()).toEqual({ stt: true, tts: true, ttsReady: true, systemVoice: true, chatterbox: true })
+    expect(await setup({ sttProvider: 'gemini' }).router.status()).toMatchObject({ stt: true })
+    expect(await setup({}, undefined, { system: false }).router.status()).toMatchObject({ tts: false, systemVoice: false })
+    expect(await setup({ ttsEngine: 'chatterbox' }, undefined, { chatterboxUp: false }).router.status()).toMatchObject({ tts: true, chatterbox: false }) // falls back to the system voice
   })
   it('self-test: key missing short-circuits; with a key it checks, speaks and transcribes, and bills it to the usage totals', async () => {
     const none = setup({}, async () => json({}))

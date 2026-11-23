@@ -12,8 +12,8 @@ import type { NewSession, SessionRepository } from './sessionStore'
 import type { UsageRecord, UsageRepository } from './usageStore'
 
 /**
- * The local database used when MySQL is not configured (for example the macOS build, which ships without Docker). One SQLite file,
- * from Node's built-in `node:sqlite`: no native module to build, real queries, atomic writes. Same data as the MySQL schema, simplified.
+ * uTerm's one database, in development and in the installed app alike. One SQLite file, from Node's built-in `node:sqlite`:
+ * no native module to build, real queries, atomic writes.
  */
 const SCHEMA_VERSION = 1
 const SCHEMA = `

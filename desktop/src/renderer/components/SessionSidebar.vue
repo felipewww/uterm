@@ -2,11 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref } from 'vue'
 import { AGENT_LABELS, type SessionView } from '@shared/types'
 import { parseVoiceId } from '@shared/voices'
-import { notify, selected, store, toggleService, usd, voiceOf } from '../store'
+import { notify, selected, store, usd, voiceOf } from '../store'
 import SidebarNodes from './SidebarNodes.vue'
 import type { SidebarNode } from './sidebarTypes'
 
-const emit = defineEmits<{ select: [id: string]; create: []; settings: []; usage: [] }>()
+const emit = defineEmits<{ select: [id: string]; create: []; settings: [pane?: string]; usage: [] }>()
 const query = ref('')
 // Folders start collapsed: only an explicit `false` means open. (While filtering, matching folders are shown open so results are never hidden.)
 const collapsed = reactive<Record<string, boolean>>({})
@@ -144,26 +144,28 @@ async function onDrop(e: DragEvent, folderId: string | null) {
   if (kind === 'folder') await moveFolder(id, folderId)
   else { const s = store.sessions.find((x) => x.id === id); if (s) await moveTo(s, folderId) }
 }
-// STT/TTS chips show the provider in use: for TTS the voice of the selected chat (else the default voice), for STT the chosen transcriber.
-// A click turns the LOCAL Docker service off/on to free memory.
+// STT/TTS chips show what is in use: for TTS the voice of the selected chat (else the default voice), for STT the chosen transcriber.
+// A click opens Settings → Voice engines.
 const ttsProvider = computed(() => parseVoiceId(voiceOf(selected())).provider)
 const provider = (n: 'stt' | 'tts') => (n === 'stt' ? store.settings.sttProvider : ttsProvider.value)
 const cloud = (n: 'stt' | 'tts') => provider(n) !== 'local'
 const cloudReady = (n: 'stt' | 'tts') => { const p = provider(n); return p !== 'local' && store.keys[p] }
-// The dot is always the LOCAL service (running, loading, off, down). The cloud mark says a cloud provider is in use and whether its key is there.
+const chatterbox = computed(() => store.settings.ttsEngine === 'chatterbox')
+// The dot says whether that engine can work right now; the cloud mark says a cloud provider is in use.
 const svcClass = (n: 'stt' | 'tts') => {
-  if (store.serviceBusy[n]) return 'busy'
-  if (!store.enabled[n]) return 'off'
-  if (n === 'tts') return store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad'
+  if (cloud(n)) return cloudReady(n) ? 'ok' : 'bad'
+  if (n === 'tts') return chatterbox.value ? (store.status.ttsReady ? 'ok' : store.status.tts ? 'warm' : 'bad') : store.status.systemVoice ? 'ok' : 'bad'
   return store.status.stt ? 'ok' : 'bad'
+}
+const engineName = (n: 'stt' | 'tts') => {
+  const p = provider(n)
+  if (p !== 'local') return p === 'openai' ? 'OpenAI (cloud)' : 'Google Gemini (cloud)'
+  return n === 'stt' ? 'Whisper built into the app' : chatterbox.value ? 'Chatterbox server' : 'the system voice'
 }
 const svcTitle = (n: 'stt' | 'tts') => {
   const name = n === 'stt' ? 'Speech-to-text' : 'Text-to-speech'
-  if (store.serviceBusy[n]) return `${name}: working…`
-  const localState = !store.enabled[n] ? 'off (memory freed)' : n === 'tts' ? (store.status.ttsReady ? 'running' : store.status.tts ? 'loading the model' : 'offline') : (store.status.stt ? 'running' : 'offline')
-  const action = store.enabled[n] ? 'Click to turn it off and free its memory' : 'Click to turn it on'
-  if (cloud(n)) return `${name} uses ${provider(n) === 'openai' ? 'OpenAI' : 'Gemini'} (cloud)${cloudReady(n) ? '' : ', but its API key is missing'}. The local service is ${localState}. ${action}`
-  return `${name}: ${localState}. ${action}`
+  const state = svcClass(n) === 'ok' ? 'ready' : svcClass(n) === 'warm' ? 'loading' : cloud(n) ? 'API key missing' : 'unavailable'
+  return `${name}: ${engineName(n)}, ${state}. Click to choose the engine`
 }
 // expand / collapse every folder at once: if any is open the button collapses all, otherwise it opens all
 const anyOpen = computed(() => store.folders.some((f) => collapsed['f:' + f.id] === false))
@@ -308,9 +310,9 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     </button>
     <div class="sidebar-foot">
       <span class="services">
-        <span class="svc" :class="store.status.db ? 'ok' : 'bad'" :title="store.status.db ? 'MySQL connected' : 'MySQL unavailable (history is kept in memory only)'"><i></i>MySQL</span>
-        <button class="svc" :class="svcClass('stt')" :disabled="store.serviceBusy.stt" :title="svcTitle('stt')" @click="toggleService('stt')"><i></i>STT<svg v-if="cloud('stt')" class="cloud-mark" :class="cloudReady('stt') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
-        <button class="svc" :class="svcClass('tts')" :disabled="store.serviceBusy.tts" :title="svcTitle('tts')" @click="toggleService('tts')"><i></i>TTS<svg v-if="cloud('tts')" class="cloud-mark" :class="cloudReady('tts') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg><template v-else-if="store.enabled.tts && store.status.tts && !store.status.ttsReady"> …</template></button>
+        <span v-if="!store.status.db" class="svc bad" title="The local database could not be opened: history is kept in memory only"><i></i>No database</span>
+        <button class="svc" :class="svcClass('stt')" :title="svcTitle('stt')" @click="emit('settings', 'engines')"><i></i>STT<svg v-if="cloud('stt')" class="cloud-mark" :class="cloudReady('stt') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
+        <button class="svc" :class="svcClass('tts')" :title="svcTitle('tts')" @click="emit('settings', 'engines')"><i></i>TTS<svg v-if="cloud('tts')" class="cloud-mark" :class="cloudReady('tts') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
       </span>
       <span class="foot-tools">
       <button class="tool-btn" :class="{ warn: store.settings.globalMute }" :aria-pressed="store.settings.globalMute" :title="store.settings.globalMute ? 'All voice output is muted. Click to unmute' : 'Mute all voice output'" aria-label="Mute all voice output" @click="toggleGlobalMute">

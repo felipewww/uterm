@@ -2,7 +2,7 @@ import tseslint from 'typescript-eslint'
 import vue from 'eslint-plugin-vue'
 
 export default tseslint.config(
-  { ignores: ['out/**', 'dist/**', 'release/**', 'node_modules/**', 'tests/smoke/**', 'tests/fixtures/**'] },
+  { ignores: ['out/**', 'dist/**', 'release/**', 'node_modules/**', 'tests/smoke/**', 'tests/fixtures/**', 'build/**'] },
   ...tseslint.configs.recommended,
   ...vue.configs['flat/recommended'],
   {

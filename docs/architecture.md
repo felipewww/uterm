@@ -8,16 +8,17 @@ Electron Renderer (Vue 3 + xterm.js)  ── IPC (contextIsolation, restricted p
                                                                                     ├─ HookServer (Unix socket, 0600) ← hooks/*/hook.mjs  ┐ structured
                                                                                     ├─ Codex rollout tailer (read-only)                    ┘ channel
                                                                                     ├─ EventBus → SessionManager (runtime state), Activity, VoicePolicy, persistence
-                                                                                    ├─ AudioQueue (global, priority) → TtsClient ─┐
-                                                                                    ├─ SttClient ────────────────────────────────┤  Docker Compose (localhost only)
-                                                                                    └─ MySQL (mysql2, app user)                  └─ MySQL 8.4 · whisper.cpp · Chatterbox Turbo
+                                                                                    ├─ AudioQueue (global, priority) → SpeechRouter → system voice · TtsClient (optional Chatterbox server) · cloud
+                                                                                    ├─ NativeStt (Whisper via ONNX, in-process) · cloud STT
+                                                                                    ├─ SecretStore (API keys, OS-encrypted)
+                                                                                    └─ SQLite (node:sqlite, one file in the app's data folder)
 ```
 The PTY channel (bytes in/out of the real CLI) and the structured channel (hooks/transcripts → events) never mix: no
 screen scraping is used for semantics.
 
 ## Layout
 `desktop/src/main` (backend), `src/preload` (bridge), `src/renderer` (Vue), `src/shared` (types, IPC schemas).
-`services/tts` is a small FastAPI app; `services/stt` is the official whisper.cpp image + a model downloader.
+`services/tts` is a small FastAPI app: the optional Chatterbox server.
 `hooks/` holds the forwarder (`claude/hook.mjs`, shared by Codex), JSON templates and the installer.
 
 ## Key decisions
@@ -37,8 +38,8 @@ screen scraping is used for semantics.
 - **Transcript safety:** text goes in via bracketed paste with ESC stripped; never into `WAITING_FOR_PERMISSION`/`WAITING_FOR_INPUT`
   (unless the user presses Send a second time); auto-submit only from `IDLE`; each draft is bound to the session selected
   when recording started. Nothing ever answers a permission prompt.
-- **Persistence:** runtime state (`STARTING…CLOSED`) is memory-only, so a restart can't show dead processes as running. If MySQL is
-  down the app falls back to an in-memory repository, shows a warning, and terminals keep working. Complete conversations are not stored.
+- **Persistence:** runtime state (`STARTING…CLOSED`) is memory-only, so a restart can't show dead processes as running. If the SQLite file
+  cannot be opened the app falls back to an in-memory repository, shows a warning, and terminals keep working. Complete conversations are not stored.
 - **Recording shortcut** is an in-app (focused-window) shortcut; a global OS-level shortcut is a later option.
 - **Audio is optional:** STT/TTS failures surface as toasts/status-bar state and never touch terminals.
 

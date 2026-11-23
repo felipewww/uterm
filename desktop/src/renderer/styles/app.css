@@ -572,3 +572,7 @@
 .cmd-form { display: flex; flex-direction: column; gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--divider); }
 .cmd-form-row { display: flex; gap: 8px; } .cmd-form-row .cmd-input { flex: 1; min-width: 0; }
 .cmd-input.mono { font-family: var(--font-mono); font-size: 12.5px; }
+/* API key rows (Settings → Voice engines) */
+.key-row { display: flex; align-items: center; gap: 8px; min-width: 0; } .key-row > input { flex: 1; min-width: 0; }
+.key-dots { flex: 1; color: var(--text-tertiary); letter-spacing: .12em; font-family: var(--font-mono); font-size: var(--text-sm); }
+.field.wide { grid-template-columns: minmax(0, 1fr) 340px; }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentType, FolderRecord, SessionRecord } from '@shared/types'
 import type { NewSession, SessionRepository } from './sessionStore'
 
-/** In-memory repository: fallback when MySQL is down (terminals keep working) and test double. */
+/** In-memory repository: fallback when the local database cannot be opened (terminals keep working) and test double. */
 export class MemorySessionRepo implements SessionRepository {
   protected rows = new Map<string, SessionRecord>()
   protected folders = new Map<string, FolderRecord>()

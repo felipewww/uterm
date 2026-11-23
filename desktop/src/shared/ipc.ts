@@ -47,12 +47,14 @@ export const schemas = {
   audioEnded: z.object({ requestId: z.string().max(64) }),
   cloudProvider: z.object({ provider: z.enum(['openai', 'gemini']) }),
   cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional() }),
+  openUrl: z.object({ url: z.string().url().max(4000) }),
   coachImprove: z.object({ text: z.string().min(1).max(6000) }),
   systemSample: z.object({ sessionId: Id.nullable().optional() }),
   commandAdd: z.object({ sessionId: Id, command: z.string().min(1).max(4000), label: z.string().max(80).nullable().optional() }),
   commandRun: z.object({ id: Id, run: z.boolean() }),
   sessionIdOnly: z.object({ sessionId: Id }),
-  serviceSet: z.object({ name: z.enum(['stt', 'tts']), enabled: z.boolean() }),
+  secretSet: z.object({ provider: z.enum(['openai', 'gemini']), key: z.string().min(1).max(500) }),
+  chatterboxTest: z.object({ url: z.string().url().max(300) }),
   settingsPatch: z.record(z.string(), z.unknown()),
   text: z.object({ text: z.string().max(100_000) })
 }

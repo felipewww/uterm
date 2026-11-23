@@ -140,7 +140,7 @@ async function quit() {
 
 <template>
   <div class="app" :class="{ 'no-activity': !store.showActivity }" :style="{ '--sidebar-width': layout.sidebarW + 'px', '--activity-width': layout.activityW + 'px' }">
-    <SessionSidebar @select="select" @create="showNew = true" @settings="settingsPane = undefined; showSettings = true" @usage="settingsPane = 'usage'; showSettings = true" />
+    <SessionSidebar @select="select" @create="showNew = true" @settings="(p) => { settingsPane = p; showSettings = true }" @usage="settingsPane = 'usage'; showSettings = true" />
     <ResizeHandle label="Resize sessions panel" @resize="resizeSidebar" @reset="resetSidebar" />
     <main class="center">
       <section class="terminal-card">

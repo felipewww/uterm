@@ -25,12 +25,11 @@ export const store = reactive({
   activity: {} as Record<string, ActivityItem[]>,
   currentOp: {} as Record<string, string>,
   settings: { ...DEFAULT_SETTINGS } as AppSettings,
-  status: { stt: false, tts: false, ttsReady: false, db: false } as ServiceStatus,
-  /** the user's on/off choice for the Docker voice services (off = stopped, memory freed) */
-  enabled: { stt: true, tts: true },
-  serviceBusy: { stt: false, tts: false },
-  /** which cloud API keys are present in .env (the keys themselves never reach the renderer) */
+  status: { stt: false, tts: false, ttsReady: false, db: false, systemVoice: false, chatterbox: false } as ServiceStatus,
+  /** which cloud API keys are saved in the app (the keys themselves never reach the renderer) */
   keys: { openai: false, gemini: false },
+  /** can keys be kept across restarts here (OS key storage present)? */
+  keysPersist: true,
   /** estimated cloud spend in USD (all providers), for the sidebar footer */
   spend: { today: 0, month: 0, all: 0 },
   agents: {} as Record<string, AgentInfo>,
@@ -160,30 +159,12 @@ export function markSpoken(sessionId: string, eventId: string): void {
 export async function refreshStatus(): Promise<void> {
   try {
     const s = await window.echo.status.get()
-    Object.assign(store.status, { stt: s.stt, tts: s.tts, ttsReady: s.ttsReady, db: s.db })
-    store.enabled = { ...s.enabled }
+    Object.assign(store.status, { stt: s.stt, tts: s.tts, ttsReady: s.ttsReady, db: s.db, systemVoice: s.systemVoice, chatterbox: s.chatterbox })
     store.keys = { ...s.keys }
+    store.keysPersist = s.keysPersist
     store.agents = s.agents
     store.capabilities = s.capabilities
   } catch { /* main may be busy; try again on the next tick */ }
-}
-
-export const SERVICE_LABEL = { stt: 'Speech-to-text', tts: 'Text-to-speech' } as const
-
-/** Turns a Docker voice service off (stops the container and frees its memory) or on again. */
-export async function toggleService(name: 'stt' | 'tts'): Promise<void> {
-  if (store.serviceBusy[name]) return
-  const turnOn = !store.enabled[name]
-  store.serviceBusy[name] = true
-  try {
-    store.enabled = { ...(await window.echo.services.set({ name, enabled: turnOn })) }
-    notify('info', turnOn ? `${SERVICE_LABEL[name]} is starting. It may take a moment to load.` : `${SERVICE_LABEL[name]} turned off. Its memory is freed.`, 5000)
-  } catch (err) {
-    notify('error', (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
-  } finally {
-    store.serviceBusy[name] = false
-    void refreshStatus()
-  }
 }
 
 /** Estimated cloud spend, summed over every provider and kind. */

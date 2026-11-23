@@ -33,14 +33,3 @@ export function cloudVoiceLabel(id: string): string | null {
   const p = parseVoiceId(id)
   return p.provider === 'local' ? null : p.voice
 }
-
-/**
- * Earlier builds stored a global "voice provider" plus one voice per provider. Returns the default voice id that carries that choice
- * over (null when there is nothing to migrate or the default is already a cloud voice).
- */
-export function legacyDefaultVoice(legacy: Record<string, unknown>, currentDefault: string): string | null {
-  const p = legacy.ttsProvider
-  if ((p !== 'openai' && p !== 'gemini') || isCloudVoice(currentDefault)) return null
-  const stored = legacy[p === 'openai' ? 'openaiVoice' : 'geminiVoice']
-  return cloudVoiceId(p, typeof stored === 'string' && stored ? stored : p === 'openai' ? 'coral' : 'Kore')
-}

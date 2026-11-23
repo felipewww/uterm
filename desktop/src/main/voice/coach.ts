@@ -41,7 +41,7 @@ export class EnglishCoach {
 
   async improve(text: string, signal?: AbortSignal): Promise<string> {
     const key = this.d.getKey()
-    if (!key) throw new CloudError('English coach: OPENAI key not set. Add ECHO_TERM_OPENAI_API_KEY to .env and restart the app.')
+    if (!key) throw new CloudError('English coach: OpenAI key not set. Add it in Settings → Voice engines.')
     const input = text.trim().slice(0, MAX_CHARS)
     if (!input) return ''
     const hit = this.done.get(input)

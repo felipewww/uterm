@@ -64,7 +64,9 @@ const api = {
   },
   system: { sample: (p: unknown) => call('system:sample', p) },
   usage: { summary: () => call('usage:summary') },
-  services: { set: (p: unknown) => call('services:set', p) },
+  secrets: { set: (p: unknown) => call('secrets:set', p), remove: (p: unknown) => call('secrets:remove', p) },
+  engine: { testChatterbox: (p: unknown) => call('engine:testChatterbox', p) },
+  openUrl: (p: unknown) => call('app:openUrl', p),
   clipboard: { read: () => call('clipboard:read'), write: (p: unknown) => call('clipboard:write', p) },
   events: {
     onPtyData: (cb: (p: { id: string; data: string }) => void) => on('pty:data', cb),

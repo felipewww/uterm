@@ -1,4 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
+import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import { matchesShortcut } from './shortcut'
 import { onThemeChange, terminalTheme } from './design/theme'
@@ -7,15 +8,20 @@ import { store } from './store'
 interface Entry { term: Terminal; fit: FitAddon; el: HTMLDivElement; opened: boolean; observer?: ResizeObserver }
 const entries = new Map<string, Entry>()
 
+function openLink(uri: string): void { void window.echo.openUrl({ url: uri }).catch(() => undefined) }
+
 export function ensureTerminal(id: string): Entry {
   const existing = entries.get(id)
   if (existing) return existing
   const term = new Terminal({
     fontFamily: "'JetBrains Mono', 'DejaVu Sans Mono', Menlo, monospace", fontSize: 14, scrollback: 10000,
-    cursorBlink: true, allowProposedApi: true, theme: terminalTheme(), macOptionIsMeta: true
+    cursorBlink: true, allowProposedApi: true, theme: terminalTheme(), macOptionIsMeta: true,
+    // OSC 8 hyperlinks: xterm's default asks with a browser confirm() and then tries window.open; hand the address to the system browser instead
+    linkHandler: { activate: (_e, uri) => openLink(uri), allowNonHttpProtocols: false }
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
+  term.loadAddon(new WebLinksAddon((e, uri) => { if (e.ctrlKey || e.metaKey) openLink(uri) })) // plain URLs: Ctrl (Cmd on a Mac) + click
   const el = document.createElement('div')
   el.className = 'term-host'
   el.style.display = 'none'

@@ -9,7 +9,6 @@ const s = computed(() => selected())
 const draft = computed(() => (s.value ? drafts[s.value.id] : undefined))
 const recordingElsewhere = computed(() => !!recorder.activeSessionId && recorder.activeSessionId !== s.value?.id)
 const audioDown = computed(() => store.settings.sttProvider === 'local' && !store.status.stt)
-const sttOff = computed(() => store.settings.sttProvider === 'local' && !store.enabled.stt)
 const sttNoKey = computed(() => store.settings.sttProvider !== 'local' && !store.keys[store.settings.sttProvider])
 const shortcut = computed(() => store.settings.recordShortcut.replace('Control', 'Ctrl').split('+').join(' + '))
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
@@ -29,8 +28,8 @@ watch(() => draft.value?.status, async (st, prev) => {
 })
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
-const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttOff.value ? 'Speech-to-text is off' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
-const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttOff.value ? 'Turn it on with the STT chip at the bottom left' : sttNoKey.value ? 'Add the key to .env (Settings → Cloud voice)' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
+const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
+const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttNoKey.value ? 'Add the key in Settings → Voice engines' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
 
 function discardRecording() { const id = s.value?.id; cancelRecording(); if (id) focusTerminal(id) }
 async function toggle() {
@@ -109,7 +108,7 @@ async function rerecord() {
         </template>
       </div>
       <p v-else-if="coachOffHere" class="coach-hint">English coach is off for this chat. <button class="coach-link" @click="setCoach(true)">Turn on</button></p>
-      <p v-else-if="coachNeedsKey" class="coach-hint">English coach is on but needs <code>ECHO_TERM_OPENAI_API_KEY</code> in .env.</p>
+      <p v-else-if="coachNeedsKey" class="coach-hint">English coach is on but needs an OpenAI key (Settings → Voice engines).</p>
       <div v-if="draft.note" class="banner warn">{{ draft.note }}</div>
       <div class="composer-actions">
         <button class="btn ghost discard" title="Discard transcription" @click="discardDraft(s.id)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 4.75 1 8h7l1-8M2.5 3.25h11M6 3.25V2h4v1.25M6.5 6.5v3.5M9.5 6.5v3.5" /></svg>Discard</button>

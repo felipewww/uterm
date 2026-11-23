@@ -1,21 +1,19 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, safeStorage, session, shell } from 'electron'
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ZodType } from 'zod'
 import type { AnyAgentEvent } from '@shared/events'
 import { schemas } from '@shared/ipc'
-import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, coachOnFor, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
+import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, TTS_ENGINES, coachOnFor, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
-import { dbConfigFromEnv, findRepoRoot, loadEnv, readEnvFiles, socketPath } from './config'
-import { migrate } from './db/migrate'
-import { EventStore, SettingsStore, VoiceProfileStore, type EventRepo, type SettingsRepo } from './db/miscStores'
+import { findRepoRoot, readEnvFiles, readLegacyKeys, socketPath } from './config'
+import type { EventRepo, SettingsRepo } from './db/miscStores'
 import { LocalDb, SqliteCoachHistory, SqliteCommandStore, SqliteEventStore, SqliteSessionRepo, SqliteSettings, SqliteUsageStore } from './db/sqliteStore'
-import { createPool, type Pool } from './db/pool'
 import { MemorySessionRepo } from './db/memoryStore'
-import { MySqlSessionStore, type SessionRepository } from './db/sessionStore'
+import type { SessionRepository } from './db/sessionStore'
 import { EventBus } from './events/eventBus'
 import { HookServer } from './hooks/hookServer'
 import { listImportable } from './importer'
@@ -24,27 +22,25 @@ import { nodePtyFactory } from './pty/nodePtyFactory'
 import { SessionManager, setEnvScrub } from './sessionManager'
 import { SPEECH_INSTRUCTIONS } from './speechInstructions'
 import { claudeProfiles } from './agents/claudeProfiles'
-import { readDesired, setService, type ServiceName } from './services'
+import { SECRET_NAMES, SecretStore, type SecretName } from './secrets'
 import { ShellAdapter } from './agents/shell'
 import { SystemSampler } from './system'
 import { popOut } from './externalTerminal'
 import { readOpenTabs, writeOpenTabs } from './openTabs'
 import { userShell } from './agents/shell'
-import { MemoryCommandStore, MySqlCommandStore, type CommandRepository } from './db/commandStore'
+import { MemoryCommandStore, type CommandRepository } from './db/commandStore'
+import { NativeStt } from './voice/nativeStt'
+import { SystemTts } from './voice/systemTts'
 import { SpeechRouter, selfTest } from './voice/speechRouter'
-import { cloudVoiceLabel, isCloudVoice, legacyDefaultVoice } from '@shared/voices'
 import { listModels, type CloudProvider } from './voice/cloud'
 import { EnglishCoach, shouldCoach } from './voice/coach'
-import { MemoryCoachHistory, MySqlCoachHistory, type CoachHistory } from './db/coachStore'
-import { MemoryUsageStore, MySqlUsageStore, type UsageRepository } from './db/usageStore'
-import { SttClient } from './voice/sttClient'
+import { MemoryCoachHistory, type CoachHistory } from './db/coachStore'
+import { MemoryUsageStore, type UsageRepository } from './db/usageStore'
 import { TtsClient } from './voice/ttsClient'
 import { VoiceCoordinator } from './voice/voiceCoordinator'
 
 let win: BrowserWindow | null = null
 let settings: AppSettings = { ...DEFAULT_SETTINGS }
-let pool: Pool | null = null
-let dbOk = false
 let quitting = false
 const pendingAudio = new Map<string, () => void>()
 /** The player can report a message as finished (e.g. paused for a long time) before main has pushed its last chunk. */
@@ -74,61 +70,32 @@ function parse<T>(schema: ZodType<T>, payload: unknown): T {
 async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () => boolean }> {
   // Packaged builds ship hooks/ and database/ as extraResources (outside the asar).
   const root = app.isPackaged ? process.resourcesPath : findRepoRoot(app.getAppPath())
-  const env = loadEnv(root)
-  setEnvScrub(readEnvFiles(root))
-  const dbCfg = dbConfigFromEnv(env)
+  setEnvScrub(readEnvFiles(root)) // keys from old .env files must never reach an agent or a terminal
   let repo: SessionRepository = new MemorySessionRepo()
   let settingsStore: SettingsRepo | null = null
   let localDb: LocalDb | null = null
   let eventStore: EventRepo | null = null
-  let voiceStore: VoiceProfileStore | null = null
   let usageStore: UsageRepository = new MemoryUsageStore()
   let coachHistory: CoachHistory = new MemoryCoachHistory()
   let commandStore: CommandRepository = new MemoryCommandStore()
 
-  if (dbCfg && root) {
-    try {
-      await migrate(dbCfg, join(root, 'database', 'migrations'))
-      pool = createPool(dbCfg)
-      repo = new MySqlSessionStore(pool)
-      settingsStore = new SettingsStore(pool)
-      eventStore = new EventStore(pool)
-      voiceStore = new VoiceProfileStore(pool)
-      usageStore = new MySqlUsageStore(pool)
-      coachHistory = new MySqlCoachHistory(pool)
-      commandStore = new MySqlCommandStore(pool)
-      settings = await settingsStore.load()
-      // Earlier builds had a global "voice provider" setting. The provider now belongs to the voice id (shared/voices.ts): carry it over once.
-      const legacy = settings as unknown as Record<string, unknown>
-      const carried = legacyDefaultVoice(legacy, settings.defaultVoiceId)
-      if (carried) { settings.defaultVoiceId = carried; await settingsStore.save({ defaultVoiceId: carried }) }
-      await settingsStore.remove(['ttsProvider', 'openaiVoice', 'geminiVoice'])
-      for (const k of ['ttsProvider', 'openaiVoice', 'geminiVoice']) delete legacy[k]
-      dbOk = true
-    } catch (err) {
-      console.error('[db] unavailable:', (err as Error).message) // message only: never log credentials
-    }
-  }
-
-  // No MySQL (for example the macOS build, which ships without Docker): the same data in a local SQLite file.
-  if (!dbOk) {
-    try {
-      localDb = new LocalDb(join(app.getPath('userData'), 'data', 'uterm.db'))
-      repo = new SqliteSessionRepo(localDb)
-      settingsStore = new SqliteSettings(localDb)
-      eventStore = new SqliteEventStore(localDb)
-      usageStore = new SqliteUsageStore(localDb)
-      coachHistory = new SqliteCoachHistory(localDb)
-      commandStore = new SqliteCommandStore(localDb)
-      settings = await settingsStore.load()
-    } catch (err) {
-      console.error('[local db] unavailable, running from memory:', (err as Error).message)
-      localDb = null
-    }
+  // One local SQLite file, the same in development and in the installed app.
+  try {
+    localDb = new LocalDb(join(app.getPath('userData'), 'data', 'uterm.db'))
+    repo = new SqliteSessionRepo(localDb)
+    settingsStore = new SqliteSettings(localDb)
+    eventStore = new SqliteEventStore(localDb)
+    usageStore = new SqliteUsageStore(localDb)
+    coachHistory = new SqliteCoachHistory(localDb)
+    commandStore = new SqliteCommandStore(localDb)
+    settings = await settingsStore.load()
+  } catch (err) {
+    console.error('[local db] unavailable, running from memory:', (err as Error).message)
+    localDb = null
+    notice('warn', 'The local database could not be opened, so this run keeps its history in memory only.')
   }
 
   const bus = new EventBus()
-  const stt = new SttClient(() => settings.sttUrl)
   const tts = new TtsClient(() => settings.ttsUrl)
   const repoRoot = root ?? process.cwd()
 
@@ -149,16 +116,29 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     onPersistenceError: (m) => { if (!dbWarned) { dbWarned = true; notice('warn', m) } }
   })
   await sessions.load()
-  if (!dbOk && dbCfg) notice('warn', 'MySQL is unavailable, so this run keeps its data in local files. Run ./scripts/doctor.sh to check Docker.') // no database configured at all (e.g. the Mac build): local files are the normal mode, no warning
 
-  let servicesOn = readDesired(root) // the user's on/off choice for the local voice services
-  // Cloud keys live in .env (never in the database, never passed to agents). Only the app process reads them.
-  const getKey = (p: CloudProvider): string | null => {
-    const name = `ECHO_TERM_${p.toUpperCase()}_API_KEY`
-    return (env[name] ?? process.env[name] ?? '').trim() || null
+  // Cloud keys are typed in Settings and kept encrypted by the operating system (never in the database, never passed to agents). Only the app process reads them.
+  const secrets = new SecretStore(join(app.getPath('userData'), 'secrets.json'), {
+    available: () => safeStorage.isEncryptionAvailable(),
+    encrypt: (t) => safeStorage.encryptString(t), decrypt: (b) => safeStorage.decryptString(b)
+  })
+  const migratedMark = join(app.getPath('userData'), 'keys-from-env.done')
+  if (!existsSync(migratedMark)) { // once: keys that used to be in a .env file move into the encrypted store
+    try {
+      const legacy = readLegacyKeys(root); let moved = 0
+      for (const n of SECRET_NAMES) { const v = legacy[n]; if (v && !secrets.has(n)) { if (secrets.set(n, v)) moved++ } }
+      if (moved) notice('info', `Moved ${moved} API key${moved > 1 ? 's' : ''} from your .env file into the app. You can delete them from the .env file now.`)
+      writeFileSync(migratedMark, 'done\n')
+    } catch { /* will try again next launch */ }
   }
+  const getKey = (p: CloudProvider): string | null => secrets.get(p)
   const coach = new EnglishCoach({ settings: () => settings, getKey: () => getKey('openai'), usage: () => usageStore })
-  const router = new SpeechRouter({ settings: () => settings, getKey, local: { tts, stt }, usage: () => usageStore, servicesOn: () => servicesOn })
+  // Speech on this computer needs nothing installed: Whisper inside the app (model bundled in resources/models when present, else downloaded once) and the system voice
+  const bundledModels = join(process.resourcesPath ?? '', 'models')
+  // ONNX Runtime ships no binary for Intel Macs, so the built-in speech recognition is only offered where it can run
+  const nativeStt = process.platform === 'darwin' && process.arch === 'x64' ? undefined : new NativeStt(app.isPackaged && existsSync(bundledModels) ? bundledModels : join(app.getPath('userData'), 'models'))
+  const systemTts = new SystemTts()
+  const router = new SpeechRouter({ settings: () => settings, getKey, local: { tts, nativeStt, systemTts }, usage: () => usageStore, onError: (m) => notice('warn', m) })
   const voice = new VoiceCoordinator({
     ttsEnabled: (voiceId) => router.ttsUsable(voiceId),
     voiceKey: (voiceId) => router.voiceKey(voiceId),
@@ -239,8 +219,6 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
   ipcMain.handle('sessions:update', async (_e, p) => {
     const a = parse(schemas.sessionSettings, p)
-    const vid = a.patch.voiceProfileId
-    if (vid && isCloudVoice(vid)) await voiceStore?.upsert({ id: vid, name: cloudVoiceLabel(vid) ?? vid }).catch(() => undefined) // sessions.voice_profile_id has a foreign key
     await sessions.updateSettings(requireSession(a.id), a.patch as never)
     voice.focusChanged()
   })
@@ -286,21 +264,20 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
 
   ipcMain.handle('voices:list', async () => {
-    try {
-      const remote = await tts.listVoices()
-      for (const v of remote) await voiceStore?.upsert(v).catch(() => undefined)
-      return remote
-    } catch { return (await voiceStore?.list().catch(() => null)) ?? [{ id: 'default', name: 'Default' }] }
+    // The built-in voice always exists; clones only exist on a Chatterbox server
+    const base = [{ id: 'default', name: settings.ttsEngine === 'chatterbox' ? 'Chatterbox default' : 'System voice' }]
+    if (settings.ttsEngine !== 'chatterbox') return base
+    try { return await tts.listVoices() } catch { return base }
   })
+  const needChatterbox = () => { if (settings.ttsEngine !== 'chatterbox') throw new Error('Voice cloning needs the Chatterbox engine (Settings → Voice engines).') }
   ipcMain.handle('voices:create', async (_e, p: { name: string; wav: ArrayBuffer }) => {
+    needChatterbox()
     const { name } = parse(schemas.voiceCreate, { name: p.name })
-    const v = await tts.createVoice(name, new Uint8Array(p.wav))
-    await voiceStore?.upsert(v).catch(() => undefined)
-    return v
+    return tts.createVoice(name, new Uint8Array(p.wav))
   })
   ipcMain.handle('voices:delete', async (_e, p) => {
-    const { voiceId } = parse(schemas.voiceDelete, p)
-    await tts.deleteVoice(voiceId); await voiceStore?.remove(voiceId).catch(() => undefined)
+    needChatterbox()
+    await tts.deleteVoice(parse(schemas.voiceDelete, p).voiceId)
   })
 
   ipcMain.handle('settings:get', () => settings)
@@ -311,6 +288,8 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
       if (!(k in DEFAULT_SETTINGS) || typeof v !== typeof (DEFAULT_SETTINGS as never)[k]) continue
       if (k === 'externalTerminal' && !['auto', 'ptyxis', 'gnome-terminal', 'konsole', 'xfce4-terminal', 'kitty', 'alacritty', 'wezterm', 'x-terminal-emulator'].includes(v as string)) continue
       if (k === 'sttProvider' && !SPEECH_PROVIDERS.includes(v as never)) continue
+      if (k === 'ttsEngine' && !TTS_ENGINES.includes(v as never)) continue
+      if (k === 'ttsUrl' && !/^https?:\/\/[^\s]+$/.test(v as string)) continue
       if (typeof v === 'string' && v.length > 300) continue
       clean[k] = v
     }
@@ -321,16 +300,22 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     return settings
   })
 
-  ipcMain.handle('status:get', async (): Promise<ServiceStatus & { enabled: { stt: boolean; tts: boolean }; keys: { openai: boolean; gemini: boolean }; agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
+  ipcMain.handle('status:get', async (): Promise<ServiceStatus & { keys: { openai: boolean; gemini: boolean }; keysPersist: boolean; agents: Record<string, { installed: boolean; version?: string }>; capabilities: unknown }> => {
     const [sp, claude, codex, kiro] = await Promise.all([router.status(), new ClaudeCodeAdapter(repoRoot).detect(), new CodexAdapter().detect(), new KiroAdapter().detect()])
-    return { stt: sp.stt, tts: sp.tts, ttsReady: sp.ttsReady, db: dbOk || !!localDb, enabled: servicesOn, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, agents: { claude, codex, kiro },
+    return { ...sp, db: !!localDb, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, keysPersist: secrets.persistent(), agents: { claude, codex, kiro },
       capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities, kiro: new KiroAdapter().capabilities } }
   })
-  ipcMain.handle('services:set', async (_e, p) => {
-    const a = parse(schemas.serviceSet, p)
-    if (a.name === 'tts' && !a.enabled) { voice.queue.cancelAll(); send('audio:stop') } // stop speaking before the service goes away
-    servicesOn = await setService(root, a.name as ServiceName, a.enabled)
-    return servicesOn
+  ipcMain.handle('secrets:set', (_e, p) => {
+    const a = parse(schemas.secretSet, p)
+    const persisted = secrets.set(a.provider as SecretName, a.key)
+    if (!persisted) notice('warn', 'This computer has no secure key storage, so the key is kept only until you quit the app.')
+    return { persisted }
+  })
+  ipcMain.handle('secrets:remove', (_e, p) => { secrets.remove(parse(schemas.cloudProvider, p).provider as SecretName) })
+  ipcMain.handle('engine:testChatterbox', async (_e, p) => {
+    const url = parse(schemas.chatterboxTest, p).url
+    const st = await new TtsClient(() => url).status()
+    return st
   })
   ipcMain.handle('cloud:models', (_e, p) => { const a = parse(schemas.cloudProvider, p); return listModels(router.cloudConfig(), a.provider) })
   ipcMain.handle('cloud:test', (_e, p) => {
@@ -360,9 +345,16 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     const c = await commandStore.get(a.id)
     return c ? sessions.runCommand(c.sessionId, c.command, a.run) : false
   })
+  if (settings.sttProvider === 'local') nativeStt?.warm() // load the built-in model in the background
   const sampler = new SystemSampler()
   ipcMain.handle('system:sample', (_e, p) => { const a = parse(schemas.systemSample, p ?? {}); return sampler.sample(a.sessionId ? pty.pidOf(a.sessionId) : null) })
   ipcMain.handle('usage:summary', () => usageStore.summary())
+  // Links clicked in a terminal: only web addresses are handed to the system browser (never file:, javascript: or custom schemes).
+  ipcMain.handle('app:openUrl', async (_e, p) => {
+    const u = new URL(parse(schemas.openUrl, p).url)
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('Only web links can be opened')
+    await shell.openExternal(u.toString())
+  })
   ipcMain.handle('clipboard:read', () => clipboard.readText())
   ipcMain.handle('clipboard:write', (_e, p) => { clipboard.writeText(parse(schemas.text, p).text) })
 
@@ -390,7 +382,6 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     await sessions.stopAll()
     localDb?.close()
     await hookServer.stop()
-    await pool?.end().catch(() => undefined)
     app.quit()
   })
 
@@ -416,7 +407,7 @@ function createWindow(): void {
   })
   win.webContents.on('did-finish-load', () => { for (const n of pendingNotices.splice(0)) send('notice', n) })
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https:\/\//.test(url)) void shell.openExternal(url)
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (e) => e.preventDefault())

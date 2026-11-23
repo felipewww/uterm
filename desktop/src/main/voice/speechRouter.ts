@@ -1,25 +1,35 @@
 import type { AppSettings, SpeechProvider } from '@shared/types'
 import { parseVoiceId } from '@shared/voices'
-import { SttClient } from './sttClient'
 import type { TtsClient } from './ttsClient'
+import type { NativeStt } from './nativeStt'
+import type { SystemTts } from './systemTts'
 import { CloudError, geminiSpeak, geminiTranscribe, listModels, openAiSpeak, openAiTranscribe, type CloudConfig, type CloudProvider, type FetchLike, type Usage } from './cloud'
 import { estimateCost } from './pricing'
 import type { UsageRepository } from '../db/usageStore'
-import type { ServiceFlags } from '../services'
 
 export interface RouterDeps {
   settings(): AppSettings
   getKey(p: CloudProvider): string | null
-  local: { tts: TtsClient; stt: SttClient }
+  local: { tts: TtsClient; nativeStt?: NativeStt; systemTts?: SystemTts }
   usage(): UsageRepository | null
-  servicesOn(): ServiceFlags
   fetch?: FetchLike
   onError?(message: string): void
 }
 
-/** Sends speech to the provider chosen in Settings (local Docker service by default) and keeps the estimated cloud spend. */
+/**
+ * Sends speech to the engine chosen in Settings → Voice engines and keeps the estimated cloud spend.
+ * "Local" speech-to-text is Whisper inside the app. "Local" voices are the system voice, or a Chatterbox server when that engine is chosen.
+ */
 export class SpeechRouter {
-  constructor(private d: RouterDeps) {}
+  private systemOk: boolean | null = null // is a system voice installed? unknown until checked
+  private warnedAt = 0
+  constructor(private d: RouterDeps) { void this.checkSystem() }
+
+  /** Looks for the operating system's voice again (e.g. after the user installed espeak-ng). */
+  async checkSystem(): Promise<boolean> {
+    this.systemOk = this.d.local.systemTts ? await this.d.local.systemTts.available().catch(() => false) : false
+    return this.systemOk
+  }
 
   hasKey(p: CloudProvider): boolean { return !!this.d.getKey(p) }
 
@@ -45,9 +55,13 @@ export class SpeechRouter {
     return p === 'openai' ? `openai|${s.openaiTtsModel}|${s.cloudVoiceStyle}` : p === 'gemini' ? `gemini|${s.geminiTtsModel}|${s.cloudVoiceStyle}` : 'local'
   }
 
-  /** Can this voice be produced right now? Local voices need the Docker service on; cloud voices need their key. */
-  ttsUsable(voiceId: string): boolean { const p = parseVoiceId(voiceId).provider; return p === 'local' ? this.d.servicesOn().tts : this.hasKey(p) }
-  sttUsable(): boolean { const p = this.d.settings().sttProvider; return p === 'local' ? this.d.servicesOn().stt : this.hasKey(p) }
+  /** Can this voice be produced right now? Local voices need the system voice (or a Chatterbox server); cloud voices need their key. */
+  ttsUsable(voiceId: string): boolean {
+    const p = parseVoiceId(voiceId).provider
+    if (p !== 'local') return this.hasKey(p)
+    return this.d.settings().ttsEngine === 'chatterbox' || this.systemOk !== false
+  }
+  sttUsable(): boolean { const p = this.d.settings().sttProvider; return p === 'local' ? !!this.d.local.nativeStt : this.hasKey(p) }
 
   async record(u: Usage): Promise<void> {
     try { await this.d.usage()?.record({ ...u, costUsd: estimateCost(u) }) } catch { /* a usage row must never break speech */ }
@@ -55,7 +69,20 @@ export class SpeechRouter {
 
   async synthesize(text: string, voiceId: string, signal: AbortSignal): Promise<Uint8Array> {
     const { provider, voice } = parseVoiceId(voiceId)
-    if (provider === 'local') return this.d.local.tts.synthesize(text, voiceId, signal)
+    if (provider === 'local') {
+      const sys = this.d.local.systemTts
+      const system = async () => {
+        if (!sys || !(await this.checkSystem())) throw new Error(process.platform === 'linux' ? 'No system voice found. Install it with: sudo apt install espeak-ng (or pick another engine in Settings → Voice engines)' : 'No system voice available. Pick another engine in Settings → Voice engines')
+        return sys.synthesize(text, signal)
+      }
+      if (this.d.settings().ttsEngine !== 'chatterbox') return system()
+      try { return await this.d.local.tts.synthesize(text, voiceId, signal) } catch (err) {
+        if (signal.aborted || !(await this.checkSystem())) throw err // nothing else to fall back to
+        // The Chatterbox server did not answer: speak with the system voice instead, and say so (at most once a minute)
+        if (Date.now() - this.warnedAt > 60_000) { this.warnedAt = Date.now(); this.d.onError?.('The Chatterbox server did not answer, so the system voice was used. Check Settings → Voice engines.') }
+        return system()
+      }
+    }
     const r = provider === 'openai' ? await openAiSpeak(this.cloudConfig(), text, voice, signal) : await geminiSpeak(this.cloudConfig(), text, voice, signal)
     void this.record(r.usage)
     return r.audio
@@ -63,16 +90,22 @@ export class SpeechRouter {
 
   async transcribe(wav: Uint8Array): Promise<string> {
     const p: SpeechProvider = this.d.settings().sttProvider
-    if (p === 'local') return this.d.local.stt.transcribe(wav)
+    if (p === 'local') {
+      const native = this.d.local.nativeStt
+      if (!native) throw new Error('Speech recognition built into the app is not available on this computer. Choose OpenAI or Gemini in Settings → Voice engines.')
+      return native.transcribe(wav)
+    }
     const r = p === 'openai' ? await openAiTranscribe(this.cloudConfig(), wav) : await geminiTranscribe(this.cloudConfig(), wav)
     void this.record(r.usage)
     return r.text
   }
 
-  /** Status of the LOCAL services. Whether a cloud provider is usable is just "its key is present" (the renderer knows the keys). */
-  async status(): Promise<{ stt: boolean; tts: boolean; ttsReady: boolean }> {
-    const [ls, lt] = await Promise.all([this.d.local.stt.status(), this.d.local.tts.status()])
-    return { stt: ls.up, tts: lt.up, ttsReady: lt.ready }
+  /** What this computer can do by itself. Whether a cloud provider is usable is just "its key is present". */
+  async status(): Promise<{ stt: boolean; tts: boolean; ttsReady: boolean; systemVoice: boolean; chatterbox: boolean }> {
+    const system = await this.checkSystem()
+    const cb = await this.d.local.tts.status()
+    const chatterbox = this.d.settings().ttsEngine === 'chatterbox'
+    return { stt: !!this.d.local.nativeStt, tts: chatterbox ? cb.up || system : system, ttsReady: chatterbox ? cb.ready || (!cb.up && system) : system, systemVoice: system, chatterbox: cb.up }
   }
 }
 
@@ -92,8 +125,8 @@ export async function selfTest(router: SpeechRouter, provider: CloudProvider, ov
       steps.push({ name, ok: false, ms: Date.now() - t0, detail: (err as Error).message }); return undefined
     }
   }
-  if (!cfg.getKey(provider)) return { provider, steps: [{ name: 'API key', ok: false, ms: 0, detail: `Add ECHO_TERM_${provider.toUpperCase()}_API_KEY to .env and restart the app.` }], costUsd: 0 }
-  steps.push({ name: 'API key', ok: true, ms: 0, detail: 'Found in .env' })
+  if (!cfg.getKey(provider)) return { provider, steps: [{ name: 'API key', ok: false, ms: 0, detail: `Paste the API key in Settings → Voice engines.` }], costUsd: 0 }
+  steps.push({ name: 'API key', ok: true, ms: 0, detail: 'Saved in this app' })
   const models = await step('Reach the API (list models)', async () => {
     const m = await listModels(cfg, provider)
     const mine = cfg[provider].ttsModel

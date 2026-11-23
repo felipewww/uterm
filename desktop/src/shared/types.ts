@@ -80,8 +80,10 @@ export interface AppSettings {
   recordShortcut: string
   autoSubmitTranscription: boolean
   microphoneId: string
-  sttUrl: string
+  /** Address of a Chatterbox TTS server (the repo's Docker one, or any server with the same API). Used when ttsEngine is 'chatterbox'. */
   ttsUrl: string
+  /** What speaks the "local" voices: the operating system's own voice (default, nothing to install) or a Chatterbox server at ttsUrl. */
+  ttsEngine: TtsEngine
   queueMaxItems: number
   progressExpiryMs: number
   speechMaxChars: number
@@ -112,6 +114,8 @@ export interface AppSettings {
 }
 
 export type SpeechProvider = 'local' | 'openai' | 'gemini'
+export type TtsEngine = 'system' | 'chatterbox'
+export const TTS_ENGINES: TtsEngine[] = ['system', 'chatterbox']
 export const SPEECH_PROVIDERS: SpeechProvider[] = ['local', 'openai', 'gemini']
 
 export interface UsageRow { provider: string; kind: string; calls: number; costUsd: number; audioSeconds: number; chars: number; unpriced: number }
@@ -126,8 +130,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recordShortcut: 'Control+Shift+Space',
   autoSubmitTranscription: false,
   microphoneId: '',
-  sttUrl: 'http://127.0.0.1:18080',
   ttsUrl: 'http://127.0.0.1:18090',
+  ttsEngine: 'system',
   queueMaxItems: 8,
   progressExpiryMs: 20000,
   speechMaxChars: 400,
@@ -149,4 +153,4 @@ export const DEFAULT_SETTINGS: AppSettings = {
   recordCues: true
 }
 
-export interface ServiceStatus { stt: boolean; tts: boolean; ttsReady: boolean; db: boolean }
+export interface ServiceStatus { stt: boolean; tts: boolean; ttsReady: boolean; db: boolean; systemVoice: boolean; chatterbox: boolean }

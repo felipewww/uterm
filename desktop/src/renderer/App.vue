@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { SessionView } from '@shared/types'
+import { ON_MAC, type SessionView } from '@shared/types'
 import type { AnyAgentEvent } from '@shared/events'
 import SidePanel from './components/SidePanel.vue'
 import NewSessionDialog from './components/NewSessionDialog.vue'
@@ -12,10 +12,10 @@ import SettingsDialog from './components/SettingsDialog.vue'
 import TerminalPane from './components/TerminalPane.vue'
 import WelcomePanel from './components/WelcomePanel.vue'
 import { installAudioPlayer } from './composables/useAudioPlayer'
-import { cancelRecording, discardDraft, isRecording, recorder, startRecording, stopRecording } from './composables/useRecorder'
+import { cancelRecording, discardDraft, drafts, isRecording, recorder, startRecording, stopRecording, submitDraft } from './composables/useRecorder'
 import { playChime } from './chime'
 import { chimeFor } from './notify'
-import { isEditableTarget, matchesShortcut, recordingKeyAction } from './shortcut'
+import { isEditableTarget, isSendCombo, matchesShortcut, recordingKeyAction } from './shortcut'
 import { ingestEvent, layout, markSpoken, notify, resetActivity, refreshStatus, refreshUsage, removeSession, resetSidebar, setNatural, resizeActivity, resizeSidebar, store, upsertSession } from './store'
 import { disposeTerminal, focusTerminal, writeTo } from './terminals'
 
@@ -54,6 +54,11 @@ async function select(id: string | null) {
 
 let swallowEnterUntil = 0
 function onKey(e: KeyboardEvent) {
+  // Cmd+Enter (Ctrl+Enter off a Mac) sends the message you are reviewing, from wherever the focus is. Nothing is sent unless a reviewed draft is waiting.
+  if (isSendCombo(e, ON_MAC) && !e.repeat && !e.isComposing && store.selectedId && !document.querySelector('.modal-backdrop')) {
+    const d = drafts[store.selectedId]
+    if (d && d.status === 'review' && d.text.trim()) { e.preventDefault(); e.stopPropagation(); void submitDraft(store.selectedId, false, !!d.note); return }
+  }
   // While recording: Enter = done, Escape = discard. The terminal must not also receive them (Enter would submit the CLI's prompt, Escape would interrupt the agent), nor a second Enter tapped right after.
   if (e.key === 'Enter' && Date.now() < swallowEnterUntil && !isEditableTarget(e.target)) { e.preventDefault(); e.stopPropagation(); return }
   const action = recordingKeyAction({
@@ -156,7 +161,7 @@ async function quit() {
     </template>
 
     <NewSessionDialog v-if="showNew" @close="showNew = false" @created="created" />
-    <SettingsDialog v-if="showSettings" :pane="settingsPane" @close="showSettings = false; void refreshUsage()" />
+    <SettingsDialog v-if="showSettings" :start-pane="settingsPane" @close="showSettings = false; void refreshUsage()" />
     <SettingsDialog v-if="showSessionSettings" :session-id="store.selectedId" @close="showSessionSettings = false" />
 
     <div v-if="store.confirmQuit" class="modal-backdrop">

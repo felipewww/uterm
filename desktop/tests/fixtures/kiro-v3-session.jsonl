@@ -1,0 +1,15 @@
+{"id":"context_snapshot_1","timestamp":"2026-11-23T15:06:00.000Z","payload":{"type":"agent_note","content":"<session_context>…</session_context>"}}
+{"id":"u1","timestamp":"2026-11-23T15:07:00.000Z","payload":{"type":"user","content":"List the files here","documents":[],"images":[]}}
+{"id":"t1","timestamp":"2026-11-23T15:07:00.100Z","payload":{"type":"turn_start","executionId":"e1","turnId":"turn-1","boundarySource":"observed"}}
+{"id":"r1","timestamp":"2026-11-23T15:07:01.000Z","payload":{"type":"assistant","content":"...","operationType":"Reasoning","executionId":"e1","turnId":"turn-1"}}
+{"id":"a1","timestamp":"2026-11-23T15:07:02.000Z","payload":{"type":"assistant","content":"[happy] I'll look at the folder first.","operationType":"Say","executionId":"e1","turnId":"turn-1"}}
+{"id":"c1","timestamp":"2026-11-23T15:07:03.000Z","payload":{"type":"tool_call","toolCallId":"call-1","toolName":"execute_bash","args":{"command":"ls -la"},"status":"pending","title":"ls -la"}}
+{"id":"c1b","timestamp":"2026-11-23T15:07:03.100Z","payload":{"type":"tool_call","toolCallId":"call-1","toolName":"execute_bash","args":{"command":"ls -la"},"status":"approved","title":"ls -la"}}
+{"id":"p1","timestamp":"2026-11-23T15:07:03.200Z","payload":{"type":"pending_interaction","interactionType":"tool_approval","toolCallId":"call-1","question":"Allow this command?","options":[{"optionId":"accept","name":"Yes","kind":"allow"}]}}
+{"id":"i1","timestamp":"2026-11-23T15:07:05.000Z","payload":{"type":"interaction_resolved","toolCallId":"call-1","outcome":"selected","selectedOption":"accept"}}
+{"id":"q0","timestamp":"2026-11-23T15:07:05.500Z","payload":{"type":"tool_call","toolCallId":"call-0","toolName":"update_session_information","args":{},"status":"completed","title":"Updating"}}
+{"id":"x1","timestamp":"2026-11-23T15:07:06.000Z","payload":{"type":"tool_result","toolCallId":"call-1","content":"total 0","success":true,"status":"completed"}}
+{"id":"x0","timestamp":"2026-11-23T15:07:06.100Z","payload":{"type":"tool_result","toolCallId":"call-0","content":"ok","success":true,"status":"completed"}}
+{"id":"a2","timestamp":"2026-11-23T15:07:07.000Z","payload":{"type":"assistant","content":"The folder is empty.","operationType":"Say","executionId":"e1","turnId":"turn-1"}}
+{"id":"us1","timestamp":"2026-11-23T15:07:07.100Z","payload":{"type":"usage_summary","status":"success"}}
+{"id":"te1","timestamp":"2026-11-23T15:07:07.200Z","payload":{"type":"turn_end","stopReason":"end_turn","executionId":"e1","turnId":"turn-1"}}

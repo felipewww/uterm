@@ -5,7 +5,7 @@ export interface AgentCapabilities {
   /** Native session id known before the agent produces any output. */
   preassignedSessionId: boolean
   intermediateMessages: 'hook' | 'transcript' | 'none'
-  permissionRequests: 'hook' | 'none'
+  permissionRequests: 'hook' | 'transcript' | 'none'
   interactiveQuestions: 'hook' | 'none'
   notes: string[]
 }

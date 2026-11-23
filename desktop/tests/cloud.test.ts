@@ -59,8 +59,8 @@ describe('OpenAI', () => {
     await expect(openAiSpeak(cfg(async () => json({}, 429)), 'Hi', 'coral')).rejects.toThrow(/rate limited or out of quota/)
   })
   it('tells you where to add the key when there is none', async () => {
-    await expect(openAiSpeak(cfg(async () => json({}), { openai: null }), 'Hi', 'coral')).rejects.toThrow(/Settings → Voice engines/)
-    await expect(geminiSpeak(cfg(async () => json({}), { gemini: null }), 'Hi', 'Kore')).rejects.toThrow(/Settings → Voice engines/)
+    await expect(openAiSpeak(cfg(async () => json({}), { openai: null }), 'Hi', 'coral')).rejects.toThrow(/Settings → Voice/)
+    await expect(geminiSpeak(cfg(async () => json({}), { gemini: null }), 'Hi', 'Kore')).rejects.toThrow(/Settings → Voice/)
   })
 })
 

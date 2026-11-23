@@ -32,7 +32,7 @@ runs on your machine; cloud voices and an English-practice coach are optional.
 **Voice, local by default, nothing to install**
 - **Speech to text** with Whisper running inside the app (ONNX Runtime, no Docker, your audio never leaves the computer): record, review and edit the transcription, then send. The ~80 MB model is bundled in the macOS build and downloaded once on Linux.
 - **Spoken replies** read the agent's progress, questions and results aloud according to a per-session mode (silent, essential, balanced, conversational), different for foreground and background sessions. The default voice is the one built into your computer (`say` on macOS, `espeak-ng` on Linux).
-- **Settings → Voice engines** picks the engine for each direction: system voice, a [Chatterbox](https://github.com/resemble-ai/chatterbox) server you run yourself (natural voices, voice cloning, optional NVIDIA GPU), or a cloud provider.
+- **Settings → Voice** picks the engine for each direction: system voice, a [Chatterbox](https://github.com/resemble-ai/chatterbox) server you run yourself (natural voices, voice cloning, optional NVIDIA GPU), or a cloud provider.
 - Per-chat voices, playback speed, and an audio player on every spoken message: scrub, pause and replay from memory.
 
 **Cloud voice (optional, off by default)**
@@ -62,20 +62,20 @@ cd uterm
 ```
 The scripts never run `sudo`. The first recording downloads the small Whisper model. If Electron aborts with a SUID-sandbox error, `dev.sh` falls back to `--no-sandbox` for development and prints the manual fix.
 
-Other scripts: `./scripts/doctor.sh` (diagnostics). Optional Chatterbox server: `docker compose up -d tts` (then Settings → Voice engines → Chatterbox server), `./scripts/tts-gpu.sh` for the GPU flavour (`--cpu` to go back), `./scripts/stop.sh` to stop it.
+Other scripts: `./scripts/doctor.sh` (diagnostics). Optional Chatterbox server: `docker compose up -d tts` (then Settings → Voice → Output → Chatterbox server), `./scripts/tts-gpu.sh` for the GPU flavour (`--cpu` to go back), `./scripts/stop.sh` to stop it.
 
 Your data lives in one SQLite file in the app's data folder (`~/.config/echo-term-desktop/data/uterm.db` on Linux). Coming from the older Docker/MySQL version? `cd desktop && npm i --no-save mysql2 && cd .. && node scripts/import-mysql.mjs` copies your history over (the app also moves API keys from an old `.env` file into its own encrypted store on first launch).
 
 ## Using it
 - **＋** in the sessions list creates a session (agent, title, folder) or imports an existing conversation. Double-click a title to rename; right-click for more (move to folder, delete, open in VS Code…).
-- The mic button, or `Ctrl+Shift+Space`, records. Review and edit the transcription, then **Send** — it goes to the session that was selected when you started recording.
+- The mic button, or `Ctrl+Shift+Space` (`⌘⇧Space` on a Mac), records. Review and edit the transcription, then **Send** (`Ctrl+Enter`, `⌘Enter` on a Mac, from anywhere in the window) — it goes to the session that was selected when you started recording.
 - **Voice modes** per session: *Silent*, *Essential* (questions, permissions, blockers), *Balanced* (+ final results), *Conversational* (+ progress), set separately for when the session is in front and when it is in the background.
 - **Notification sounds**: when an agent needs you (question, approval, blocking error) or finishes while you are looking elsewhere, a short sound plays and its tab shows *Approve* / *Answer* / *Done*; recording start and stop have their own cue. Everything is configurable in Settings → General → Notifications.
 - The **STT/TTS chips** at the bottom of the sessions list show which engine is in use and whether it works; click one to change it.
-- **Settings**: General (theme), Voice (default voice, speed, modes), **Voice engines** (speech output and input engines, Chatterbox address, API keys, models, test), English coach, Usage, Microphone, System.
+- **Settings**: General (theme), Voice (default voice, speed, modes), **Voice** (speech output and input engines, Chatterbox address, API keys, models, test), English coach, Usage, Microphone, System.
 
 ## Cloud voice, keys and cost
-Open **Settings → Voice engines**, paste your key in the OpenAI or Google Gemini section (get one at https://aistudio.google.com/apikey or https://platform.openai.com/api-keys), press **Refresh model lists** and **Test**, then pick the cloud engine for speech output and/or input. A cloud voice can also be chosen per chat.
+Open **Settings → Voice**, paste your key in the OpenAI or Google Gemini section (get one at https://aistudio.google.com/apikey or https://platform.openai.com/api-keys), press **Refresh model lists** and **Test**, then pick the cloud engine for speech output and/or input. A cloud voice can also be chosen per chat.
 Model names change over time, so they are editable. Costs are **estimates** computed from reported usage and public list prices; your provider's dashboard has the real bill.
 Keys are typed into the app and stored encrypted by your operating system's key storage (Keychain on macOS, the keyring on Linux). They are never stored in the database, never logged, never shown again and never passed to the agents uTerm launches. See [SECURITY.md](SECURITY.md) for exactly what leaves your machine.
 

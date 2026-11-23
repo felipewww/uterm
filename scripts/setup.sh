@@ -12,7 +12,7 @@ req make  "sudo apt install build-essential"
 node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
 [ "$node_major" -ge 22 ] || { c_err "Node.js >= 22 required (found $node_major)"; missing=1; }
 [ "$missing" -eq 0 ] || { c_err "Fix the items above and re-run ./scripts/setup.sh"; exit 1; }
-have espeak-ng && c_ok "espeak-ng (system voice)" || c_warn "No system voice: install it with  sudo apt install espeak-ng  (or choose a cloud voice in Settings → Voice engines)"
+have espeak-ng && c_ok "espeak-ng (system voice)" || c_warn "No system voice: install it with  sudo apt install espeak-ng  (or choose a cloud voice in Settings → Voice)"
 
 c_info "Desktop dependencies"
 ( cd desktop && npm install --no-audit --no-fund ) && c_ok "npm install done (node-pty rebuilt for Electron)"
@@ -31,4 +31,4 @@ if [ -n "$sb" ]; then
   echo "   sudo chown root:root desktop/node_modules/electron/dist/chrome-sandbox && sudo chmod 4755 desktop/node_modules/electron/dist/chrome-sandbox"
 fi
 c_ok "Setup finished. Run ./scripts/dev.sh"
-echo "   Optional: a Chatterbox voice server with  docker compose up -d tts  (then Settings → Voice engines)."
+echo "   Optional: a Chatterbox voice server with  docker compose up -d tts  (then Settings → Voice)."

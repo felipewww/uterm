@@ -31,7 +31,7 @@ async function listen(it: ActivityItem) {
   if (!store.selectedId) return
   if (track(it)?.complete) { await togglePlay(it.id); return } // replay from memory, no new synthesis
   const vp = parseVoiceId(voiceOf(selected())).provider
-  if (vp !== 'local' && !store.keys[vp]) { notify('info', 'This chat uses a cloud voice but its API key is missing. See Settings → Voice engines.', 5000); return }
+  if (vp !== 'local' && !store.keys[vp]) { notify('info', 'This chat uses a cloud voice but its API key is missing. See Settings → Voice.', 5000); return }
   if (active(it)) { await window.echo.voice.stopPlayback(); return }
   await window.echo.voice.listen({ id: store.selectedId, text: it.speech ?? it.text, ref: it.id })
 }

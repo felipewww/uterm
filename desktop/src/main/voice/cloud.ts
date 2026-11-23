@@ -32,7 +32,7 @@ export class CloudError extends Error {
 
 function need(cfg: CloudConfig, p: CloudProvider): string {
   const k = cfg.getKey(p)
-  if (!k) throw new CloudError(`${p === 'openai' ? 'OpenAI' : 'Gemini'} key not set: add it in Settings → Voice engines.`)
+  if (!k) throw new CloudError(`${p === 'openai' ? 'OpenAI' : 'Gemini'} key not set: add it in Settings → Voice.`)
   return k
 }
 

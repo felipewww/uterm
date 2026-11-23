@@ -145,7 +145,7 @@ async function onDrop(e: DragEvent, folderId: string | null) {
   else { const s = store.sessions.find((x) => x.id === id); if (s) await moveTo(s, folderId) }
 }
 // STT/TTS chips show what is in use: for TTS the voice of the selected chat (else the default voice), for STT the chosen transcriber.
-// A click opens Settings → Voice engines.
+// A click opens Settings → Voice.
 const ttsProvider = computed(() => parseVoiceId(voiceOf(selected())).provider)
 const provider = (n: 'stt' | 'tts') => (n === 'stt' ? store.settings.sttProvider : ttsProvider.value)
 const cloud = (n: 'stt' | 'tts') => provider(n) !== 'local'
@@ -311,8 +311,8 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div class="sidebar-foot">
       <span class="services">
         <span v-if="!store.status.db" class="svc bad" title="The local database could not be opened: history is kept in memory only"><i></i>No database</span>
-        <button class="svc" :class="svcClass('stt')" :title="svcTitle('stt')" @click="emit('settings', 'engines')"><i></i>STT<svg v-if="cloud('stt')" class="cloud-mark" :class="cloudReady('stt') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
-        <button class="svc" :class="svcClass('tts')" :title="svcTitle('tts')" @click="emit('settings', 'engines')"><i></i>TTS<svg v-if="cloud('tts')" class="cloud-mark" :class="cloudReady('tts') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
+        <button class="svc" :class="svcClass('stt')" :title="svcTitle('stt')" @click="emit('settings', 'voice.input')"><i></i>STT<svg v-if="cloud('stt')" class="cloud-mark" :class="cloudReady('stt') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
+        <button class="svc" :class="svcClass('tts')" :title="svcTitle('tts')" @click="emit('settings', 'voice.output')"><i></i>TTS<svg v-if="cloud('tts')" class="cloud-mark" :class="cloudReady('tts') ? 'ok' : 'bad'" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 12.5h7a2.75 2.75 0 0 0 .4-5.47A3.75 3.75 0 0 0 4.7 6.2 3.15 3.15 0 0 0 4.5 12.5z" /></svg></button>
       </span>
       <span class="foot-tools">
       <button class="tool-btn" :class="{ warn: store.settings.globalMute }" :aria-pressed="store.settings.globalMute" :title="store.settings.globalMute ? 'All voice output is muted. Click to unmute' : 'Mute all voice output'" aria-label="Mute all voice output" @click="toggleGlobalMute">

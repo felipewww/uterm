@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { ZodType } from 'zod'
 import type { AnyAgentEvent } from '@shared/events'
 import { schemas } from '@shared/ipc'
-import { DEFAULT_SETTINGS, SPEECH_PROVIDERS, TTS_ENGINES, coachOnFor, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
+import { DEFAULT_SETTINGS, OLD_DEFAULT_RECORD_SHORTCUT, SPEECH_PROVIDERS, TTS_ENGINES, coachOnFor, type AgentType, type AppSettings, type ServiceStatus, type SessionView } from '@shared/types'
 import { ClaudeCodeAdapter } from './agents/claude'
 import { CodexAdapter } from './agents/codex'
 import { KiroAdapter } from './agents/kiro'
@@ -89,6 +89,8 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     coachHistory = new SqliteCoachHistory(localDb)
     commandStore = new SqliteCommandStore(localDb)
     settings = await settingsStore.load()
+    // Earlier macOS builds defaulted to Ctrl+Shift+Space: carry the unchanged default over to Cmd+Shift+Space
+    if (process.platform === 'darwin' && settings.recordShortcut === OLD_DEFAULT_RECORD_SHORTCUT) { settings.recordShortcut = 'Meta+Shift+Space'; await settingsStore.save({ recordShortcut: settings.recordShortcut }) }
   } catch (err) {
     console.error('[local db] unavailable, running from memory:', (err as Error).message)
     localDb = null
@@ -269,7 +271,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     if (settings.ttsEngine !== 'chatterbox') return base
     try { return await tts.listVoices() } catch { return base }
   })
-  const needChatterbox = () => { if (settings.ttsEngine !== 'chatterbox') throw new Error('Voice cloning needs the Chatterbox engine (Settings → Voice engines).') }
+  const needChatterbox = () => { if (settings.ttsEngine !== 'chatterbox') throw new Error('Voice cloning needs the Chatterbox engine (Settings → Voice).') }
   ipcMain.handle('voices:create', async (_e, p: { name: string; wav: ArrayBuffer }) => {
     needChatterbox()
     const { name } = parse(schemas.voiceCreate, { name: p.name })

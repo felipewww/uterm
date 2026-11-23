@@ -17,7 +17,7 @@ export interface RouterDeps {
 }
 
 /**
- * Sends speech to the engine chosen in Settings → Voice engines and keeps the estimated cloud spend.
+ * Sends speech to the engine chosen in Settings → Voice and keeps the estimated cloud spend.
  * "Local" speech-to-text is Whisper inside the app. "Local" voices are the system voice, or a Chatterbox server when that engine is chosen.
  */
 export class SpeechRouter {
@@ -72,14 +72,14 @@ export class SpeechRouter {
     if (provider === 'local') {
       const sys = this.d.local.systemTts
       const system = async () => {
-        if (!sys || !(await this.checkSystem())) throw new Error(process.platform === 'linux' ? 'No system voice found. Install it with: sudo apt install espeak-ng (or pick another engine in Settings → Voice engines)' : 'No system voice available. Pick another engine in Settings → Voice engines')
+        if (!sys || !(await this.checkSystem())) throw new Error(process.platform === 'linux' ? 'No system voice found. Install it with: sudo apt install espeak-ng (or pick another engine in Settings → Voice)' : 'No system voice available. Pick another engine in Settings → Voice')
         return sys.synthesize(text, signal)
       }
       if (this.d.settings().ttsEngine !== 'chatterbox') return system()
       try { return await this.d.local.tts.synthesize(text, voiceId, signal) } catch (err) {
         if (signal.aborted || !(await this.checkSystem())) throw err // nothing else to fall back to
         // The Chatterbox server did not answer: speak with the system voice instead, and say so (at most once a minute)
-        if (Date.now() - this.warnedAt > 60_000) { this.warnedAt = Date.now(); this.d.onError?.('The Chatterbox server did not answer, so the system voice was used. Check Settings → Voice engines.') }
+        if (Date.now() - this.warnedAt > 60_000) { this.warnedAt = Date.now(); this.d.onError?.('The Chatterbox server did not answer, so the system voice was used. Check Settings → Voice.') }
         return system()
       }
     }
@@ -92,7 +92,7 @@ export class SpeechRouter {
     const p: SpeechProvider = this.d.settings().sttProvider
     if (p === 'local') {
       const native = this.d.local.nativeStt
-      if (!native) throw new Error('Speech recognition built into the app is not available on this computer. Choose OpenAI or Gemini in Settings → Voice engines.')
+      if (!native) throw new Error('Speech recognition built into the app is not available on this computer. Choose OpenAI or Gemini in Settings → Voice.')
       return native.transcribe(wav)
     }
     const r = p === 'openai' ? await openAiTranscribe(this.cloudConfig(), wav) : await geminiTranscribe(this.cloudConfig(), wav)
@@ -125,7 +125,7 @@ export async function selfTest(router: SpeechRouter, provider: CloudProvider, ov
       steps.push({ name, ok: false, ms: Date.now() - t0, detail: (err as Error).message }); return undefined
     }
   }
-  if (!cfg.getKey(provider)) return { provider, steps: [{ name: 'API key', ok: false, ms: 0, detail: `Paste the API key in Settings → Voice engines.` }], costUsd: 0 }
+  if (!cfg.getKey(provider)) return { provider, steps: [{ name: 'API key', ok: false, ms: 0, detail: `Paste the API key in Settings → Voice.` }], costUsd: 0 }
   steps.push({ name: 'API key', ok: true, ms: 0, detail: 'Saved in this app' })
   const models = await step('Reach the API (list models)', async () => {
     const m = await listModels(cfg, provider)

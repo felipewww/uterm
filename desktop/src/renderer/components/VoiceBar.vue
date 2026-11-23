@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { cancelRecording, coachEnabled, discardDraft, drafts, isRecording, recorder, runCoach, startRecording, stopRecording, submitDraft, useMine, useNatural } from '../composables/useRecorder'
-import { coachOnFor } from '@shared/types'
+import { ON_MAC, coachOnFor } from '@shared/types'
+import { prettyShortcut } from '../shortcut'
 import { focusTerminal } from '../terminals'
 import { selected, store } from '../store'
 
@@ -10,7 +11,8 @@ const draft = computed(() => (s.value ? drafts[s.value.id] : undefined))
 const recordingElsewhere = computed(() => !!recorder.activeSessionId && recorder.activeSessionId !== s.value?.id)
 const audioDown = computed(() => store.settings.sttProvider === 'local' && !store.status.stt)
 const sttNoKey = computed(() => store.settings.sttProvider !== 'local' && !store.keys[store.settings.sttProvider])
-const shortcut = computed(() => store.settings.recordShortcut.replace('Control', 'Ctrl').split('+').join(' + '))
+const shortcut = computed(() => prettyShortcut(store.settings.recordShortcut, ON_MAC))
+const sendKeys = ON_MAC ? '⌘ Enter' : 'Ctrl + Enter'
 const mmss = (n: number) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`
 const canSend = computed(() => !!s.value?.running && !!draft.value?.text.trim())
 const coachWanted = computed(() => coachOnFor(store.settings.englishCoach, s.value?.englishCoach)) // this chat's choice, else the global one
@@ -29,7 +31,7 @@ watch(() => draft.value?.status, async (st, prev) => {
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
 const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
-const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttNoKey.value ? 'Add the key in Settings → Voice engines' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
+const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttNoKey.value ? 'Add the key in Settings → Voice' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
 
 function discardRecording() { const id = s.value?.id; cancelRecording(); if (id) focusTerminal(id) }
 async function toggle() {
@@ -108,14 +110,14 @@ async function rerecord() {
         </template>
       </div>
       <p v-else-if="coachOffHere" class="coach-hint">English coach is off for this chat. <button class="coach-link" @click="setCoach(true)">Turn on</button></p>
-      <p v-else-if="coachNeedsKey" class="coach-hint">English coach is on but needs an OpenAI key (Settings → Voice engines).</p>
+      <p v-else-if="coachNeedsKey" class="coach-hint">English coach is on but needs an OpenAI key (Settings → Voice).</p>
       <div v-if="draft.note" class="banner warn">{{ draft.note }}</div>
       <div class="composer-actions">
         <button class="btn ghost discard" title="Discard transcription" @click="discardDraft(s.id)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="m3.5 4.75 1 8h7l1-8M2.5 3.25h11M6 3.25V2h4v1.25M6.5 6.5v3.5M9.5 6.5v3.5" /></svg>Discard</button>
         <span class="spacer"></span>
         <button class="btn ghost icon-only" title="Record again" aria-label="Record again" :disabled="!s.running || recordingElsewhere" @click="rerecord"><svg aria-hidden="true" viewBox="0 0 16 16"><rect x="5.25" y="1.75" width="5.5" height="8.25" rx="2.75" /><path d="M3.25 7.75a4.5 4.5 0 0 0 9 0M8 12.25v2M5.75 14.25h4.5" /></svg></button>
-        <button class="btn primary send" :disabled="!canSend" :title="canSend ? 'Send to the agent (Ctrl+Enter)' : 'Nothing to send'" @click="send">
-          Send<svg aria-hidden="true" viewBox="0 0 16 16"><path d="m2.25 2.5 11.5 5.5-11.5 5.5 2-5.5zM4.25 8h9.25" /></svg><kbd class="kbd on-accent">Ctrl ↵</kbd>
+        <button class="btn primary send" :disabled="!canSend" :title="canSend ? `Send to the agent (${sendKeys})` : 'Nothing to send'" @click="send">
+          Send<svg aria-hidden="true" viewBox="0 0 16 16"><path d="m2.25 2.5 11.5 5.5-11.5 5.5 2-5.5zM4.25 8h9.25" /></svg><kbd class="kbd on-accent">{{ ON_MAC ? '⌘ ↵' : 'Ctrl ↵' }}</kbd>
         </button>
       </div>
     </template>

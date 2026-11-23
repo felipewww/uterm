@@ -26,3 +26,19 @@ describe('keys that control a recording', () => {
     }
   })
 })
+
+import { isSendCombo, prettyShortcut } from '../src/renderer/shortcut'
+describe('platform shortcuts', () => {
+  it('writes shortcuts the way the platform does', () => {
+    expect(prettyShortcut('Meta+Shift+Space', true)).toBe('⌘ ⇧ Space')
+    expect(prettyShortcut('Control+Shift+Space', false)).toBe('Ctrl + Shift + Space')
+  })
+  it('Cmd+Enter sends on a Mac, Ctrl+Enter elsewhere, never with other modifiers', () => {
+    const k = (o: Partial<{ key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }>) => ({ key: 'Enter', ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...o })
+    expect(isSendCombo(k({ metaKey: true }), true)).toBe(true)
+    expect(isSendCombo(k({ ctrlKey: true }), true)).toBe(false)
+    expect(isSendCombo(k({ ctrlKey: true }), false)).toBe(true)
+    expect(isSendCombo(k({ metaKey: true, shiftKey: true }), true)).toBe(false)
+    expect(isSendCombo(k({ metaKey: true, key: 'a' }), true)).toBe(false)
+  })
+})

@@ -47,3 +47,16 @@ export function isEditableTarget(t: EventTarget | null): boolean {
   if (el.classList?.contains('xterm-helper-textarea')) return false
   return !!el.closest('input, textarea, select, [contenteditable="true"]')
 }
+
+/** "Meta+Shift+Space" shown the way the platform writes it: ⌘⇧Space on a Mac, Ctrl + Shift + Space elsewhere. */
+export function prettyShortcut(shortcut: string, mac: boolean): string {
+  const parts = shortcut.split('+').map((p) => p.trim()).filter(Boolean)
+  if (!mac) return parts.map((p) => (p === 'Control' ? 'Ctrl' : p === 'Meta' ? 'Win' : p)).join(' + ')
+  const sym: Record<string, string> = { Meta: '⌘', Shift: '⇧', Alt: '⌥', Control: '⌃' }
+  return parts.map((p) => sym[p] ?? p).join(' ')
+}
+
+/** The key that sends a reviewed message: Cmd+Enter on a Mac, Ctrl+Enter elsewhere. */
+export function isSendCombo(e: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }, mac: boolean): boolean {
+  return e.key === 'Enter' && !e.shiftKey && !e.altKey && (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey)
+}

@@ -1,6 +1,6 @@
 # OPTIONAL. uTerm needs no Docker: it has its own database, speech recognition and a system voice.
 # This file only runs a Chatterbox text-to-speech server (more natural, cloneable voices). Start it with `docker compose up -d tts`,
-# then choose "Chatterbox server" in Settings → Voice engines and enter http://127.0.0.1:18090.
+# then choose "Chatterbox server" in Settings → Voice and enter http://127.0.0.1:18090.
 name: echo-term
 
 services:

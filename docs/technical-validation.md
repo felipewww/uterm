@@ -108,12 +108,19 @@ Written from the providers' public documentation and covered by unit tests with 
 
 ## Standard setup without Docker (SQLite, in-app Whisper, system voice, key store) — PARTLY verified
 - **Verified on Linux:** unit tests (secret store with a fake cipher, router fallbacks, SQLite stores); the built app started against a copy of the
-  real data and loaded the 10 sessions, 347 events, folders and settings imported from the old MySQL by `scripts/import-mysql.mjs`; the Settings → Voice engines screen
+  real data and loaded the 10 sessions, 347 events, folders and settings imported from the old MySQL by `scripts/import-mysql.mjs`; the Settings → Voice screen
   rendered; saving and removing an API key went through Electron `safeStorage` (keyring available here); keys from an old `.env` moved into the store on first launch;
   Whisper (ONNX) transcribed a sample correctly in about 2 s on this CPU.
 - **Not verified:** everything on macOS (the Whisper model/ONNX/sharp packaging, `say` and `afconvert`, Keychain-backed `safeStorage`, speed on Apple Silicon);
   the system voice on Linux here (this machine has no `espeak-ng`, so the app reports it as unavailable); a live Chatterbox server through the new engine setting
   (the client code is unchanged and covered by its unit tests); the fallback to the system voice with a real dead server.
+
+## Kiro CLI 3.x (macOS) — parser verified against real logs, live flow not re-run
+- kiro-cli 3.5 stores sessions as `~/.kiro/sessions/<workspace hash>/sess_<id>/{session.json,messages.jsonl}` (2.x used `sessions/cli/<id>.json(l)`), so the 2.x-only
+  adapter produced **no activity at all** on a Mac with 3.5. A 3.x parser and folder discovery were added (`kiroV3Transcript.ts`, `listKiroV3Sessions`).
+- Checked: unit tests on a synthetic fixture with the same shape, and the parser run over two real 3.5 session logs (prompt, tool, approval, answer and turn-end events come out in order).
+  3.x writes approval prompts (`pending_interaction`) and cancelled turns to the log, so those are now detected for Kiro 3.x.
+- Not checked: a live Kiro 3.x session inside uTerm after the change, `--resume-id` with a `sess_` id (the flag exists in 3.5, resume was not run), and the 2.x layout on the newer adapter beyond its unit tests.
 
 ## Not tested (be skeptical of these)
 - Microphone capture (`MediaRecorder` → WAV → STT) in the renderer and the recording shortcut: no human voice available;

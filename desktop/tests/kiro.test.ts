@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { KiroTranscriptParser } from '../src/main/agents/kiroTranscript'
-import { KiroAdapter, readKiroMeta } from '../src/main/agents/kiro'
+import { KiroAdapter, listKiroV3Sessions, readKiroMeta } from '../src/main/agents/kiro'
+import { KiroV3Parser } from '../src/main/agents/kiroV3Transcript'
 import { extraBinDirs, searchPath, which } from '../src/main/agents/exec'
 import type { EventDraft } from '../src/shared/events'
 import { SPEECH_INSTRUCTIONS, VOICE_SETUP_MARKER, voiceSetupPrompt } from '../src/main/speechInstructions'
@@ -128,5 +129,46 @@ describe('Kiro speech setup', () => {
     expect(p.parseLine(prompt)).toEqual([])
     const out: EventDraft[] = p.parseLine(reply)
     expect(out.map((e) => e.type)).toEqual(['ASSISTANT_MESSAGE_COMPLETED', 'TURN_COMPLETED'])
+  })
+})
+
+describe('KiroV3Parser (structure verified against kiro-cli 3.5)', () => {
+  const v3 = readFileSync(join(__dirname, 'fixtures/kiro-v3-session.jsonl'), 'utf8').split('\n').filter(Boolean)
+  const events = () => { const p = new KiroV3Parser(); return v3.flatMap((l) => p.parseLine(l)) }
+  it('turns a prompt → approval → tool → answer exchange into the normalized events', () => {
+    expect(events().map((e) => e.type)).toEqual([
+      'USER_PROMPT_SUBMITTED', 'ASSISTANT_MESSAGE_COMPLETED', 'AGENT_PROGRESS', 'TOOL_STARTED', 'PERMISSION_REQUESTED', 'TOOL_COMPLETED',
+      'ASSISTANT_MESSAGE_COMPLETED', 'TURN_COMPLETED'
+    ])
+  })
+  it('narration before a tool is progress, the last message is the result, and the approval names the tool', () => {
+    const ev = events()
+    expect(ev.find((e) => e.type === 'AGENT_PROGRESS')?.payload).toMatchObject({ text: "[happy] I'll look at the folder first." })
+    expect(ev.find((e) => e.type === 'TURN_COMPLETED')?.payload).toMatchObject({ text: 'The folder is empty.' })
+    expect(ev.find((e) => e.type === 'PERMISSION_REQUESTED')?.payload).toEqual({ tool: 'execute_bash', summary: 'ls -la' })
+  })
+  it('never surfaces reasoning, repeats of a tool call, or housekeeping tools', () => {
+    const text = JSON.stringify(events())
+    expect(text).not.toContain('"..."')
+    expect(events().filter((e) => e.type === 'TOOL_STARTED')).toHaveLength(1)
+    expect(text).not.toContain('update_session_information')
+  })
+  it('ignores uTerm’s own priming message, broken lines and a cancelled turn has no result text', () => {
+    const p = new KiroV3Parser()
+    expect(p.parseLine(JSON.stringify({ id: 'u', payload: { type: 'user', content: `${VOICE_SETUP_MARKER} be brief` } }))).toEqual([])
+    expect(p.parseLine('{nope')).toEqual([])
+    const end = p.parseLine(JSON.stringify({ id: 'e', payload: { type: 'turn_end', stopReason: 'cancelled' } }))
+    expect(end.map((e) => e.type)).toEqual(['TURN_COMPLETED'])
+    expect(end[0]!.payload).toEqual({ messageId: null, text: null })
+  })
+  it('finds 3.x session folders by workspace', () => {
+    const root = mkdtempSync(join(tmpdir(), 'uterm-kiro3-'))
+    const dir = join(root, 'abc123', 'sess_1')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'session.json'), JSON.stringify({ id: 'sess_1', workspacePaths: ['/work/app'], createdAt: '2026-11-23T15:07:00Z' }))
+    mkdirSync(join(root, 'cli'), { recursive: true })
+    const found = listKiroV3Sessions(root)
+    expect(found).toHaveLength(1)
+    expect(found[0]).toMatchObject({ id: 'sess_1', workspaces: ['/work/app'], createdAt: Date.parse('2026-11-23T15:07:00Z') })
   })
 })

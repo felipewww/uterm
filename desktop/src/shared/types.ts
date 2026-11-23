@@ -121,13 +121,17 @@ export const SPEECH_PROVIDERS: SpeechProvider[] = ['local', 'openai', 'gemini']
 export interface UsageRow { provider: string; kind: string; calls: number; costUsd: number; audioSeconds: number; chars: number; unpriced: number }
 export interface UsageSummary { today: UsageRow[]; month: UsageRow[]; all: UsageRow[] }
 
+/** macOS: Cmd+Shift+Space records (Control+Shift+Space everywhere else). Works in the main process and in the renderer. */
+export const ON_MAC: boolean = typeof process !== 'undefined' && !!process.platform ? process.platform === 'darwin' : typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent)
+export const OLD_DEFAULT_RECORD_SHORTCUT = 'Control+Shift+Space'
+
 export const DEFAULT_SETTINGS: AppSettings = {
   defaultAgent: 'claude',
   defaultVoiceId: 'default',
   defaultPlaybackSpeed: 1,
   defaultForegroundMode: 'balanced',
   defaultBackgroundMode: 'silent',
-  recordShortcut: 'Control+Shift+Space',
+  recordShortcut: ON_MAC ? 'Meta+Shift+Space' : OLD_DEFAULT_RECORD_SHORTCUT,
   autoSubmitTranscription: false,
   microphoneId: '',
   ttsUrl: 'http://127.0.0.1:18090',

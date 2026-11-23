@@ -53,7 +53,7 @@ describe('EnglishCoach', () => {
     expect(setup({ englishCoach: true }, null).coach.available()).toBe(false)
   })
   it('explains failures without leaking the key', async () => {
-    await expect(setup({}, null).coach.improve('hi')).rejects.toThrow(/Settings → Voice engines/)
+    await expect(setup({}, null).coach.improve('hi')).rejects.toThrow(/Settings → Voice/)
     const bad = setup({}, KEY, async () => json({ error: { message: `Incorrect API key: ${KEY}` } }, 401))
     const msg = await bad.coach.improve('hi').then(() => '', (e: Error) => e.message)
     expect(msg).toMatch(/English coach: the key was rejected/)

@@ -1,38 +1,32 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { AGENT_LABELS, CODING_AGENTS, VOICE_MODES, type AgentType, type AppSettings, type VoiceMode } from '@shared/types'
-import { shortcutFromEvent } from '../shortcut'
 import { notify, selected, store } from '../store'
-import VoiceEnginesPane from './VoiceEnginesPane.vue'
+import VoicePane from './VoicePane.vue'
 import ApiKeyField from './ApiKeyField.vue'
 import { playChime, playRecordingCue } from '../chime'
 import VoicePicker from './VoicePicker.vue'
 import { cloudVoiceLabel } from '@shared/voices'
 import UsagePane from './UsagePane.vue'
-import { toWav16k } from '../composables/useRecorder'
 import { THEMES, TERMINAL_BACKGROUNDS, currentTerminalBackground, currentTheme, setTerminalBackground, setTheme } from '../design/theme'
 
-const props = defineProps<{ sessionId?: string | null; pane?: string }>()
+const props = defineProps<{ sessionId?: string | null; startPane?: string }>()
 const emit = defineEmits<{ close: [] }>()
 
 const sess = computed(() => (props.sessionId ? store.sessions.find((s) => s.id === props.sessionId) : undefined))
 const g = reactive<AppSettings>({ ...store.settings })
-const mics = ref<MediaDeviceInfo[]>([])
-const capturing = ref(false)
-const newVoiceName = ref('')
-const voiceFile = ref<File | null>(null)
-const busy = ref(false)
 /** Human name of a voice id, for "Use the default (…)". */
 const voiceName = (id: string) => store.voices.find((v) => v.id === id)?.name ?? cloudVoiceLabel(id) ?? id
-type Pane = 'general' | 'voice' | 'engines' | 'english' | 'usage' | 'input' | 'system'
-const pane = ref<Pane>((['general', 'voice', 'engines', 'english', 'usage', 'input', 'system'] as string[]).includes(props.pane ?? '') ? props.pane as Pane : 'general')
+type Pane = 'general' | 'voice' | 'english' | 'usage' | 'system'
+// "voice.input" opens the Voice pane on its Input tab
+const [wantedPane, wantedTab] = (props.startPane ?? '').split('.')
+const pane = ref<Pane>((['general', 'voice', 'english', 'usage', 'system'] as string[]).includes(wantedPane ?? '') ? wantedPane as Pane : 'general')
+const voiceTab = ref(wantedTab ?? 'output')
 const panes: Array<{ id: Pane; label: string; icon: string }> = [
   { id: 'general', label: 'General', icon: 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M5.5 3v3M10.5 6.5v3M7 10v3' },
   { id: 'voice', label: 'Voice', icon: 'M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5M12.5 3.75a6 6 0 0 1 0 8.5' },
-  { id: 'engines', label: 'Voice engines', icon: 'M3 5.5h10M3 10.5h10M6 3.5v4M10.5 8.5v4' },
   { id: 'english', label: 'English coach', icon: 'M2.5 4h6M5.5 4v1.5M3.5 9c1.6-.6 3-1.9 3.6-3.5M4.5 7.2c.7 1.4 1.9 2.4 3.3 2.9M9 13l2.5-6 2.5 6M9.8 11.2h3.4' },
   { id: 'usage', label: 'Usage', icon: 'M3 13V8.5M6.5 13V4M10 13V7M13.5 13V2.5' },
-  { id: 'input', label: 'Microphone', icon: 'M6 2.5h4a1.5 1.5 0 0 1 1.5 1.5v3a3.5 3.5 0 0 1-7 0V4A1.5 1.5 0 0 1 6 2.5zM3.25 7.5a4.75 4.75 0 0 0 9.5 0M8 12.25v2M5.75 14.25h4.5' },
   { id: 'system', label: 'System', icon: 'M2.5 3.5h11v3.5h-11zM2.5 9h11v3.5h-11zM4.75 5.25h.01M4.75 10.75h.01' }
 ]
 const modes = VOICE_MODES as readonly VoiceMode[]
@@ -49,7 +43,6 @@ const sv = reactive({
 })
 
 onMounted(async () => {
-  try { mics.value = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput') } catch { /* no permission yet */ }
   store.voices = await window.echo.voice.list()
 })
 
@@ -68,25 +61,8 @@ async function saveSession() {
   } })
   emit('close')
 }
-function captureShortcut(e: KeyboardEvent) {
-  const s = shortcutFromEvent(e)
-  if (s) { g.recordShortcut = s; capturing.value = false }
-  e.preventDefault()
-}
-async function createVoice() {
-  if (!voiceFile.value || !newVoiceName.value.trim()) { notify('warn', 'Choose a name and an authorized reference recording (3–30 s).'); return }
-  busy.value = true
-  try {
-    const wav = await toWav16k(voiceFile.value).catch(async () => await voiceFile.value!.arrayBuffer())
-    await window.echo.voice.create(newVoiceName.value.trim(), wav)
-    store.voices = await window.echo.voice.list(); newVoiceName.value = ''; voiceFile.value = null
-    notify('info', 'Voice profile created.')
-  } catch (e) { notify('error', `Could not create voice: ${(e as Error).message}`) } finally { busy.value = false }
-}
-async function removeVoice(id: string) { await window.echo.voice.remove({ voiceId: id }); store.voices = await window.echo.voice.list() }
-async function preview(id: string) { await window.echo.voice.preview({ voiceId: id }) }
 void selected
-function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !capturing.value) emit('close') }
+function onKey(e: KeyboardEvent) { if (e.key === 'Escape') emit('close') }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
@@ -120,7 +96,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 <div class="field-text"><strong>Background mode</strong><small>Another session is selected, or the window is unfocused</small></div>
           <select v-model="sv.background"><option value="">Global default ({{ store.settings.defaultBackgroundMode }})</option><option v-for="m in modes" :key="m" :value="m">{{ m }}</option></select>
 </div>
-        <p class="muted mode-help"><template v-for="m in modes" :key="m"><b>{{ m }}</b>: {{ modeHelp[m] }} </template></p>
+        <p class="muted mode-help"><template v-for="m in modes" :key="m"><b>{{ m }}</b>: {{ modeHelp[m] }}{{ ' ' }}</template></p>
       </div>
       <footer class="settings-foot"><button class="btn" @click="emit('close')">Cancel</button><button class="btn primary" @click="saveSession">Save</button></footer>
     </div>
@@ -182,62 +158,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </div>
           </template>
 
-          <template v-else-if="pane === 'voice'">
-            <h3 class="pane-title">Output</h3>
-            <div class="field">
-<div class="field-text"><strong>Mute all voice output</strong><small>System-wide. Also in the sidebar footer</small></div>
-              <input v-model="g.globalMute" class="switch" type="checkbox" aria-label="Mute all voice output" />
-</div>
-            <div class="field">
-<div class="field-text"><strong>Default voice</strong><small>Used by every chat unless it picks its own. Includes cloud voices.</small></div>
-              <VoicePicker v-model="g.defaultVoiceId" preview-button />
-</div>
-            <div class="field">
-<div class="field-text"><strong>Playback speed</strong><small>0.5 – 2</small></div>
-              <input v-model.number="g.defaultPlaybackSpeed" type="number" min="0.5" max="2" step="0.05" />
-</div>
-            <h3 class="pane-title">When to speak</h3>
-            <div class="field">
-<div class="field-text"><strong>Foreground mode</strong><small>Selected session, window focused</small></div>
-              <select v-model="g.defaultForegroundMode"><option v-for="m in modes" :key="m" :value="m">{{ m }}</option></select>
-</div>
-            <div class="field">
-<div class="field-text"><strong>Background mode</strong><small>Other sessions, or window unfocused</small></div>
-              <select v-model="g.defaultBackgroundMode"><option v-for="m in modes" :key="m" :value="m">{{ m }}</option></select>
-</div>
-            <p class="muted mode-help"><template v-for="m in modes" :key="m"><b>{{ m }}</b>: {{ modeHelp[m] }} </template></p>
-            <div class="field">
-<div class="field-text"><strong>Speech-friendly replies</strong><small>Ask new Claude sessions to end long replies with a short &lt;voice&gt; summary</small></div>
-              <input v-model="g.injectSpeechInstructions" class="switch" type="checkbox" aria-label="Speech-friendly replies" />
-</div>
-            <h3 class="pane-title">Queue</h3>
-            <div class="field">
-<div class="field-text"><strong>Max spoken characters</strong><small>Longer messages are shortened</small></div>
-              <input v-model.number="g.speechMaxChars" type="number" min="80" max="600" />
-</div>
-            <div class="field">
-<div class="field-text"><strong>Max queued items</strong></div>
-              <input v-model.number="g.queueMaxItems" type="number" min="1" max="50" />
-</div>
-            <div class="field">
-<div class="field-text"><strong>Progress expires after</strong><small>Milliseconds</small></div>
-              <input v-model.number="g.progressExpiryMs" type="number" min="1000" step="1000" />
-</div>
-
-            <template v-if="g.ttsEngine === 'chatterbox'">
-            <h3 class="pane-title">Voice profiles</h3>
-            <div v-for="v in store.voices" :key="v.id" class="voice-row-item">
-              <span>{{ v.name }}</span>
-              <span class="row"><button class="btn small" @click="preview(v.id)">Preview</button><button v-if="v.id !== 'default'" class="btn small" @click="removeVoice(v.id)">Delete</button></span>
-            </div>
-            <div class="add-voice">
-              <input v-model="newVoiceName" placeholder="New voice name" />
-              <input type="file" accept="audio/*" @change="(e) => (voiceFile = (e.target as HTMLInputElement).files?.[0] ?? null)" />
-              <button class="btn" :disabled="busy" @click="createVoice">{{ busy ? 'Creating…' : 'Add voice' }}</button>
-            </div>
-            <p class="muted fine">Only import recordings you are authorized to use (3–30 s). Reference clips stay on your Chatterbox server.</p>
-            </template>
-          </template>
+          <VoicePane v-else-if="pane === 'voice'" :key="voiceTab" :g="g" :tab="voiceTab" />
 
           <template v-else-if="pane === 'english'">
             <h3 class="pane-title">English coach</h3>
@@ -255,27 +176,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <ul class="notes"><li><strong>Voice messages:</strong> after you record, the box shows your transcription and the natural version below it. “Use this version” swaps it in, “Back to mine” restores yours, “Redo” regenerates. Nothing is sent until you press Send.</li><li><strong>Typed messages:</strong> sent as usual from the terminal; the natural version appears under your message in the Activity panel, with no approval step.</li><li><strong>History:</strong> every pair is saved locally for later review.</li></ul>
             <p class="hint warn-note">This sends what you say or type to OpenAI. It is off by default, and its estimated cost appears under Usage. Press <strong>Save</strong> to apply.</p>
           </template>
-          <VoiceEnginesPane v-else-if="pane === 'engines'" :g="g" />
           <UsagePane v-else-if="pane === 'usage'" />
-
-          <template v-else-if="pane === 'input'">
-            <h3 class="pane-title">Voice input</h3>
-            <div class="field">
-<div class="field-text"><strong>Microphone</strong></div>
-              <select v-model="g.microphoneId"><option value="">System default</option><option v-for="m in mics" :key="m.deviceId" :value="m.deviceId">{{ m.label || m.deviceId.slice(0, 8) }}</option></select>
-</div>
-            <div class="field">
-<div class="field-text"><strong>Recording shortcut</strong><small>Click, then press the keys. Works while this window is focused</small></div>
-              <input :value="capturing ? 'Press keys…' : g.recordShortcut" readonly @focus="capturing = true" @blur="capturing = false" @keydown="captureShortcut" />
-</div>
-          </template>
 
           <template v-else>
             <h3 class="pane-title">Status</h3>
             <div class="svc-list">
               <div class="svc-row"><i :class="store.status.db ? 'ok' : 'bad'"></i><strong>Local database</strong><span>{{ store.status.db ? 'Sessions, activity and settings are saved on this computer (SQLite)' : 'Could not be opened. History is kept in memory only' }}</span><span></span></div>
-              <div class="svc-row"><i :class="store.status.stt ? 'ok' : 'bad'"></i><strong>Speech-to-text</strong><span>{{ store.settings.sttProvider === 'local' ? (store.status.stt ? 'Whisper, built into the app' : 'Not available on this computer') : 'Cloud: ' + store.settings.sttProvider }}</span><button class="btn small" @click="pane = 'engines'">Choose engine</button></div>
-              <div class="svc-row"><i :class="store.status.tts ? 'ok' : 'bad'"></i><strong>Text-to-speech</strong><span>{{ store.settings.ttsEngine === 'chatterbox' ? 'Chatterbox server' : 'System voice' }}{{ store.status.tts ? '' : ' (unavailable)' }}</span><button class="btn small" @click="pane = 'engines'">Choose engine</button></div>
+              <div class="svc-row"><i :class="store.status.stt ? 'ok' : 'bad'"></i><strong>Speech-to-text</strong><span>{{ store.settings.sttProvider === 'local' ? (store.status.stt ? 'Whisper, built into the app' : 'Not available on this computer') : 'Cloud: ' + store.settings.sttProvider }}</span><button class="btn small" @click="voiceTab = 'input'; pane = 'voice'">Choose engine</button></div>
+              <div class="svc-row"><i :class="store.status.tts ? 'ok' : 'bad'"></i><strong>Text-to-speech</strong><span>{{ store.settings.ttsEngine === 'chatterbox' ? 'Chatterbox server' : 'System voice' }}{{ store.status.tts ? '' : ' (unavailable)' }}</span><button class="btn small" @click="voiceTab = 'output'; pane = 'voice'">Choose engine</button></div>
             </div>
             <h3 class="pane-title">Agent integration</h3>
             <div v-for="(c, name) in store.capabilities" :key="name" class="cap">

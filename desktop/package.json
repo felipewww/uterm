@@ -85,7 +85,22 @@
       ],
       "category": "Development",
       "maintainer": "echo-term <echo-term@localhost>",
-      "synopsis": "Voice-enabled coding agent workspace"
+      "synopsis": "Voice-enabled coding agent workspace",
+      "files": [
+        "out/**",
+        "package.json",
+        "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+        "!node_modules/onnxruntime-node/bin/napi-v6/win32/**",
+        "!node_modules/@img/*darwin*/**",
+        "!node_modules/@img/sharp-wasm32/**",
+        "!node_modules/onnxruntime-web/**"
+      ],
+      "extraResources": [
+        {
+          "from": "build/models",
+          "to": "models"
+        }
+      ]
     },
     "deb": {
       "depends": [

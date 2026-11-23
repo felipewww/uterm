@@ -15,7 +15,6 @@ export interface AudioRequest {
   createdAt: number
   expiresAt: number
   cancelled: boolean
-  requeued?: boolean
   /** Explicit user action (listen): bypasses the communication mode and per-session mute, not mute-all. */
   force?: boolean
 }
@@ -35,14 +34,16 @@ export interface QueueDeps {
   onError?(req: AudioRequest, err: Error): void
   now?(): number
   maxItems: number
+  /** Silence between one spoken message and the next one waiting (ms). */
+  gapMs?: number
 }
 
 export type NewAudioRequest = Pick<AudioRequest, 'sessionId' | 'eventId' | 'dedupeKey' | 'voiceProfileId' | 'text' | 'kind' | 'priority'> &
   { ttlMs: number; force?: boolean }
 
 /**
- * Single global queue: only one session speaks at a time. Priority order is
- * questions/permissions/blockers (1) > finals (2) > progress (3).
+ * Single global queue: only one session speaks at a time. Priority decides the order of
+ * what is waiting (questions/permissions/blockers 1 > finals 2 > progress 3), never cuts what is already being spoken.
  */
 export class AudioQueue {
   private queue: AudioRequest[] = []
@@ -74,7 +75,7 @@ export class AudioQueue {
     this.sort()
     this.enforceLimit()
     if (!this.queue.includes(req)) return null // dropped by the limit
-    if (this.current && req.priority < this.current.req.priority) this.interruptCurrent()
+    // Nothing cuts a message that is being spoken: an urgent one only goes to the front of the line and is heard right after it.
     this.emit()
     void this.pump()
     return req
@@ -83,28 +84,28 @@ export class AudioQueue {
   /** Drop everything queued for a session (and stop it if it is speaking). */
   cancelSession(sessionId: string): void {
     this.queue = this.queue.filter((r) => { if (r.sessionId === sessionId) r.cancelled = true; return r.sessionId !== sessionId })
-    if (this.current?.req.sessionId === sessionId) this.interruptCurrent(true)
+    if (this.current?.req.sessionId === sessionId) this.stopCurrent()
     this.emit()
   }
 
   cancelAll(): void {
     for (const r of this.queue) r.cancelled = true
     this.queue = []
-    if (this.current) this.interruptCurrent(true)
+    if (this.current) this.stopCurrent()
     this.emit()
   }
 
   /** Hold new playback (e.g. while the microphone is recording) and silence the current one. */
   setPaused(paused: boolean): void {
     this.paused = paused
-    if (paused && this.current) this.interruptCurrent(true)
+    if (paused && this.current) this.stopCurrent()
     if (!paused) void this.pump()
     this.emit()
   }
 
   /** Stop what is playing now, keep the queue. */
   skipCurrent(): void {
-    if (this.current) this.interruptCurrent(true)
+    if (this.current) this.stopCurrent()
   }
 
   /** Agent finished its turn: queued progress for it is now stale. */
@@ -116,21 +117,16 @@ export class AudioQueue {
   /** Re-run policy over queued items (e.g. selected session changed). */
   reevaluate(): void {
     this.queue = this.queue.filter((r) => this.deps.revalidate(r).speak)
-    if (this.current && !this.deps.revalidate(this.current.req).speak) this.interruptCurrent(true)
+    if (this.current && !this.deps.revalidate(this.current.req).speak) this.stopCurrent()
     this.emit()
   }
 
-  private interruptCurrent(dropIt = false): void {
+  private stopCurrent(): void {
     if (!this.current) return
     const { req, abort } = this.current
     abort.abort()
     req.cancelled = true
     this.deps.stopPlayback()
-    // A final result cut off by something more urgent is worth hearing afterwards, once.
-    if (!dropIt && req.kind === 'final' && !req.requeued) {
-      this.queue.push({ ...req, id: randomUUID(), cancelled: false, requeued: true })
-      this.sort()
-    }
   }
 
   private markSeen(key: string): void {
@@ -178,6 +174,7 @@ export class AudioQueue {
         const verdict = this.deps.revalidate(req)
         if (!verdict.speak) continue
         await this.speak(req, verdict.prefix)
+        if (this.queue.length > 0 && !this.paused && (this.deps.gapMs ?? 0) > 0) await new Promise((r) => setTimeout(r, this.deps.gapMs))
       }
     } finally {
       this.pumping = false

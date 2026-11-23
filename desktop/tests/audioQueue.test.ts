@@ -45,20 +45,34 @@ describe('AudioQueue', () => {
     expect(h.played).toEqual(['busy', 'question2', 'final2', 'progress'])
   })
 
-  it('higher priority interrupts lower-priority playback', async () => {
+  it('an urgent message waits for the one being spoken, then goes before the rest', async () => {
     const h = harness()
     h.q.enqueue(req({ text: 'chatter', kind: 'progress', priority: 3 })); await tick()
+    h.q.enqueue(req({ text: 'later progress', kind: 'progress', priority: 3, sessionId: 's3' }))
     h.q.enqueue(req({ text: 'Need input?', kind: 'question', priority: 1, sessionId: 's2' })); await tick()
-    expect(h.deps.stopPlayback).toHaveBeenCalled()
+    expect(h.deps.stopPlayback).not.toHaveBeenCalled()
+    expect(h.played).toEqual(['chatter'])
+    await h.finish()
     expect(h.played).toEqual(['chatter', 'Need input?'])
   })
 
-  it('a final cut off by something urgent is replayed once afterwards', async () => {
+  it('a final waits for the progress that is playing instead of cutting it', async () => {
     const h = harness()
-    h.q.enqueue(req({ text: 'Final result.' })); await tick()
-    h.q.enqueue(req({ text: 'Urgent?', kind: 'question', priority: 1 })); await tick()
-    await h.finish(); await h.finish()
-    expect(h.played).toEqual(['Final result.', 'Urgent?', 'Final result.'])
+    h.q.enqueue(req({ text: 'working on it', kind: 'progress', priority: 3 })); await tick()
+    h.q.enqueue(req({ text: 'All done.' })); await tick()
+    expect(h.deps.stopPlayback).not.toHaveBeenCalled()
+    expect(h.played).toEqual(['working on it'])
+    await h.finish()
+    expect(h.played).toEqual(['working on it', 'All done.'])
+  })
+
+  it('leaves a pause between two messages', async () => {
+    const h = harness({ gapMs: 60 })
+    h.q.enqueue(req({ text: 'First.' })); h.q.enqueue(req({ text: 'Second.', sessionId: 's2' })); await tick()
+    await h.finish()
+    expect(h.played).toEqual(['First.']) // still in the pause
+    await new Promise((r) => setTimeout(r, 90)); await tick()
+    expect(h.played).toEqual(['First.', 'Second.'])
   })
 
   it('does not interrupt for equal priority', async () => {

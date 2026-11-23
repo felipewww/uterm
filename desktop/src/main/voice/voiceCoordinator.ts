@@ -35,6 +35,7 @@ export class VoiceCoordinator {
   constructor(private d: VoiceDeps) {
     this.queue = new AudioQueue({
       maxItems: d.settings().queueMaxItems,
+      gapMs: 800,
       synthesize: (t, v, s) => this.synthesizeCached(t, v, s),
       play: (audio, req, meta) => d.deliver({ audio, requestId: req.id, eventId: req.eventId, sessionId: req.sessionId, index: meta.index, total: meta.total, speed: this.speedFor(req.sessionId) }),
       finish: (req) => d.finish(req.id),

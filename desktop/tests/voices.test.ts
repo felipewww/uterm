@@ -13,8 +13,8 @@ describe('voice ids', () => {
     expect(cloudVoiceId('gemini', 'Aoede')).toBe('gemini:Aoede')
   })
   it('labels cloud voices with their character and keeps ids short', () => {
-    expect(cloudVoiceLabel('gemini:Kore')).toBe('Kore (Firm)')
-    expect(cloudVoiceLabel('openai:coral')).toBe('coral')
+    expect(cloudVoiceLabel('gemini:Kore')).toBe('Kore (Firm, Female)')
+    expect(cloudVoiceLabel('openai:coral')).toBe('coral (Female)')
     expect(cloudVoiceLabel('default')).toBeNull()
     for (const v of [...GEMINI_VOICES, ...OPENAI_VOICES]) expect(v.id.length).toBeLessThanOrEqual(36)
     expect(GEMINI_VOICES).toHaveLength(30)

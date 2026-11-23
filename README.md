@@ -28,8 +28,8 @@ Pre-built packages are produced by you with the commands in [Build](#build); the
 
 | Platform | Package | How to install |
 |---|---|---|
-| Linux | `uTerm-0.1.0.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_0.1.0_amd64.deb` |
-| macOS (Apple Silicon) | `uTerm-0.1.0-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
+| Linux | `uTerm-0.1.1.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_0.1.1_amd64.deb` |
+| macOS (Apple Silicon) | `uTerm-0.1.1-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
 
 You also need at least one agent CLI installed and logged in (Claude Code, Codex or Kiro). On Linux, `sudo apt install espeak-ng` gives the default voice.
 

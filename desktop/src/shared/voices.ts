@@ -12,24 +12,30 @@ export function parseVoiceId(id: string | null | undefined): { provider: VoicePr
 export const cloudVoiceId = (provider: 'openai' | 'gemini', voice: string): string => `${provider}:${voice}`
 export const isCloudVoice = (id: string | null | undefined): boolean => parseVoiceId(id).provider !== 'local'
 
-export interface CloudVoice { id: string; name: string; trait?: string }
+export type VoiceGender = 'Female' | 'Male' | 'Neutral'
+export interface CloudVoice { id: string; name: string; trait?: string; gender: VoiceGender }
 
-// Gemini's prebuilt voices, with the character Google gives each one.
+const F = 'Female', M = 'Male'
+// Gemini's prebuilt voices, with the character and the gender Google lists for each one.
 export const GEMINI_VOICES: CloudVoice[] = ([
-  ['Zephyr', 'Bright'], ['Puck', 'Upbeat'], ['Charon', 'Informative'], ['Kore', 'Firm'], ['Fenrir', 'Excitable'], ['Leda', 'Youthful'], ['Orus', 'Firm'],
-  ['Aoede', 'Breezy'], ['Callirrhoe', 'Easy-going'], ['Autonoe', 'Bright'], ['Enceladus', 'Breathy'], ['Iapetus', 'Clear'], ['Umbriel', 'Easy-going'],
-  ['Algieba', 'Smooth'], ['Despina', 'Smooth'], ['Erinome', 'Clear'], ['Algenib', 'Gravelly'], ['Rasalgethi', 'Informative'], ['Laomedeia', 'Upbeat'],
-  ['Achernar', 'Soft'], ['Alnilam', 'Firm'], ['Schedar', 'Even'], ['Gacrux', 'Mature'], ['Pulcherrima', 'Forward'], ['Achird', 'Friendly'],
-  ['Zubenelgenubi', 'Casual'], ['Vindemiatrix', 'Gentle'], ['Sadachbia', 'Lively'], ['Sadaltager', 'Knowledgeable'], ['Sulafat', 'Warm']
-] as const).map(([name, trait]) => ({ id: cloudVoiceId('gemini', name), name, trait }))
+  ['Zephyr', 'Bright', F], ['Puck', 'Upbeat', M], ['Charon', 'Informative', M], ['Kore', 'Firm', F], ['Fenrir', 'Excitable', M], ['Leda', 'Youthful', F], ['Orus', 'Firm', M],
+  ['Aoede', 'Breezy', F], ['Callirrhoe', 'Easy-going', F], ['Autonoe', 'Bright', F], ['Enceladus', 'Breathy', M], ['Iapetus', 'Clear', M], ['Umbriel', 'Easy-going', M],
+  ['Algieba', 'Smooth', M], ['Despina', 'Smooth', F], ['Erinome', 'Clear', F], ['Algenib', 'Gravelly', M], ['Rasalgethi', 'Informative', M], ['Laomedeia', 'Upbeat', F],
+  ['Achernar', 'Soft', F], ['Alnilam', 'Firm', M], ['Schedar', 'Even', M], ['Gacrux', 'Mature', F], ['Pulcherrima', 'Forward', F], ['Achird', 'Friendly', M],
+  ['Zubenelgenubi', 'Casual', M], ['Vindemiatrix', 'Gentle', F], ['Sadachbia', 'Lively', M], ['Sadaltager', 'Knowledgeable', M], ['Sulafat', 'Warm', F]
+] as const).map(([name, trait, gender]) => ({ id: cloudVoiceId('gemini', name), name, trait, gender }))
 
-export const OPENAI_VOICES: CloudVoice[] = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar']
-  .map((name) => ({ id: cloudVoiceId('openai', name), name }))
+// OpenAI does not state a gender for its voices: these are how they are generally heard (alloy sits in between).
+const OPENAI_GENDER: Record<string, VoiceGender> = { alloy: 'Neutral', ash: M, ballad: M, coral: F, echo: M, fable: M, nova: F, onyx: M, sage: F, shimmer: F, verse: M, marin: F, cedar: M }
+export const OPENAI_VOICES: CloudVoice[] = Object.keys(OPENAI_GENDER).map((name) => ({ id: cloudVoiceId('openai', name), name, gender: OPENAI_GENDER[name]! }))
 
-/** "Kore (Firm)" for a cloud voice; the profile name for a local one (looked up by the caller). */
+/** The text of one entry in a voice list: "Kore · Firm · Female", "coral · Female". */
+export const voiceOptionLabel = (v: CloudVoice): string => [v.name, v.trait, v.gender].filter(Boolean).join(' · ')
+
+/** "Kore (Firm, Female)" for a cloud voice; the profile name for a local one (looked up by the caller). */
 export function cloudVoiceLabel(id: string): string | null {
   const v = [...GEMINI_VOICES, ...OPENAI_VOICES].find((x) => x.id === id)
-  if (v) return v.trait ? `${v.name} (${v.trait})` : v.name
+  if (v) return `${v.name} (${[v.trait, v.gender].filter(Boolean).join(', ')})`
   const p = parseVoiceId(id)
   return p.provider === 'local' ? null : p.voice
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ON_MAC, VOICE_MODES, type AppSettings, type SpeechProvider, type TtsEngine, type VoiceMode } from '@shared/types'
-import { GEMINI_VOICES, OPENAI_VOICES, cloudVoiceId, parseVoiceId } from '@shared/voices'
+import { GEMINI_VOICES, OPENAI_VOICES, cloudVoiceId, parseVoiceId, voiceOptionLabel } from '@shared/voices'
 import { prettyShortcut, shortcutFromEvent } from '../shortcut'
 import { toWav16k } from '../composables/useRecorder'
 import { notify, refreshStatus, store } from '../store'
@@ -67,8 +67,8 @@ const tabs = computed(() => [
 const cloudId = (id: string): 'openai' | 'gemini' => (id === 'openai' ? 'openai' : 'gemini')
 // --- voice of the chosen output engine
 const voiceOptions = computed(() => {
-  if (out.value === 'gemini') return GEMINI_VOICES.map((v) => ({ id: v.id, label: `${v.name} · ${v.trait}` }))
-  if (out.value === 'openai') return OPENAI_VOICES.map((v) => ({ id: v.id, label: v.name }))
+  if (out.value === 'gemini') return GEMINI_VOICES.map((v) => ({ id: v.id, label: voiceOptionLabel(v) }))
+  if (out.value === 'openai') return OPENAI_VOICES.map((v) => ({ id: v.id, label: voiceOptionLabel(v) }))
   if (out.value === 'chatterbox') return store.voices.map((v) => ({ id: v.id, label: v.name }))
   return []
 })

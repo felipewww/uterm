@@ -9,9 +9,9 @@ const KEY = 'sk-test-SECRET-123'
 const wavBytes = (seconds: number, rate = 24000) => pcm16ToWav(new Uint8Array(Math.round(seconds * rate) * 2), rate)
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const cfg = (fetchImpl: CloudConfig['fetch'], keys: Partial<Record<'openai' | 'gemini', string | null>> = { openai: KEY, gemini: KEY }): CloudConfig => ({
-  getKey: (p) => keys[p] ?? null, fetch: fetchImpl, style: 'Say warmly',
-  openai: { ttsModel: 'gpt-4o-mini-tts', sttModel: 'gpt-4o-mini-transcribe' },
-  gemini: { ttsModel: 'gemini-2.5-flash-preview-tts', sttModel: 'gemini-2.5-flash' }
+  getKey: (p) => keys[p] ?? null, fetch: fetchImpl,
+  openai: { ttsModel: 'gpt-4o-mini-tts', sttModel: 'gpt-4o-mini-transcribe', style: 'Speak calmly' },
+  gemini: { ttsModel: 'gemini-2.5-flash-preview-tts', sttModel: 'gemini-2.5-flash', style: 'Say warmly' }
 })
 
 describe('wav helpers', () => {
@@ -23,15 +23,15 @@ describe('wav helpers', () => {
 })
 
 describe('OpenAI', () => {
-  it('speaks: bearer auth, wav output, style instruction, and Chatterbox tags removed', async () => {
+  it('speaks: bearer auth, wav output, style instruction, and the expressive tags sent as they are', async () => {
     const f = vi.fn(async (_u: string, _i?: RequestInit) => new Response(wavBytes(2)))
     const r = await openAiSpeak(cfg(f), '[happy] Hello there! [chuckle] Nice.', 'coral')
     const [url, init] = f.mock.calls[0]!
     expect(url).toBe('https://api.openai.com/v1/audio/speech')
     expect((init!.headers as Record<string, string>).authorization).toBe(`Bearer ${KEY}`)
     const body = JSON.parse(init!.body as string)
-    expect(body).toMatchObject({ model: 'gpt-4o-mini-tts', voice: 'coral', response_format: 'wav', instructions: 'Say warmly' })
-    expect(body.input).toBe('Hello there! Nice.')
+    expect(body).toMatchObject({ model: 'gpt-4o-mini-tts', voice: 'coral', response_format: 'wav', instructions: 'Speak calmly' })
+    expect(body.input).toBe('[happy] Hello there! [chuckle] Nice.')
     expect(r.usage).toMatchObject({ provider: 'openai', kind: 'tts', model: 'gpt-4o-mini-tts' })
     expect(r.usage.audioSeconds).toBeCloseTo(2, 2)
   })
@@ -77,7 +77,7 @@ describe('Gemini', () => {
     expect(url).not.toContain(KEY)
     expect((init!.headers as Record<string, string>)['x-goog-api-key']).toBe(KEY)
     const body = JSON.parse(init!.body as string)
-    expect(body.contents[0].parts[0].text).toBe('Say warmly: Good news it works')
+    expect(body.contents[0].parts[0].text).toBe('Say warmly: Good news [happy] it works') // Gemini acts on the tags, so they are sent
     expect(body.generationConfig).toMatchObject({ responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } })
     expect(wavSeconds(r.audio)).toBeCloseTo(1, 3)
     expect(r.usage).toMatchObject({ provider: 'gemini', kind: 'tts', inputTokens: 12, outputTokens: 25 })
@@ -153,6 +153,15 @@ describe('SpeechRouter', () => {
     const router = new SpeechRouter({ settings: () => settings, getKey: (p) => (p === 'openai' ? KEY : null), local: local as never, usage: () => usage, fetch: fetchImpl, onError: (m) => errors.push(m) })
     return { router, local, usage, errors }
   }
+  it('each cloud provider has its own voice style, and changing one leaves the other', () => {
+    const { router } = setup({ openaiVoiceStyle: 'Speak softly', geminiVoiceStyle: 'Say cheerfully' })
+    const c = router.cloudConfig()
+    expect([c.openai.style, c.gemini.style]).toEqual(['Speak softly', 'Say cheerfully'])
+    const t = router.cloudConfig({ style: 'Whisper' }, 'openai') // a style typed in Settings but not saved yet
+    expect([t.openai.style, t.gemini.style]).toEqual(['Whisper', 'Say cheerfully'])
+    expect(router.voiceKey('openai:coral')).not.toBe(setup({ openaiVoiceStyle: 'other' }).router.voiceKey('openai:coral'))
+    expect(router.voiceKey('gemini:Kore')).toBe(setup({ openaiVoiceStyle: 'other', geminiVoiceStyle: 'Say cheerfully' }).router.voiceKey('gemini:Kore'))
+  })
   it('the system voice is the default and records nothing', async () => {
     const { router, local, usage } = setup()
     expect(await router.synthesize('hi', 'default', new AbortController().signal)).toEqual(new Uint8Array([9]))

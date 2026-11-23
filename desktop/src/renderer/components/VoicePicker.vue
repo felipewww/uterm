@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { GEMINI_VOICES, OPENAI_VOICES, parseVoiceId } from '@shared/voices'
+import { GEMINI_VOICES, OPENAI_VOICES, parseVoiceId, voiceOptionLabel } from '@shared/voices'
 import { store } from '../store'
 
 /**
@@ -12,8 +12,8 @@ const emit = defineEmits<{ 'update:modelValue': [id: string] }>()
 
 const groups = computed(() => [
   { label: 'On this machine', provider: 'local' as const, voices: store.voices.map((v) => ({ id: v.id, label: v.name })) },
-  { label: 'Google Gemini (cloud)', provider: 'gemini' as const, voices: GEMINI_VOICES.map((v) => ({ id: v.id, label: `${v.name} · ${v.trait}` })) },
-  { label: 'OpenAI (cloud)', provider: 'openai' as const, voices: OPENAI_VOICES.map((v) => ({ id: v.id, label: v.name })) }
+  { label: 'Google Gemini (cloud)', provider: 'gemini' as const, voices: GEMINI_VOICES.map((v) => ({ id: v.id, label: voiceOptionLabel(v) })) },
+  { label: 'OpenAI (cloud)', provider: 'openai' as const, voices: OPENAI_VOICES.map((v) => ({ id: v.id, label: voiceOptionLabel(v) })) }
 ])
 const usable = (p: 'local' | 'gemini' | 'openai') => p === 'local' || store.keys[p]
 const id = computed(() => props.modelValue)

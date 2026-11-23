@@ -98,7 +98,9 @@ export interface AppSettings {
   geminiTtsModel: string
   geminiSttModel: string
   /** delivery style for cloud voices, written as an instruction */
-  cloudVoiceStyle: string
+  /** How each cloud voice is asked to sound (they react very differently to the same words) */
+  geminiVoiceStyle: string
+  openaiVoiceStyle: string
   /** Show a more natural (B2–C1) English version of what you said, next to the transcription, before you send it. Needs an OpenAI key. */
   englishCoach: boolean
   englishCoachModel: string
@@ -148,7 +150,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openaiSttModel: 'gpt-4o-mini-transcribe',
   geminiTtsModel: 'gemini-2.5-flash-preview-tts',
   geminiSttModel: 'gemini-2.5-flash',
-  cloudVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate',
+  geminiVoiceStyle: 'Say in a warm, friendly, upbeat way, like a helpful teammate',
+  openaiVoiceStyle: 'Speak calmly and naturally, in a relaxed conversational tone, at a moderate pace and a soft volume. Warm and friendly, never loud or excited.',
   englishCoach: false, // opt-in: it sends what you type or say to OpenAI
   englishCoachModel: 'gpt-4o-mini',
   notifySounds: true,

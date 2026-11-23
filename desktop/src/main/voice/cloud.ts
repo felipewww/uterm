@@ -1,4 +1,3 @@
-import { stripSpeechTags } from '@shared/voiceTag'
 
 /**
  * Cloud speech providers (opt-in; the default stays the local Docker services). Keys come from the environment
@@ -11,10 +10,9 @@ export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
 export interface CloudConfig {
   getKey(p: CloudProvider): string | null
   fetch?: FetchLike
-  openai: { ttsModel: string; sttModel: string }
-  gemini: { ttsModel: string; sttModel: string }
-  /** natural-language delivery style, e.g. "Say in a warm, friendly, upbeat way" */
-  style: string
+  /** `style`: natural-language delivery, e.g. "Say in a warm, friendly, upbeat way" */
+  openai: { ttsModel: string; sttModel: string; style: string }
+  gemini: { ttsModel: string; sttModel: string; style: string }
 }
 
 export interface Usage {
@@ -92,9 +90,9 @@ const fromB64 = (s: string) => new Uint8Array(Buffer.from(s, 'base64'))
 export async function openAiSpeak(cfg: CloudConfig, text: string, voice: string, signal?: AbortSignal): Promise<{ audio: Uint8Array; usage: Usage }> {
   const key = need(cfg, 'openai')
   const model = cfg.openai.ttsModel
-  const input = stripSpeechTags(text) // [chuckle]/[happy] are Chatterbox tags: a cloud voice would read them aloud
+  const input = text // [happy], [chuckle]... stay in: both OpenAI and Gemini act on them (checked by ear)
   const body: Record<string, unknown> = { model, voice, input, response_format: 'wav' }
-  if (model.startsWith('gpt-')) body.instructions = cfg.style // tts-1 / tts-1-hd ignore or reject it
+  if (model.startsWith('gpt-')) body.instructions = cfg.openai.style // tts-1 / tts-1-hd ignore or reject it
   const res = await f(cfg)(`${OPENAI}/audio/speech`, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify(body), signal })
   if (!res.ok) await fail(res, 'OpenAI speech', key)
   const audio = new Uint8Array(await res.arrayBuffer())
@@ -129,9 +127,9 @@ async function geminiCall(cfg: CloudConfig, model: string, body: unknown, signal
 
 export async function geminiSpeak(cfg: CloudConfig, text: string, voice: string, signal?: AbortSignal): Promise<{ audio: Uint8Array; usage: Usage }> {
   const model = cfg.gemini.ttsModel
-  const input = stripSpeechTags(text)
+  const input = text // Gemini acts on [happy], [chuckle], [whispering]... (checked by ear), so the tags stay in
   const j = await geminiCall(cfg, model, {
-    contents: [{ parts: [{ text: `${cfg.style}: ${input}` }] }], // Gemini TTS takes its delivery style from the prompt ("Say cheerfully: …")
+    contents: [{ parts: [{ text: `${cfg.gemini.style}: ${input}` }] }], // Gemini TTS takes its delivery style from the prompt ("Say cheerfully: …")
     generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } }
   }, signal, 'Gemini speech')
   const part = j.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)

@@ -10,12 +10,15 @@ const props = defineProps<{ g: AppSettings; provider: 'openai' | 'gemini'; kind:
 const s = props.g // the parent's reactive settings draft: saved with its Save button
 const p = props.provider
 const modelField = (p === 'openai' ? (props.kind === 'tts' ? 'openaiTtsModel' : 'openaiSttModel') : (props.kind === 'tts' ? 'geminiTtsModel' : 'geminiSttModel')) as keyof AppSettings
+const styleField = (p === 'openai' ? 'openaiVoiceStyle' : 'geminiVoiceStyle') as 'openaiVoiceStyle' | 'geminiVoiceStyle'
 const models = ref<string[]>([])
 const busy = ref<'' | 'models' | 'test'>('')
 const note = ref('')
 interface Step { name: string; ok: boolean; ms: number; detail: string }
 const report = ref<{ steps: Step[]; costUsd: number } | null>(null)
 const clean = (e: unknown) => (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+// The sentence the Test speaks. Tags such as [happy] or [whispering] are sent as they are: both providers act on them.
+const phrase = ref("[happy] Great news, the build passed! [chuckle] I did not expect that on the first try. [whispering] Let's keep this between us.")
 const state = reactive({ listId: `${p}-${props.kind}-models` })
 
 async function refresh() {
@@ -30,7 +33,7 @@ const testVoice = () => { const v = parseVoiceId(s.defaultVoiceId); return v.pro
 async function test() {
   busy.value = 'test'; report.value = null; note.value = ''
   try {
-    report.value = await window.echo.cloud.test({ provider: p, ttsModel: String(s[p === 'openai' ? 'openaiTtsModel' : 'geminiTtsModel']), voice: testVoice(), sttModel: String(s[p === 'openai' ? 'openaiSttModel' : 'geminiSttModel']), style: s.cloudVoiceStyle }) as { steps: Step[]; costUsd: number }
+    report.value = await window.echo.cloud.test({ provider: p, ttsModel: String(s[p === 'openai' ? 'openaiTtsModel' : 'geminiTtsModel']), voice: testVoice(), sttModel: String(s[p === 'openai' ? 'openaiSttModel' : 'geminiSttModel']), style: s[styleField], ...(props.kind === 'tts' ? { text: phrase.value } : {}) }) as { steps: Step[]; costUsd: number }
   } catch (e) { note.value = clean(e) } finally { busy.value = '' }
 }
 </script>
@@ -43,12 +46,16 @@ async function test() {
     <datalist :id="state.listId"><option v-for="m in models" :key="m" :value="m" /></datalist>
   </div>
   <div v-if="kind === 'tts'" class="field wide">
-    <div class="field-text"><strong>Voice style</strong><small>How the voice is asked to sound</small></div>
-    <input v-model="s.cloudVoiceStyle" maxlength="200" />
+    <div class="field-text"><strong>Voice style</strong><small>{{ provider === 'openai' ? 'How the voice is asked to sound. Used only by OpenAI voices' : 'How the voice is asked to sound. Used only by Gemini voices' }}</small></div>
+    <input v-model="s[styleField]" maxlength="200" />
+  </div>
+  <div v-if="kind === 'tts'" class="field wide">
+    <div class="field-text"><strong>Test phrase</strong><small>The voice acts on [tags] like [happy] or [whispering]. Edit the text to try your own</small></div>
+    <textarea v-model="phrase" rows="3" maxlength="600" spellcheck="false" aria-label="Test phrase"></textarea>
   </div>
   <div class="cloud-actions">
     <button class="btn" :disabled="!store.keys[provider] || !!busy" @click="refresh">{{ busy === 'models' ? 'Checking…' : 'Refresh model list' }}</button>
-    <button class="btn primary" :disabled="!store.keys[provider] || !!busy" title="Speaks one sentence and transcribes it back. Costs a fraction of a cent." @click="test">{{ busy === 'test' ? 'Testing…' : 'Test' }}</button>
+    <button class="btn primary" :disabled="!store.keys[provider] || !!busy" title="Checks the key, speaks the test phrase and transcribes it back. Costs a fraction of a cent." @click="test">{{ busy === 'test' ? 'Testing…' : 'Test' }}</button>
   </div>
   <p v-if="note" class="hint">{{ note }}</p>
   <ul v-if="report" class="test-steps">

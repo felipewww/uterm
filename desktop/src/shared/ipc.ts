@@ -46,7 +46,7 @@ export const schemas = {
   voiceDelete: z.object({ voiceId: z.string().max(36) }),
   audioEnded: z.object({ requestId: z.string().max(64) }),
   cloudProvider: z.object({ provider: z.enum(['openai', 'gemini']) }),
-  cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional() }),
+  cloudTest: z.object({ provider: z.enum(['openai', 'gemini']), ttsModel: z.string().max(80).optional(), voice: z.string().max(80).optional(), sttModel: z.string().max(80).optional(), style: z.string().max(300).optional(), text: z.string().max(600).optional() }),
   openUrl: z.object({ url: z.string().url().max(4000) }),
   coachImprove: z.object({ text: z.string().min(1).max(6000) }),
   systemSample: z.object({ sessionId: Id.nullable().optional() }),

@@ -619,3 +619,5 @@
 .subtab small { color: var(--text-tertiary); font-size: var(--text-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subtabs + .eng-hint { margin-top: 14px; }
 .pane-title.first { margin-top: 14px; }
+/* Settings → Voice: try a phrase */
+.field.wide textarea { width: 100%; min-height: 76px; resize: vertical; padding: 8px 10px; font-size: var(--text-sm); line-height: 1.5; }

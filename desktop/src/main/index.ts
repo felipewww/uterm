@@ -20,7 +20,8 @@ import { listImportable } from './importer'
 import { PtyManager } from './pty/ptyManager'
 import { nodePtyFactory } from './pty/nodePtyFactory'
 import { SessionManager, setEnvScrub } from './sessionManager'
-import { SPEECH_INSTRUCTIONS } from './speechInstructions'
+import { parseVoiceId } from '@shared/voices'
+import { PLAIN_SPEECH_INSTRUCTIONS, SPEECH_INSTRUCTIONS } from './speechInstructions'
 import { claudeProfiles } from './agents/claudeProfiles'
 import { SECRET_NAMES, SecretStore, type SecretName } from './secrets'
 import { ShellAdapter } from './agents/shell'
@@ -111,7 +112,8 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     repo, pty, bus, socketPath: socketPath(),
     adapters: { claude: new ClaudeCodeAdapter(repoRoot), codex: new CodexAdapter(), kiro: new KiroAdapter(), shell: new ShellAdapter() },
     settings: () => settings,
-    speechInstructions: () => (settings.injectSpeechInstructions ? SPEECH_INSTRUCTIONS : null),
+    // expressive tags for every voice but the system one (`say` / espeak-ng), which would read them out
+    speechInstructions: () => (!settings.injectSpeechInstructions ? null : parseVoiceId(settings.defaultVoiceId).provider === 'local' && settings.ttsEngine !== 'chatterbox' ? PLAIN_SPEECH_INSTRUCTIONS : SPEECH_INSTRUCTIONS),
     onViewChanged: (v: SessionView) => send('session:view', { ...v, speaking: v.id === speakingSessionId }),
     onFoldersChanged: (f) => send('folders:changed', f),
     onSessionRemoved: (id) => send('session:removed', { id }),
@@ -325,7 +327,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     return selfTest(router, a.provider, { ttsModel: a.ttsModel, sttModel: a.sttModel, style: a.style }, a.voice ?? (a.provider === 'openai' ? 'coral' : 'Kore'), (wav) => {
       const data = wav.buffer.slice(wav.byteOffset, wav.byteOffset + wav.byteLength)
       send('audio:chunk', { requestId: `test-${Date.now()}`, eventId: 'test', sessionId: 'test', index: 0, total: 1, speed: 1, data })
-    })
+    }, { sentence: a.text })
   })
   ipcMain.handle('coach:improve', (_e, p) => coach.improve(parse(schemas.coachImprove, p).text))
   // "Open in system terminal": stop uTerm's copy first (two processes must never share one conversation), then open the user's terminal app

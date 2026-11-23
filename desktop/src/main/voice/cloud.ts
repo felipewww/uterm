@@ -48,7 +48,23 @@ async function fail(res: Response, who: string, secret?: string): Promise<never>
   throw new CloudError(`${who}: ${hint}${detail ? ` (${detail.slice(0, 160)})` : ''}`, res.status)
 }
 
-const f = (cfg: CloudConfig): FetchLike => cfg.fetch ?? ((u, i) => fetch(u, i))
+const TRANSIENT = new Set(['ECONNRESET', 'ETIMEDOUT', 'EAI_AGAIN', 'EPIPE', 'UND_ERR_SOCKET', 'UND_ERR_CONNECT_TIMEOUT'])
+const causeCode = (err: unknown): string => String(((err as { cause?: { code?: string } }).cause?.code) ?? '')
+
+/** Node's fetch only says "fetch failed"; say why (DNS, connection reset, timeout...) and retry once when the connection merely dropped. */
+async function netFetch(url: string, init?: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await fetch(url, init) } catch (err) {
+      if (init?.signal?.aborted) throw err
+      const code = causeCode(err)
+      if (attempt === 0 && TRANSIENT.has(code)) continue
+      if (err instanceof TypeError) throw new CloudError(`Could not reach ${new URL(url).host}${code ? ` (${code})` : ''}: check the internet connection, VPN or proxy`)
+      throw err
+    }
+  }
+}
+
+const f = (cfg: CloudConfig): FetchLike => cfg.fetch ?? netFetch
 
 export function pcm16ToWav(pcm: Uint8Array, rate = 24000, channels = 1): Uint8Array {
   const out = new Uint8Array(44 + pcm.length)

@@ -60,7 +60,8 @@ export class VoiceCoordinator {
     return this.d.getSession(sessionId)?.playbackSpeed ?? this.d.settings().defaultPlaybackSpeed
   }
 
-  private voiceFor(s: SessionRecord): string { return s.voiceProfileId ?? this.d.settings().defaultVoiceId }
+  // 'default' is what older sessions stored for "no voice of its own": it follows the voice chosen in Settings
+  private voiceFor(s: SessionRecord): string { return s.voiceProfileId && s.voiceProfileId !== 'default' ? s.voiceProfileId : this.d.settings().defaultVoiceId }
 
   private revalidate(sessionId: string, kind: Parameters<typeof modeAllows>[1], force: boolean): { speak: boolean; prefix?: string } {
     const s = this.d.getSession(sessionId)

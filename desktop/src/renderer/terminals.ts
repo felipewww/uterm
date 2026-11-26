@@ -3,7 +3,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import { matchesShortcut } from './shortcut'
 import { wrappedLinksAt } from './wrappedLinks'
-import { isArrow, moveSelection, type ArrowKey, type Cells } from './selection'
+import { focusRow, isMoveKey, moveSelection, type Cells, type MoveKey } from './selection'
 import { onThemeChange, terminalTheme } from './design/theme'
 import { store } from './store'
 
@@ -12,9 +12,9 @@ const entries = new Map<string, Entry>()
 
 function openLink(uri: string): void { void window.echo.openUrl({ url: uri }).catch(() => undefined) }
 
-/** Which end of each selection the arrows move; forgotten as soon as the selection is made some other way (mouse). */
+/** Which end of each selection the keys move; forgotten as soon as the selection is made some other way (mouse). */
 const keyboardEnds = new WeakMap<Terminal, Cells>()
-function extendSelection(term: Terminal, key: ArrowKey): void {
+function extendSelection(term: Terminal, key: MoveKey): void {
   const at = term.getSelectionPosition()
   if (!at) return
   const { cols } = term
@@ -26,7 +26,7 @@ function extendSelection(term: Terminal, key: ArrowKey): void {
   keyboardEnds.set(term, next)
   const start = Math.min(next.anchor, next.focus)
   term.select(start % cols, Math.floor(start / cols), Math.abs(next.focus - next.anchor))
-  const row = Math.min(term.buffer.active.length - 1, Math.floor(next.focus / cols))
+  const row = Math.min(term.buffer.active.length - 1, focusRow(next, cols))
   const top = term.buffer.active.viewportY
   if (row < top) term.scrollLines(row - top)
   else if (row >= top + term.rows) term.scrollLines(row - top - term.rows + 1)
@@ -81,8 +81,8 @@ export function ensureTerminal(id: string): Entry {
       if (sel) void window.echo.clipboard.write({ text: sel })
       return false
     }
-    // With text selected, Shift + arrows grows or shrinks the selection; with nothing selected the keys go to the program as usual
-    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && isArrow(e.key) && term.hasSelection()) {
+    // With text selected, Shift + arrows / Home / End grows or shrinks the selection; with nothing selected the keys go to the program as usual
+    if (e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && isMoveKey(e.key) && term.hasSelection()) {
       e.preventDefault()
       extendSelection(term, e.key)
       return false

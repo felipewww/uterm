@@ -28,14 +28,14 @@ Pre-built packages are produced by you with the commands in [Build](#build); the
 
 | Platform | Package | How to install |
 |---|---|---|
-| Linux | `uTerm-1.0.0.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_1.0.0_amd64.deb` (rebuilt with the same version: `sudo dpkg -i` instead). Close uTerm first |
-| macOS (Apple Silicon) | `uTerm-1.0.0-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
+| Linux | `uTerm-1.0.1.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_1.0.1_amd64.deb` (rebuilt with the same version: `sudo dpkg -i` instead). Close uTerm first |
+| macOS (Apple Silicon) | `uTerm-1.0.1-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
 
 Linux, after building (close uTerm first):
 ```bash
 cd desktop/release
-sudo dpkg -i uterm-desktop_1.0.0_amd64.deb   # installs or replaces; then open uTerm from the app menu
-./uTerm-1.0.0.AppImage                       # or run it without installing
+sudo dpkg -i uterm-desktop_1.0.1_amd64.deb   # installs or replaces; then open uTerm from the app menu
+./uTerm-1.0.1.AppImage                       # or run it without installing
 ```
 
 You also need at least one agent CLI installed and logged in (Claude Code, Codex or Kiro). On Linux, `sudo apt install espeak-ng` gives the default voice.

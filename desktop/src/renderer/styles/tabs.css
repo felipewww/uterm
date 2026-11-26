@@ -44,29 +44,28 @@
 .tab.drop-before::before, .tab.drop-after::after { content: ''; position: absolute; top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: var(--text-primary); }
 .tab.drop-before::before { left: -1px; } .tab.drop-after::after { right: -1px; }
 
-/* The open tab wins over agent, group and state colors: dark glass and a line on top. */
-.tabbar .tab.active:not(.home-tab) { color: var(--text-primary);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 17%, var(--surface-island)) 0%, color-mix(in srgb, var(--text-primary) 10%, var(--surface-island)) 48%, color-mix(in srgb, var(--text-primary) 5%, var(--surface-island)) 52%, var(--surface-island) 100%);
+/* The open tab wins over agent, group and state colors: a flat lighter fill and a line on top. */
+.tabbar .tab.active:not(.home-tab) { color: var(--text-primary); background: color-mix(in srgb, var(--text-primary) 9%, var(--surface-island));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 30%, transparent); }
 /* no side lines around it: neither its own divider nor its neighbour's */
 .tabbar .tab.active, .tabbar :is(.tab, .tab-group):has(+ .tab.active) { border-right-color: transparent; }
 
-/* ── group label: a full-height cell, not a button, with a soft light of the group's color from its top left corner ── */
-.tabbar .tab-group { display: inline-flex; flex: none; align-items: center; align-self: stretch; gap: 7px; max-width: 240px; padding: 0 14px; white-space: nowrap; color: var(--text-primary); font-size: 12px; font-weight: var(--weight-medium); letter-spacing: .01em; cursor: pointer; user-select: none;
-  background: radial-gradient(var(--lamp-w) var(--lamp-h) at 0% 0%, color-mix(in srgb, var(--g) 62%, transparent) 0%, color-mix(in srgb, var(--g) 25%, transparent) 50%, transparent 100%), var(--surface-island);
-  transition: --lamp-w .16s ease-out, --lamp-h .16s ease-out; }
-.tabbar .tab-group:hover, .tabbar .tab-group:focus-visible, .tabbar .tab-group:not(.collapsed) { --lamp-w: 140%; --lamp-h: 140%; } /* an open group stays lit as on hover */
+/* ── group label: a full-height cell, not a button, filled flat with the group's color ── */
+.tabbar .tab-group { display: inline-flex; flex: none; align-items: center; align-self: stretch; gap: 7px; max-width: 240px; padding: 0 14px; white-space: nowrap; color: var(--g); font-size: 12px; font-weight: var(--weight-medium); letter-spacing: .01em; cursor: pointer; user-select: none;
+  background: color-mix(in srgb, var(--g) 16%, transparent); /* the name in the swatch color, over a light wash of it */
+  transition: background var(--dur-fast); }
+.tabbar .tab-group:hover, .tabbar .tab-group:focus-visible, .tabbar .tab-group:not(.collapsed) { background: color-mix(in srgb, var(--g) 25%, transparent); } /* an open group stays as on hover */
+:root[data-theme='islands-light'] .tabbar .tab-group { color: color-mix(in srgb, var(--g) 62%, #000); } /* bright ink would vanish on white */
 .tab-group.needs { --live: var(--warning); animation: live-ring 1.6s ease-out infinite; }
 .tab-group-input { width: 92px; height: 18px; padding: 0 4px; border: 0; border-radius: 4px; background: color-mix(in srgb, var(--g) 22%, transparent); color: inherit; font: inherit; outline: none; }
 .menu-dot { display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; }
 .menu-swatches { display: flex; gap: 8px; padding: 6px 10px 8px; }
 .swatch { width: 16px; height: 16px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; outline-offset: 2px; } .swatch.on { outline: 2px solid var(--text-primary); }
 
-/* ── Home: a permanent icon-only first cell, lit like a group, in violet ── */
+/* ── Home: a permanent icon-only first cell, filled flat like a group, in violet ── */
 .tabbar .tab.home-tab { --home: var(--agent-kiro); justify-content: center; gap: 0; min-width: 0; width: 44px; padding: 0; color: var(--text-primary);
-  background: radial-gradient(var(--lamp-w) var(--lamp-h) at 0% 0%, color-mix(in srgb, var(--home) 38%, transparent) 0%, color-mix(in srgb, var(--home) 14%, transparent) 50%, transparent 100%), var(--surface-island);
-  transition: --lamp-w .16s ease-out, --lamp-h .16s ease-out, color .16s; }
-.tabbar .tab.home-tab:hover, .tabbar .tab.home-tab.active, .tabbar .tab.home-tab:focus-visible { --lamp-w: 140%; --lamp-h: 140%; }
+  background: color-mix(in srgb, var(--home) 16%, var(--surface-island)); transition: background var(--dur-fast), color var(--dur-fast); }
+.tabbar .tab.home-tab:hover, .tabbar .tab.home-tab.active, .tabbar .tab.home-tab:focus-visible { background: color-mix(in srgb, var(--home) 28%, var(--surface-island)); }
 .tabbar .tab.home-tab:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-outline); }
 .tab.home-tab svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 

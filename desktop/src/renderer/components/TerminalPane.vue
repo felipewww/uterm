@@ -1,13 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { AGENT_LABELS } from '@shared/types'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { AGENT_LABELS, ON_MAC } from '@shared/types'
 import { ingestHistory, selected, store } from '../store'
-import { showTerminal, terminalSize } from '../terminals'
+import { copySelection, focusTerminal, hasSelection, pasteInto, selectAllIn, showTerminal, terminalSize } from '../terminals'
 
 const container = ref<HTMLElement | null>(null)
 const starting = ref(false)
 const startError = ref('')
 const resumeBtn = ref<HTMLButtonElement | null>(null)
+
+// right click on the terminal: copy what is selected, paste, select all
+const menu = ref<{ x: number; y: number; id: string; copy: boolean } | null>(null)
+const closeMenu = () => { menu.value = null }
+function openMenu(e: MouseEvent) {
+  const s = selected()
+  if (!s || !s.running) return
+  menu.value = { x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 140), id: s.id, copy: hasSelection(s.id) }
+}
+function act(fn: (id: string) => void) { const id = menu.value?.id; closeMenu(); if (id) { fn(id); focusTerminal(id) } }
+const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMenu() }
+onMounted(() => { window.addEventListener('click', closeMenu); window.addEventListener('blur', closeMenu); window.addEventListener('keydown', onKey, true) })
+onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.removeEventListener('blur', closeMenu); window.removeEventListener('keydown', onKey, true) })
 
 function show() {
   if (!container.value) return
@@ -67,7 +80,14 @@ async function resume() {
 
 <template>
   <div class="terminal-wrap">
-    <div ref="container" class="terminal-container"></div>
+    <div ref="container" class="terminal-container" @contextmenu.prevent="openMenu"></div>
+    <Teleport to="body">
+      <div v-if="menu" class="menu" role="menu" :style="{ left: menu.x + 'px', top: menu.y + 'px' }" @click.stop @contextmenu.prevent>
+        <button class="menu-item" role="menuitem" :disabled="!menu.copy" @click="act(copySelection)">Copy<kbd class="kbd">{{ ON_MAC ? '⌘C' : 'Ctrl+Shift+C' }}</kbd></button>
+        <button class="menu-item" role="menuitem" @click="act(pasteInto)">Paste<kbd class="kbd">{{ ON_MAC ? '⌘V' : 'Ctrl+Shift+V' }}</kbd></button>
+        <button class="menu-item" role="menuitem" @click="act(selectAllIn)">Select all</button>
+      </div>
+    </Teleport>
     <div v-if="closed" class="terminal-overlay">
       <div class="resume-card" role="dialog" aria-label="Closed session">
         <div class="resume-top">

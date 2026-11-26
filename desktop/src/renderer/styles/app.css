@@ -403,7 +403,6 @@
 
 .tab > .agent-icon { flex: none; color: var(--agent); }
 .agent-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.tab.preview .agent-icon { opacity: .5; }
 
 /* status dot: its own column, centred on the same line as the icon and the title */
 .tab { gap: 9px; padding-left: 12px; }
@@ -540,7 +539,6 @@
 .tab-group::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--g); }
 .tab-group:hover { background: color-mix(in srgb, var(--g) 26%, transparent); }
 .tab-group.collapsed { background: color-mix(in srgb, var(--g) 22%, transparent); }
-.tab-group-n { min-width: 16px; padding: 0 5px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--g) 30%, transparent); color: inherit; font-size: 10.5px; line-height: 16px; text-align: center; }
 .tab-group.needs { --live: var(--warning); animation: live-ring 1.6s ease-out infinite; }
 .tab-group-input { width: 92px; height: 18px; padding: 0 4px; border: 0; border-radius: 4px; background: color-mix(in srgb, var(--g) 22%, transparent); color: inherit; font: inherit; outline: none; }
 .tab.grouped::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: color-mix(in srgb, var(--g) 70%, transparent); }
@@ -627,3 +625,62 @@
 /* Settings → Voice: try a phrase */
 .field.wide textarea { width: 100%; min-height: 76px; resize: vertical; padding: 8px 10px; font-size: var(--text-sm); line-height: 1.5; }
 .menu-item:disabled { opacity: .4; cursor: default; } .menu-item:disabled:hover { background: none; }
+
+/* Which tab is open must win over agent, group and state colors: only the selected one is lifted, lined on top and brighter;
+   the others step back. */
+.tabbar .tab .tab-title { font-weight: 400; } /* same weight for all: the selected one is only brighter */
+.tabbar .tab.active:not(.home-tab) { color: var(--text-primary);
+  /* dark glass: a lit upper half, a soft break in the middle, fading into the panel below */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 17%, var(--surface-island)) 0%, color-mix(in srgb, var(--text-primary) 10%, var(--surface-island)) 48%, color-mix(in srgb, var(--text-primary) 5%, var(--surface-island)) 52%, var(--surface-island) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 30%, transparent); }
+.tabbar .tab.grouped:not(.drop-after)::after { content: none; }
+
+/* A plain terminal has no agent state to report. Tabs drop the dot; lists keep its space so the titles stay aligned. */
+.tab.shell .tab-dot { display: none; }
+.sb-card.shell .sb-dot, .recent-row .dot.shell { visibility: hidden; }
+
+/* Group label: not a button but a full-height cell of the strip, washed in the group's color. No ring, no dot. */
+.tabbar .tab-group { align-self: stretch; height: auto; margin: 0; padding: 0 14px; border-radius: 0; color: var(--text-primary);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--g) 65%, var(--surface-island)), var(--surface-island)); }
+.tabbar .tab-group:hover { background: linear-gradient(180deg, color-mix(in srgb, var(--g) 78%, var(--surface-island)), var(--surface-island)); }
+.tabbar .tab-group.collapsed { background: linear-gradient(180deg, color-mix(in srgb, var(--g) 85%, var(--surface-island)), var(--surface-island)); }
+.tabbar .tab-group::before { content: none; }
+
+/* Bottom line of group labels and grouped tabs: hairline, in the full color. */
+.tabbar .tab-group { box-shadow: inset 0 -1px 0 var(--g); }
+.tabbar .tab.grouped::before { height: 1px; background: var(--g); }
+/* TRIAL: no bottom lines at all */
+.tabbar .tab-group { box-shadow: none; }
+.tabbar .tab.grouped::before { content: none; }
+/* No hairlines between the tab strip, the session header and the terminal. */
+.tabbar, .terminal-card .toolbar { border-bottom: 0; }
+.tabbar .tab.active { margin-bottom: 0; border-bottom: 0; }
+/* The active tab has no side lines either: neither its own divider nor its neighbour's. */
+.tabbar .tab.active, .tabbar :is(.tab, .tab-group):has(+ .tab.active) { border-right-color: transparent; }
+/* Group label "switched on": the header grey with a soft radial light of the group's color from the top left corner.
+   Hover only makes that same light bigger; its size is a registered property so it can be animated. */
+@property --lamp-w { syntax: '<percentage>'; inherits: false; initial-value: 85%; }
+@property --lamp-h { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
+.tabbar .tab-group, .tabbar .tab-group.collapsed, .tabbar .tab-group:hover { color: var(--text-primary); box-shadow: none;
+  background: radial-gradient(var(--lamp-w) var(--lamp-h) at 0% 0%, color-mix(in srgb, var(--g) 62%, transparent) 0%, color-mix(in srgb, var(--g) 25%, transparent) 50%, transparent 100%), var(--surface-island);
+  transition: --lamp-w .16s ease-out, --lamp-h .16s ease-out; }
+.tabbar .tab-group:hover, .tabbar .tab-group:focus-visible, .tabbar .tab-group:not(.collapsed) { --lamp-w: 140%; --lamp-h: 140%; } /* an open group stays lit as on hover */
+@media (prefers-reduced-motion: reduce) { .tabbar .tab-group { transition: none; } }
+/* Tabs open and close, and groups fold, by growing and shrinking sideways. Kept last: it must win over the cells' own transitions. */
+.tabbar .tab-group { max-width: 240px; white-space: nowrap; }
+.tabbar .tabs > .tabfx-enter-active, .tabbar .tabs > .tabfx-leave-active { overflow: hidden; transition: max-width .18s ease-out, min-width .18s ease-out, padding .18s ease-out, opacity .18s ease-out; }
+.tabbar .tabs > .tabfx-enter-from, .tabbar .tabs > .tabfx-leave-to { max-width: 0; min-width: 0; padding-left: 0; padding-right: 0; border-right-width: 0; opacity: 0; }
+.tabbar .tabs > .tabfx-leave-active { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .tabbar .tabs > .tabfx-enter-active, .tabbar .tabs > .tabfx-leave-active { transition: none; } }
+/* Home: the icon is always bright; its soft light (further down) says whether it is the open page. */
+.tabbar .tab.home-tab, .tabbar .tab.home-tab:hover, .tabbar .tab.home-tab.active { margin: 0; border-bottom: 0; box-shadow: none; background: none; color: var(--text-primary); }
+.tabbar .tab.home-tab:focus-visible { box-shadow: inset 0 0 0 1px var(--accent-outline); }
+.tabbar .tab.home-tab svg { stroke-width: 1.1; }
+/* A delicate light from Home's top left corner, growing a little on hover and when Home is open. */
+.tabbar .tab.home-tab, .tabbar .tab.home-tab:hover, .tabbar .tab.home-tab.active {
+  background: radial-gradient(var(--lamp-w) var(--lamp-h) at 0% 0%, color-mix(in srgb, var(--home) 38%, transparent) 0%, color-mix(in srgb, var(--home) 14%, transparent) 50%, transparent 100%), var(--surface-island);
+  transition: --lamp-w .16s ease-out, --lamp-h .16s ease-out, color .16s; }
+.tabbar .tab.home-tab:hover, .tabbar .tab.home-tab.active, .tabbar .tab.home-tab:focus-visible { --lamp-w: 140%; --lamp-h: 140%; }
+@media (prefers-reduced-motion: reduce) { .tabbar .tab.home-tab { transition: none; } }
+/* The three main boxes (sessions, terminal, side panel) have no border. */
+.app .sidebar, .app .terminal-card, .app .activity { border: 0; }

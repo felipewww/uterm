@@ -1,0 +1,147 @@
+/* Right-hand panel (Activity, Commands, Computer), in the same language as the tab strip: a soft light from the top left
+   corner of each thing, in the color of what it is, growing on hover; glass for the open segment; small mono labels.
+   --lamp-w / --lamp-h are registered in app.css so the light can be animated. */
+.side { --c: var(--accent); }
+.activity.side { background: radial-gradient(90% 34% at 0% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 100%), color-mix(in srgb, var(--surface-sunken) 82%, #000); } /* dark grey box with a soft light from its top left corner */
+
+/* messages: flat, a darker grey than the panel; only the border carries the kind's color */
+.side .chat .msg .msg-body, .side .chat .msg .bubble { --c: var(--accent); background: var(--surface-island); border: 1px solid color-mix(in srgb, var(--c) 20%, var(--divider)); transition: border-color .18s ease-out; }
+.side .chat .msg .msg-body:hover { border-color: color-mix(in srgb, var(--c) 48%, var(--divider)); }
+
+/* every lit surface */
+.side .cmd, .side .cmd-form, .side .computer section, .side .current-op {
+  --c: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--c) 20%, var(--divider));
+  background: radial-gradient(var(--lamp-w) var(--lamp-h) at 0% 0%, color-mix(in srgb, var(--c) 26%, transparent) 0%, color-mix(in srgb, var(--c) 9%, transparent) 50%, transparent 100%), var(--surface-sunken);
+  transition: --lamp-w .18s ease-out, --lamp-h .18s ease-out, border-color .18s ease-out;
+}
+.side .cmd:hover { --lamp-w: 125%; --lamp-h: 150%; border-color: color-mix(in srgb, var(--c) 48%, var(--divider)); }
+
+/* segmented tabs: dark glass track, the open one lit */
+.side .side-tabs { height: auto; gap: 2px; margin: 8px 8px 0; padding: 3px; border: 1px solid var(--divider); border-radius: var(--radius-lg); background: var(--surface-sunken); }
+.side .side-tab { flex: 1; justify-content: center; height: 30px; padding: 0 4px; border: 0; border-radius: var(--radius-md); font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; transition: background var(--dur-fast), color var(--dur-fast); }
+.side .side-tab:hover:not(:disabled):not(.active) { background: radial-gradient(100% 120% at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 100%); }
+.side .side-tab.active { color: var(--text-primary); background: radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--accent) 52%, transparent) 0%, color-mix(in srgb, var(--accent) 18%, transparent) 50%, transparent 100%), var(--surface-raised); box-shadow: none; }
+.side .side-tab.active svg { color: var(--accent-text); }
+.side .side-tab:disabled { opacity: .4; }
+
+/* Activity */
+.side .chat { gap: 18px; padding: 16px 12px; }
+.side .msg-body { padding: 10px 12px; border-radius: var(--radius-lg); line-height: 1.55; }
+.side .msg.progress .msg-body { --c: var(--text-secondary); }
+.side .msg.final .msg-body { --c: var(--success); }
+.side .msg.question .msg-body, .side .msg.permission .msg-body, .side .msg.attention .msg-body { --c: var(--warning); }
+.side .msg.error .msg-body { --c: var(--danger); }
+.side .msg.question .msg-body, .side .msg.permission .msg-body, .side .msg.error .msg-body { box-shadow: 0 0 16px color-mix(in srgb, var(--c) 16%, transparent); }
+.side .chat .msg.playing .msg-body, .side .chat .msg.generating .msg-body { border-color: var(--accent-outline); box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent); }
+.side .bubble { border-radius: var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg); line-height: 1.5; }
+.side .natural { border: 0; border-left: 2px solid var(--accent); }
+.side .who, .side .msg .chip { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.side .msg .chip { display: inline-flex; align-items: center; gap: 6px; padding: 1px 0; background: none; }
+.side .msg .chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 7px currentColor; }
+.side .msg-time { font-size: 11px; }
+
+/* Commands */
+.side .cmds { padding: 14px 12px; }
+.side .cmds-head h3, .side .cp-head strong, .side .cp-top-head { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; }
+.side .cmd-form { padding: 10px; border-radius: var(--radius-lg); }
+.side .cmd { padding: 10px 8px 10px 12px; border-radius: var(--radius-lg); }
+.side .cmd-code::before { content: '$ '; color: var(--accent-text); }
+.side .cmd-actions { gap: 2px; }
+.side .cmd-act, .side .cmd-act.paste, .side .cmd-act.run, .side .cmd-act.danger { width: 30px; height: 30px; background: transparent; color: var(--text-secondary); }
+.side .cmd-act svg { width: 15px; height: 15px; }
+.side .cmd-act.paste:hover { background: var(--accent-soft); color: var(--accent-text); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent); }
+.side .cmd-act.run:hover { background: var(--success-soft); color: var(--success); box-shadow: 0 0 10px color-mix(in srgb, var(--success) 35%, transparent); }
+.side .cmd-act.danger:hover { background: var(--danger-soft); color: var(--danger); box-shadow: 0 0 10px color-mix(in srgb, var(--danger) 35%, transparent); }
+
+/* Computer: one lit card per subject, glowing meters, figures that do not jitter */
+.side .computer { display: flex; flex-direction: column; gap: 8px; padding: 10px 8px 12px; font-variant-numeric: tabular-nums; }
+.side .computer section { flex: none; padding: 12px; border-radius: var(--radius-lg); }
+.side .computer section:nth-of-type(2) { --c: var(--accent-alt); }
+.side .computer section.cp-terminal { --c: var(--success); }
+.side .cp-head { margin-bottom: 10px; }
+.side .meter { height: 5px; background: var(--surface-hover); overflow: visible; --m: var(--accent); }
+.side .meter.small { height: 4px; }
+.side .computer section:nth-of-type(2) .meter { --m: var(--accent-alt); }
+.side .meter.warm { --m: var(--warning); } .side .meter.hot { --m: var(--danger); }
+.side .meter i { background: linear-gradient(90deg, color-mix(in srgb, var(--m) 35%, transparent), var(--m)); box-shadow: 0 0 8px color-mix(in srgb, var(--m) 70%, transparent); }
+.side .cp-model { margin-top: 10px; }
+.side .cp-facts { align-items: baseline; row-gap: 6px; }
+.side .cp-top-row:hover { background: color-mix(in srgb, var(--success) 12%, transparent); }
+
+@media (prefers-reduced-motion: reduce) { .side .msg-body, .side .bubble, .side .cmd, .side .computer section { transition: none; } }
+
+/* Play: always there when a message can be listened to, as a round outlined button. */
+.side .msg .listen-btn { opacity: 1; width: 28px; height: 28px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent); background: var(--accent-soft); color: var(--accent-text); transition: background var(--dur-fast), border-color var(--dur-fast), transform var(--dur-fast); }
+.side .msg .listen-btn:hover { border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 28%, transparent); transform: scale(1.08); }
+.side .msg .listen-btn svg { width: 12px; height: 12px; }
+.side .msg .listen-btn.on { border-color: var(--success); background: var(--success-soft); color: var(--success); }
+
+/* Audio already there: a quiet player, with just enough green to tell it apart. */
+.side .msg .player { gap: 8px; padding: 2px 4px 0 2px; }
+.side .msg .pl-btn { width: 26px; height: 26px; border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: transparent; color: var(--success); transition: background var(--dur-fast); }
+.side .msg .pl-btn:hover { background: var(--success-soft); }
+.side .msg .pl-btn .spinner { border-color: color-mix(in srgb, var(--success) 30%, transparent); border-top-color: var(--success); }
+.side .msg .pl-seek::-webkit-slider-runnable-track { height: 3px; background: linear-gradient(90deg, color-mix(in srgb, var(--success) 65%, transparent) var(--pct, 0%), var(--border-subtle) var(--pct, 0%)); }
+.side .msg .pl-seek::-webkit-slider-thumb { width: 10px; height: 10px; margin-top: -3.5px; background: var(--success); }
+.side .msg .pl-seek:focus-visible { outline-color: var(--success); }
+.side .msg .pl-time { color: var(--text-secondary); }
+/* Both play buttons are just the icon: no circle, no ring. The color alone tells "listen" from "audio ready". */
+.side .msg .listen-btn, .side .msg .listen-btn:hover, .side .msg .listen-btn.on, .side .msg .pl-btn, .side .msg .pl-btn:hover { border: 0; background: transparent; box-shadow: none; }
+.side .msg .listen-btn:hover, .side .msg .pl-btn:hover { filter: brightness(1.3); }
+/* Messages have no border or halo. Only yours has a background of its own, darker than the agent's. */
+.side .chat .msg .msg-body, .side .chat .msg .msg-body:hover, .side .chat .msg.playing .msg-body, .side .chat .msg.generating .msg-body { border: 0; box-shadow: none; }
+.side .chat .msg .bubble { border: 0; background: color-mix(in srgb, var(--surface-sunken) 40%, #000); }
+
+/* The side panel speaks violet instead of the theme's blue: redefining the accent here covers light, tabs, buttons and meters. */
+.activity.side { --accent: #8b6cf0; --accent-hover: #a98fff; --accent-text: #b9a3ff; --accent-soft: rgba(139,108,240,.15); --accent-outline: rgba(169,143,255,.5); --accent-alt: #f08ac4; --text-on-accent: #ffffff;
+  --mic-gradient: linear-gradient(135deg, #a98fff, #6f4fd8); }
+:root[data-theme='islands-light'] .activity.side { --accent: #6f4fd8; --accent-hover: #5b3cc4; --accent-text: #5b3cc4; --accent-alt: #b8437f; }
+/* Without its circle the button's box was only empty space: shrink it so the icon sits next to the timeline. */
+.side .msg .player { gap: 6px; padding-left: 0; }
+.side .msg .player .pl-btn { width: 18px; height: 22px; }
+/* The seek bar is an <input> and was inheriting the text field's padding and border: that was the gap after the icon. */
+.side .msg .player .pl-seek { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.side .msg .player { gap: 10px; }
+.side .msg .player .pl-btn { width: 16px; }
+/* Computer: no card borders, and its greys one step lighter so the figures are easy to read. */
+.side .computer section { border: 0; }
+.side .computer { --text-secondary: #c3c8d0; --text-tertiary: #9aa0ab; }
+:root[data-theme='islands-light'] .side .computer { --text-secondary: #3f444d; --text-tertiary: #5b606a; }
+
+/* Voice message: a borderless card at the foot of the panel, lit from its top left corner (red while recording). */
+.side .composer { --c: var(--accent); margin: 0 8px 8px; padding: 14px; gap: 12px; border: 0; border-radius: var(--radius-xl);
+  background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--c) 24%, transparent) 0%, color-mix(in srgb, var(--c) 8%, transparent) 50%, transparent 100%), color-mix(in srgb, var(--surface-sunken) 82%, #000); } /* fades into the panel's own grey */
+.side .composer.recording { --c: var(--danger); }
+.side .composer.error { --c: var(--danger); }
+.side .composer-text { gap: 3px; }
+.side .composer-text strong, .side .composer-label > span:first-child { font-family: var(--font-mono); font-size: 11.5px; font-weight: var(--weight-semibold); letter-spacing: .1em; text-transform: uppercase; color: var(--text-primary); }
+.side .composer-text small, .side .composer-hint, .side .composer-label, .side .coach-hint { color: #9aa0ab; }
+.side .composer .kbd { border: 0; background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+.side .composer .mic { width: 44px; height: 44px; box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent); transition: box-shadow var(--dur-base), transform var(--dur-fast); }
+.side .composer .mic:hover:not(:disabled) { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+.side .composer .mic.rec { box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 22%, transparent); }
+.side .composer .mic:disabled { box-shadow: none; }
+.side .composer .wave i { background: linear-gradient(180deg, var(--danger), color-mix(in srgb, var(--danger) 35%, transparent)); }
+.side .composer .rec-focus .btn.icon-only { border: 0; background: transparent; }
+.side .composer .progress-line { height: 3px; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.side .composer .progress-line::after { background: linear-gradient(90deg, transparent, var(--accent-hover)); }
+.side .composer .spinner { border-color: color-mix(in srgb, var(--accent) 25%, transparent); border-top-color: var(--accent-hover); }
+.side .composer .draft { border: 0; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--surface-sunken) 60%, #000); }
+.side .composer .draft:focus { box-shadow: 0 0 0 1px var(--accent-outline); }
+.side .composer .btn.ghost { border: 0; background: transparent; }
+.side .composer .btn.ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+.side .composer .btn.discard:hover:not(:disabled) { background: var(--danger-soft); }
+.side .composer .btn.send { border: 0; background: var(--mic-gradient); color: #fff; }
+.side .composer .btn.send:disabled { opacity: .4; }
+:root[data-theme='islands-light'] .side .composer-text small, :root[data-theme='islands-light'] .side .composer-hint, :root[data-theme='islands-light'] .side .composer-label { color: #5b606a; }
+/* At rest the shortcut goes under the text, so the title and the hint have the width to themselves. */
+.side .composer.idle .composer-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'text mic' 'keys mic'; align-items: center; row-gap: 8px; column-gap: 14px; }
+.side .composer.idle .composer-text { grid-area: text; }
+.side .composer.idle .composer-text small { white-space: normal; }
+.side .composer.idle .kbd { grid-area: keys; justify-self: start; }
+.side .composer.idle .mic { grid-area: mic; margin-right: 5px; }
+/* a lower box */
+.side .composer { padding: 10px 12px; gap: 8px; }
+.side .composer.idle .composer-row { row-gap: 5px; }
+.side .composer .mic { width: 38px; height: 38px; }

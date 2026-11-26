@@ -6,3 +6,5 @@
 @import './design/base.css';
 @import './design/primitives.css';
 @import './styles/app.css';
+@import './styles/side.css';
+@import './styles/sidebar.css';

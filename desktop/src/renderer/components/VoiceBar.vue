@@ -31,7 +31,7 @@ watch(() => draft.value?.status, async (st, prev) => {
 const bars = Array.from({ length: 26 }, (_, i) => i)
 
 const idleTitle = computed(() => !s.value?.running ? 'Session closed' : recordingElsewhere.value ? 'Recorder in use' : sttNoKey.value ? 'Cloud API key missing' : audioDown.value ? 'Speech-to-text offline' : 'Voice message')
-const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttNoKey.value ? 'Add the key in Settings → Voice' : audioDown.value ? 'The terminal remains available' : 'Record, review, then send')
+const idleHint = computed(() => !s.value?.running ? 'Resume it to record a message' : recordingElsewhere.value ? 'Finish the other recording first' : sttNoKey.value ? 'Add the key in Settings → Voice' : audioDown.value ? 'The terminal remains available' : '') // all is well: the title and the shortcut are enough
 
 function discardRecording() { const id = s.value?.id; cancelRecording(); if (id) focusTerminal(id) }
 async function toggle() {
@@ -54,7 +54,7 @@ async function rerecord() {
   <div v-if="s && s.agentType !== 'shell'" class="composer" :class="draft?.status ?? 'idle'">
     <!-- idle -->
     <div v-if="!draft" class="composer-row">
-      <span class="composer-text"><strong>{{ idleTitle }}</strong><small>{{ idleHint }}</small></span>
+      <span class="composer-text"><strong>{{ idleTitle }}</strong><small v-if="idleHint">{{ idleHint }}</small></span>
       <kbd v-if="s.running && !audioDown && !recordingElsewhere" class="kbd" title="Recording shortcut">{{ shortcut }}</kbd>
       <button class="mic" :disabled="!s.running || recordingElsewhere" title="Record voice message" aria-label="Record voice message" @click="toggle">
         <svg aria-hidden="true" viewBox="0 0 16 16"><rect x="5.25" y="1.75" width="5.5" height="8.25" rx="2.75" /><path d="M3.25 7.75a4.5 4.5 0 0 0 9 0M8 12.25v2M5.75 14.25h4.5" /></svg>

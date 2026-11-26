@@ -8,6 +8,12 @@ import type { SidebarNode } from './sidebarTypes'
 
 const emit = defineEmits<{ select: [id: string]; create: []; settings: [pane?: string]; usage: [] }>()
 const query = ref('')
+// The filter lives behind the magnifier in the header. Closing it always clears it, so no session stays hidden by a filter you cannot see.
+const searching = ref(false)
+const searchEl = ref<HTMLInputElement | null>(null)
+async function openSearch() { searching.value = true; await nextTick(); searchEl.value?.focus() }
+function closeSearch() { query.value = ''; searching.value = false }
+function toggleSearch() { if (searching.value) closeSearch(); else void openSearch() }
 // Folders start collapsed: only an explicit `false` means open. (While filtering, matching folders are shown open so results are never hidden.)
 const collapsed = reactive<Record<string, boolean>>({})
 const editingId = ref<string | null>(null)
@@ -260,8 +266,11 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
     <div class="sidebar-head">
       <span class="brand">Sessions</span>
       <span class="head-count">{{ totalCount }}</span>
-      <span v-if="liveCount" class="head-live" :title="`${liveCount} running`"><i></i>{{ liveCount }} live</span>
+      <span v-if="liveCount" class="head-live" :title="`${liveCount} running`"><i></i>{{ liveCount }}</span>
       <span class="head-tools">
+        <button class="tool-btn" :class="{ on: searching }" :aria-expanded="searching" title="Filter sessions" aria-label="Filter sessions" @mousedown.prevent @click="toggleSearch">
+          <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="6.75" cy="6.75" r="4.25" /><path d="m10 10 3.25 3.25" /></svg>
+        </button>
         <button v-if="store.folders.length" class="tool-btn" :title="anyOpen ? 'Collapse all folders' : 'Expand all folders'" :aria-label="anyOpen ? 'Collapse all folders' : 'Expand all folders'" @click="toggleAllFolders">
           <svg v-if="anyOpen" aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 3.5 3.5 3.5 3.5-3.5M4.5 12.5 8 9l3.5 3.5" /></svg>
           <svg v-else aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 7 3.5-3.5L11.5 7M4.5 9 8 12.5 11.5 9" /></svg>
@@ -275,9 +284,9 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
       </span>
     </div>
 
-    <label class="search-field">
+    <label v-if="searching" class="search-field">
       <svg class="search-icon" aria-hidden="true" viewBox="0 0 16 16"><circle cx="6.75" cy="6.75" r="4.25" /><path d="m10 10 3.25 3.25" /></svg>
-      <input v-model="query" class="search" placeholder="Filter sessions" aria-label="Filter sessions" @keydown.esc="query = ''" />
+      <input ref="searchEl" v-model="query" class="search" placeholder="Filter sessions" aria-label="Filter sessions" @keydown.esc.stop="query ? (query = '') : closeSearch()" @blur="!query && closeSearch()" />
       <button v-if="query" type="button" class="search-clear" title="Clear filter" aria-label="Clear filter" @click="query = ''">
         <svg aria-hidden="true" viewBox="0 0 16 16"><path d="m4.5 4.5 7 7M11.5 4.5l-7 7" /></svg>
       </button>

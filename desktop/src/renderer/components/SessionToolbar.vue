@@ -21,7 +21,7 @@ async function stopAudio() { await window.echo.voice.stopPlayback() }
 <template>
   <header v-if="s" class="toolbar">
     <div class="card-title">
-      <i class="dot" :class="s.runtimeState.toLowerCase()"></i>
+      <i v-if="s.agentType !== 'shell'" class="dot" :class="s.runtimeState.toLowerCase()"></i>
       <strong class="card-name">{{ s.title }}</strong>
       <span class="agent-tag" :class="s.agentType">{{ AGENT_LABELS[s.agentType].label }}</span>
       <span class="card-path" :title="s.workingDirectory">{{ dir }}</span>

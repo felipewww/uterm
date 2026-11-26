@@ -36,9 +36,9 @@ const tabs = computed(() => {
 
 // Tab groups, like Chrome's: the user makes them here and puts any terminals inside. Colored label + colored tabs; clicking the label hides or shows them.
 const GROUPS_KEY = 'echo-term.tab-groups.v2'
-const COLORS = [
-  { id: 'blue', css: 'var(--accent-hover)' }, { id: 'green', css: 'var(--success)' }, { id: 'amber', css: 'var(--warning)' },
-  { id: 'orange', css: 'var(--agent-claude)' }, { id: 'violet', css: 'var(--agent-kiro)' }, { id: 'red', css: 'var(--danger)' }
+const COLORS = [ // bright tones of our own: on the tab strip they are only a soft light from a corner, so they need to be vivid
+  { id: 'blue', css: '#3b9dff' }, { id: 'green', css: '#14d99a' }, { id: 'amber', css: '#ffc41f' },
+  { id: 'orange', css: '#ff8130' }, { id: 'violet', css: '#9d6bff' }, { id: 'red', css: '#ff4d73' }
 ]
 const colorCss = (id: string) => COLORS.find((c) => c.id === id)?.css ?? COLORS[0]!.css
 interface TabGroup { id: string; name: string; color: string }
@@ -50,6 +50,11 @@ watch(gs, (v) => { try { localStorage.setItem(GROUPS_KEY, JSON.stringify(v)) } c
 const groupOfTab = (s: SessionView) => { const g = gs.members[s.id]; return g && gs.groups.some((x) => x.id === g) ? g : null }
 const grouped = computed(() => groupTabs(tabs.value, groupOfTab))
 const groupById = (id: string) => gs.groups.find((g) => g.id === id)!
+// The strip as one flat list (a group's label, then its tabs unless folded), so each cell can animate in and out on its own.
+const cells = computed(() => grouped.value.flatMap((g) => [
+  ...(g.group ? [{ key: `group:${g.group}`, g, s: null as SessionView | null }] : []),
+  ...(!g.group || !gs.hidden[g.group] ? g.tabs.map((s) => ({ key: s.id, g, s: s as SessionView | null })) : [])
+]))
 // forget sessions that no longer exist, and groups nobody is in
 watch(() => store.sessions.map((x) => x.id).join('|'), () => {
   const ids = new Set(store.sessions.map((x) => x.id))
@@ -165,6 +170,8 @@ function reveal(id: string) {
   else if (tab.offsetLeft + tab.offsetWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = tab.offsetLeft + tab.offsetWidth - box.clientWidth
 }
 watch(() => store.selectedId, async (id) => { await nextTick(); if (id) reveal(id); measure() })
+/** A cell is still zero wide when it appears: scroll and measure again once it has finished growing or shrinking. */
+function settled() { if (store.selectedId) reveal(store.selectedId); measure() }
 let sizes: ResizeObserver | undefined
 onMounted(() => { if (strip.value) { sizes = new ResizeObserver(measure); sizes.observe(strip.value) } measure() })
 onBeforeUnmount(() => sizes?.disconnect())
@@ -179,20 +186,20 @@ watch(() => [grouped.value.map((g) => `${g.group ?? ''}:${g.tabs.length}`).join(
     </div>
     <button v-if="more.left || more.right" class="tab-scroll left" title="Scroll the tabs left" aria-label="Scroll the tabs left" :disabled="!more.left" @click="page(-1)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg></button>
     <div ref="strip" class="tabs" role="tablist" aria-label="Open terminals" @scroll="measure">
-    <template v-for="g in grouped" :key="g.group ?? g.tabs[0]!.id">
+    <TransitionGroup name="tabfx" @after-enter="settled" @after-leave="settled">
+    <template v-for="{ key, g, s } in cells" :key="key">
     <div
-      v-if="g.group" class="tab-group" :style="{ '--g': colorCss(groupById(g.group).color) }"
+      v-if="!s && g.group" class="tab-group" :style="{ '--g': colorCss(groupById(g.group).color) }"
       :class="{ collapsed: gs.hidden[g.group], needs: gs.hidden[g.group] && g.tabs.some((t) => ['answer', 'approve', 'error'].includes(flag(t)?.kind ?? '')) }"
       role="button" tabindex="0" :aria-expanded="!gs.hidden[g.group]" :title="gs.hidden[g.group] ? `Show ${g.tabs.length} terminals` : 'Click to hide this group · double-click to rename · right-click for options'"
       @click="gs.hidden[g.group!] = !gs.hidden[g.group!]" @dblclick.stop="startRename(g.group)" @keydown.enter="gs.hidden[g.group!] = !gs.hidden[g.group!]"
       @contextmenu.prevent.stop="openGroupMenu($event, g.group)" @dragover.prevent @drop="onDropOnGroup($event, g.group!)"
     >
       <input v-if="editing === g.group" v-model="editText" class="tab-group-input" aria-label="Group name" @click.stop @dblclick.stop @keydown.enter.stop="commitName" @keydown.esc.stop="editing = null" @blur="commitName" />
-      <template v-else>{{ groupById(g.group).name }}<span v-if="gs.hidden[g.group]" class="tab-group-n">{{ g.tabs.length }}</span></template>
+      <template v-else>{{ groupById(g.group).name }}</template>
     </div>
-    <template v-if="!g.group || !gs.hidden[g.group]">
     <div
-      v-for="s in g.tabs" :key="s.id" class="tab" role="tab" :aria-selected="s.id === store.selectedId" :data-tab="s.id" :title="tip(s)" tabindex="0"
+      v-else-if="s" class="tab" role="tab" :aria-selected="s.id === store.selectedId" :data-tab="s.id" :title="tip(s)" tabindex="0"
       :style="groupOfTab(s) ? { '--g': colorCss(groupById(groupOfTab(s)!).color) } : undefined"
       :class="[s.agentType, 'st-' + s.runtimeState.toLowerCase(), { grouped: !!groupOfTab(s) }, flag(s) ? 'flag-' + flag(s)!.kind : '', { active: s.id === store.selectedId, preview: !s.running, attention: s.needsAttention, dragging: dragId === s.id, 'drop-before': drop?.id === s.id && !drop.after, 'drop-after': drop?.id === s.id && drop.after }]"
       :draggable="isTab(s)" @dragstart="onDragStart($event, s)" @dragover="onDragOver($event, s)" @dragleave="drop = null" @drop="onDrop" @dragend="onDragEnd"
@@ -208,7 +215,7 @@ watch(() => [grouped.value.map((g) => `${g.group ?? ''}:${g.tabs.length}`).join(
       </button>
     </div>
     </template>
-    </template>
+    </TransitionGroup>
     </div>
     <button v-if="more.left || more.right" class="tab-scroll right" title="Scroll the tabs right" aria-label="Scroll the tabs right" :disabled="!more.right" @click="page(1)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" /></svg></button>
     <button v-if="waiting.length" class="tab-alert" :title="`Jump to ${waiting[0]!.title}`" @click="emit('select', waiting[0]!.id)">

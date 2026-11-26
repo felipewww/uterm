@@ -49,7 +49,7 @@ const c = inject('sbx') as any
     <!-- session card -->
     <div
       v-else class="sb-card" role="option" draggable="true" :aria-selected="n.s.id === store.selectedId" :data-sid="n.s.id" :title="c.tip(n.s)"
-      :class="['st-' + n.s.runtimeState.toLowerCase(), { live: n.s.running, closed: !n.s.running, selected: n.s.id === store.selectedId, attention: n.s.needsAttention, dragging: c.dragId === n.s.id }]"
+      :class="['st-' + n.s.runtimeState.toLowerCase(), n.s.agentType, { live: n.s.running, closed: !n.s.running, selected: n.s.id === store.selectedId, attention: n.s.needsAttention, dragging: c.dragId === n.s.id }]"
       @click="c.select(n.s.id)" @dblclick.stop="c.startEdit(n.s)" @dragstart="c.onDragStart($event, 'session', n.s.id)" @dragend="c.onDragEnd" @contextmenu.prevent="c.openMenu($event, n.s)"
     >
       <i class="sb-dot"></i>

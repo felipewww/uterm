@@ -61,7 +61,7 @@ const shortDir = (p: string) => {
       <div v-if="returning" class="welcome-recent">
         <div class="eyebrow">Recent sessions</div>
         <button v-for="s in recent" :key="s.id" class="recent-row" @click="emit('select', s.id)">
-          <i class="dot" :class="s.runtimeState.toLowerCase()"></i>
+          <i class="dot" :class="[s.runtimeState.toLowerCase(), s.agentType]"></i>
           <span class="recent-title">{{ s.title }}</span>
           <span class="agent-tag" :class="s.agentType">{{ AGENT_LABELS[s.agentType].short }}</span>
           <span class="recent-path">{{ shortDir(s.workingDirectory) }}</span>

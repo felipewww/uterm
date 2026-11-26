@@ -140,21 +140,45 @@ async function close(s: SessionView) {
     emit('select', next?.id ?? null)
   }
 }
-function onWheel(e: WheelEvent) { // vertical wheel scrolls the strip sideways
-  const el = e.currentTarget as HTMLElement
-  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += e.deltaY; e.preventDefault() }
+// The strip scrolls; Home, the arrows, "needs you" and "new terminal" stay put at its ends.
+const strip = ref<HTMLElement | null>(null)
+const more = reactive({ left: false, right: false })
+function measure() {
+  const el = strip.value
+  if (!el) return
+  more.left = el.scrollLeft > 1
+  more.right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
 }
-watch(() => store.selectedId, async (id) => {
-  await nextTick()
-  if (id) document.querySelector(`[data-tab="${id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-})
+function onWheel(e: WheelEvent) { // vertical wheel scrolls the strip sideways
+  const el = strip.value
+  if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += e.deltaY * (e.deltaMode === 1 ? 32 : 1); e.preventDefault() }
+}
+const page = (dir: -1 | 1) => strip.value?.scrollBy({ left: dir * Math.max(160, strip.value.clientWidth * 0.7), behavior: 'smooth' })
+/** Scrolls a tab into view, together with its group's label when it is the first of the group (that label is how the group is folded). */
+function reveal(id: string) {
+  const box = strip.value
+  const tab = box?.querySelector<HTMLElement>(`[data-tab="${id}"]`)
+  if (!box || !tab) return
+  const before = tab.previousElementSibling as HTMLElement | null
+  const lead = before?.classList.contains('tab-group') ? before : tab
+  if (lead.offsetLeft - 8 < box.scrollLeft) box.scrollLeft = lead.offsetLeft - 8
+  else if (tab.offsetLeft + tab.offsetWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = tab.offsetLeft + tab.offsetWidth - box.clientWidth
+}
+watch(() => store.selectedId, async (id) => { await nextTick(); if (id) reveal(id); measure() })
+let sizes: ResizeObserver | undefined
+onMounted(() => { if (strip.value) { sizes = new ResizeObserver(measure); sizes.observe(strip.value) } measure() })
+onBeforeUnmount(() => sizes?.disconnect())
+// tabs opening, closing or a group folding change the width of the content, not of the strip
+watch(() => [grouped.value.map((g) => `${g.group ?? ''}:${g.tabs.length}`).join('|'), Object.values(gs.hidden).join()], async () => { await nextTick(); measure() })
 </script>
 
 <template>
-  <div class="tabs" role="tablist" aria-label="Open terminals" @wheel="onWheel">
+  <div class="tabbar" @wheel="onWheel">
     <div class="tab home-tab" :class="{ active: !store.selectedId }" role="tab" :aria-selected="!store.selectedId" title="Home" aria-label="Home" tabindex="0" @click="emit('select', null)" @keydown.enter="emit('select', null)">
       <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 7.75 8 3l5.5 4.75M4 6.75V13h8V6.75M6.75 13V9.75h2.5V13" /></svg>
     </div>
+    <button v-if="more.left || more.right" class="tab-scroll left" title="Scroll the tabs left" aria-label="Scroll the tabs left" :disabled="!more.left" @click="page(-1)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg></button>
+    <div ref="strip" class="tabs" role="tablist" aria-label="Open terminals" @scroll="measure">
     <template v-for="g in grouped" :key="g.group ?? g.tabs[0]!.id">
     <div
       v-if="g.group" class="tab-group" :style="{ '--g': colorCss(groupById(g.group).color) }"
@@ -185,6 +209,8 @@ watch(() => store.selectedId, async (id) => {
     </div>
     </template>
     </template>
+    </div>
+    <button v-if="more.left || more.right" class="tab-scroll right" title="Scroll the tabs right" aria-label="Scroll the tabs right" :disabled="!more.right" @click="page(1)"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5" /></svg></button>
     <button v-if="waiting.length" class="tab-alert" :title="`Jump to ${waiting[0]!.title}`" @click="emit('select', waiting[0]!.id)">
       <i></i>{{ waiting.length }} {{ waiting.length === 1 ? 'needs' : 'need' }} you
     </button>

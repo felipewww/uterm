@@ -2,6 +2,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import { matchesShortcut } from './shortcut'
+import { wrappedLinksAt } from './wrappedLinks'
 import { onThemeChange, terminalTheme } from './design/theme'
 import { store } from './store'
 
@@ -21,6 +22,18 @@ export function ensureTerminal(id: string): Entry {
   })
   const fit = new FitAddon()
   term.loadAddon(fit)
+  // registered before the addon so that a link broken over lines wins over its first piece
+  term.registerLinkProvider({
+    provideLinks(lineNumber, callback) {
+      const buf = term.buffer.active
+      const row = (i: number) => { const l = buf.getLine(i); return l ? { text: l.translateToString(true), wrapped: l.isWrapped } : undefined }
+      const y = lineNumber - 1
+      callback(wrappedLinksAt(row, y, term.cols).map((link) => {
+        const piece = link.pieces.find((p) => p.row === y)!
+        return { text: link.url, range: { start: { x: piece.start + 1, y: lineNumber }, end: { x: piece.start + piece.length, y: lineNumber } }, activate: (e: MouseEvent) => { if (e.ctrlKey || e.metaKey) openLink(link.url) } }
+      }))
+    }
+  })
   term.loadAddon(new WebLinksAddon((e, uri) => { if (e.ctrlKey || e.metaKey) openLink(uri) })) // plain URLs: Ctrl (Cmd on a Mac) + click
   const el = document.createElement('div')
   el.className = 'term-host'

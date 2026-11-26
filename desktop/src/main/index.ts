@@ -123,14 +123,15 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
 
   // Cloud keys are typed in Settings and kept encrypted by the operating system (never in the database, never passed to agents). Only the app process reads them.
   const secrets = new SecretStore(join(app.getPath('userData'), 'secrets.json'), {
-    available: () => safeStorage.isEncryptionAvailable(),
-    encrypt: (t) => safeStorage.encryptString(t), decrypt: (b) => safeStorage.decryptString(b)
+    available: () => safeStorage.isAsyncEncryptionAvailable(),
+    encrypt: (t) => safeStorage.encryptStringAsync(t), decrypt: (b) => safeStorage.decryptStringAsync(b)
   })
+  await secrets.load()
   const migratedMark = join(app.getPath('userData'), 'keys-from-env.done')
   if (!existsSync(migratedMark)) { // once: keys that used to be in a .env file move into the encrypted store
     try {
       const legacy = readLegacyKeys(root); let moved = 0
-      for (const n of SECRET_NAMES) { const v = legacy[n]; if (v && !secrets.has(n)) { if (secrets.set(n, v)) moved++ } }
+      for (const n of SECRET_NAMES) { const v = legacy[n]; if (v && !secrets.has(n)) { if (await secrets.set(n, v)) moved++ } }
       if (moved) notice('info', `Moved ${moved} API key${moved > 1 ? 's' : ''} from your .env file into the app. You can delete them from the .env file now.`)
       writeFileSync(migratedMark, 'done\n')
     } catch { /* will try again next launch */ }
@@ -309,9 +310,9 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
     return { ...sp, db: !!localDb, keys: { openai: router.hasKey('openai'), gemini: router.hasKey('gemini') }, keysPersist: secrets.persistent(), agents: { claude, codex, kiro },
       capabilities: { claude: new ClaudeCodeAdapter(repoRoot).capabilities, codex: new CodexAdapter().capabilities, kiro: new KiroAdapter().capabilities } }
   })
-  ipcMain.handle('secrets:set', (_e, p) => {
+  ipcMain.handle('secrets:set', async (_e, p) => {
     const a = parse(schemas.secretSet, p)
-    const persisted = secrets.set(a.provider as SecretName, a.key)
+    const persisted = await secrets.set(a.provider as SecretName, a.key)
     if (!persisted) notice('warn', 'This computer has no secure key storage, so the key is kept only until you quit the app.')
     return { persisted }
   })
@@ -341,6 +342,7 @@ async function bootstrap(): Promise<{ onFocusChange: () => void; hasRunning: () 
   })
   // plain terminals: remember where the shell is (every few seconds), and the commands the user chose to keep
   setInterval(() => { void sessions.refreshAllCwds() }, 4000).unref()
+  setInterval(() => { void sessions.refreshBusy() }, 1500).unref() // plain terminals: green title while a command runs
   ipcMain.handle('commands:list', (_e, p) => commandStore.list(requireSession(parse(schemas.sessionIdOnly, p).sessionId)))
   ipcMain.handle('commands:add', (_e, p) => { const a = parse(schemas.commandAdd, p); return commandStore.add(requireSession(a.sessionId), a.command.trim(), a.label?.trim() || null) })
   ipcMain.handle('commands:remove', (_e, p) => commandStore.remove(parse(schemas.id, p).id))

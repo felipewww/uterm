@@ -18,6 +18,42 @@ export const TERMINAL_BACKGROUNDS: Array<{ id: TerminalBackground; label: string
 ]
 export const currentTerminalBackground = ref<TerminalBackground>('original')
 
+/** The strongest color of each box's gradients. Unset = the default of the theme's style sheet. */
+export type BoxColor = 'sessions' | 'open' | 'chat'
+export const BOX_COLORS: Array<{ id: BoxColor; label: string; hint: string; fallback: string }> = [
+  { id: 'sessions', label: 'Sessions box', hint: 'The light of the list on the left, its hover and highlights', fallback: '#8b6cf0' },
+  { id: 'open', label: 'Open session', hint: 'The light on the session you are in', fallback: '#3ddc97' },
+  { id: 'chat', label: 'Activity panel', hint: 'The panel on the right: its light, tabs, buttons and microphone', fallback: '#8b6cf0' }
+]
+export const COLOR_PRESETS = ['#8b6cf0', '#3b9dff', '#22b8f0', '#14c9a0', '#3ddc97', '#ffb454', '#ff7a45', '#f0609e', '#8b919b']
+const BOX_COLORS_KEY = 'echo-term.box-colors.v1'
+export const boxColors = ref<Partial<Record<BoxColor, string>>>({})
+const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+
+function applyBoxColors(): void {
+  for (const { id } of BOX_COLORS) {
+    const value = boxColors.value[id]
+    if (value) document.documentElement.style.setProperty(`--pick-${id}`, value)
+    else document.documentElement.style.removeProperty(`--pick-${id}`)
+  }
+}
+/** `null` goes back to the default. */
+export function setBoxColor(id: BoxColor, value: string | null): void {
+  const next = { ...boxColors.value }
+  if (isHex(value)) next[id] = value
+  else delete next[id]
+  boxColors.value = next
+  applyBoxColors()
+  try { localStorage.setItem(BOX_COLORS_KEY, JSON.stringify(next)) } catch { /* storage unavailable */ }
+}
+export function initBoxColors(): void {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BOX_COLORS_KEY) ?? '{}') as Record<string, unknown>
+    boxColors.value = Object.fromEntries(BOX_COLORS.flatMap(({ id }) => (isHex(saved?.[id]) ? [[id, saved[id] as string]] : [])))
+  } catch { boxColors.value = {} }
+  applyBoxColors()
+}
+
 const listeners: Array<() => void> = []
 export function onThemeChange(cb: () => void): void { listeners.push(cb) }
 const notifyThemeChange = () => {
@@ -42,6 +78,7 @@ export function initTheme(): void {
   let saved = DEFAULT_THEME
   try { saved = localStorage.getItem(KEY) ?? DEFAULT_THEME } catch { /* defaults */ }
   setTheme(saved)
+  initBoxColors()
 }
 
 export function setTerminalBackground(id: string): void {

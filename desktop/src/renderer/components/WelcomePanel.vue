@@ -42,11 +42,6 @@ const shortDir = (p: string) => {
         <p class="tagline">Voice-enabled workspace for your coding agents</p>
       </div>
 
-      <div class="welcome-head">
-        <h1>{{ returning ? 'Welcome back' : 'Welcome' }}</h1>
-        <p>{{ returning ? 'Pick up where you left off, or start something new.' : 'Start a session in any project folder. Everything stays on this machine.' }}</p>
-      </div>
-
       <div class="welcome-actions">
         <button class="start-btn primary" @click="emit('create')">
           <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 3.25v9.5M3.25 8h9.5" /></svg>

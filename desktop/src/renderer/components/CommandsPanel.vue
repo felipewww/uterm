@@ -50,7 +50,7 @@ async function run(c: Cmd, go: boolean) {
           </div>
           <div class="cmd-actions">
             <button class="cmd-act paste" title="Paste into the terminal (you press Enter)" aria-label="Paste into the terminal" @click="run(c, false)">
-              <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 2.5v7M5 6.75 8 9.75l3-3M3.5 13h9" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.75" /><path d="m4.75 6.5 1.9 1.6-1.9 1.6M8.25 9.9h3" /></svg>
             </button>
             <button class="cmd-act run" title="Run it now" aria-label="Run it now" @click="run(c, true)">
               <svg aria-hidden="true" viewBox="0 0 16 16"><path d="M5.5 3.5v9l7-4.5z" /></svg>

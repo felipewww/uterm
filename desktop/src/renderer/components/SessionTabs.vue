@@ -201,7 +201,7 @@ watch(() => [grouped.value.map((g) => `${g.group ?? ''}:${g.tabs.length}`).join(
     <div
       v-else-if="s" class="tab" role="tab" :aria-selected="s.id === store.selectedId" :data-tab="s.id" :title="tip(s)" tabindex="0"
       :style="groupOfTab(s) ? { '--g': colorCss(groupById(groupOfTab(s)!).color) } : undefined"
-      :class="[s.agentType, 'st-' + s.runtimeState.toLowerCase(), { grouped: !!groupOfTab(s) }, flag(s) ? 'flag-' + flag(s)!.kind : '', { active: s.id === store.selectedId, preview: !s.running, attention: s.needsAttention, dragging: dragId === s.id, 'drop-before': drop?.id === s.id && !drop.after, 'drop-after': drop?.id === s.id && drop.after }]"
+      :class="[s.agentType, 'st-' + s.runtimeState.toLowerCase(), { grouped: !!groupOfTab(s) }, flag(s) ? 'flag-' + flag(s)!.kind : '', { active: s.id === store.selectedId, busy: s.busy, preview: !s.running, attention: s.needsAttention, dragging: dragId === s.id, 'drop-before': drop?.id === s.id && !drop.after, 'drop-after': drop?.id === s.id && drop.after }]"
       :draggable="isTab(s)" @dragstart="onDragStart($event, s)" @dragover="onDragOver($event, s)" @dragleave="drop = null" @drop="onDrop" @dragend="onDragEnd"
       @click="emit('select', s.id)" @contextmenu.prevent.stop="openTabMenu($event, s)" @auxclick.middle.prevent="close(s)" @keydown.enter="emit('select', s.id)"
     >

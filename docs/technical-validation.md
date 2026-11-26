@@ -131,3 +131,7 @@ Written from the providers' public documentation and covered by unit tests with 
 - Kiro: tool-using turns live inside uTerm (only parsed from existing logs), the V3 engine (`--v3`/TUI), macOS paths, permission detection (not possible from the log).
 - Multi-session background speaking with real audio, global mute, the listen-again buttons in Activity, VS Code button, window-focus transitions.
 - AppImage/deb artifacts (only `electron-builder --linux dir` was built and launched), macOS, GPU profile.
+
+## 1.0.0: key storage and busy terminals
+- API keys use Electron's async `safeStorage`. Checked on Linux (gnome_libsecret) with dummy values: data written by the old sync API is read by the async one. The author confirmed their saved keys still show in the dev app on Linux. **Not tested:** macOS Keychain, KWallet, a locked keyring.
+- A plain terminal is "busy" when its foreground process group is not the shell's. Tested with a real bash on Linux (`tests/busy.test.ts`). The author confirmed the green title in the dev app on Linux. **Not tested:** the macOS `ps` path.

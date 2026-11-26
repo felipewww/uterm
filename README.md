@@ -28,14 +28,14 @@ Pre-built packages are produced by you with the commands in [Build](#build); the
 
 | Platform | Package | How to install |
 |---|---|---|
-| Linux | `uTerm-0.1.1.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_0.1.1_amd64.deb` (rebuilt with the same version: `sudo dpkg -i` instead). Close uTerm first |
-| macOS (Apple Silicon) | `uTerm-0.1.1-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
+| Linux | `uTerm-1.0.0.AppImage` or `.deb` | `chmod +x` and run the AppImage, or `sudo apt install ./uterm-desktop_1.0.0_amd64.deb` (rebuilt with the same version: `sudo dpkg -i` instead). Close uTerm first |
+| macOS (Apple Silicon) | `uTerm-1.0.0-arm64-mac.zip` | Unzip, move `uTerm.app` to `/Applications`, then `xattr -cr /Applications/uTerm.app && codesign --force --deep --sign - /Applications/uTerm.app` (the build is unsigned) |
 
 Linux, after building (close uTerm first):
 ```bash
 cd desktop/release
-sudo dpkg -i uterm-desktop_0.1.1_amd64.deb   # installs or replaces; then open uTerm from the app menu
-./uTerm-0.1.1.AppImage                       # or run it without installing
+sudo dpkg -i uterm-desktop_1.0.0_amd64.deb   # installs or replaces; then open uTerm from the app menu
+./uTerm-1.0.0.AppImage                       # or run it without installing
 ```
 
 You also need at least one agent CLI installed and logged in (Claude Code, Codex or Kiro). On Linux, `sudo apt install espeak-ng` gives the default voice.
@@ -68,7 +68,7 @@ Notes:
 ## Use it
 - **＋** creates a session or imports an existing conversation. Right-click a session for more actions.
 - **Record:** `Ctrl+Shift+Space` (`⌘⇧Space` on a Mac). **Send** the reviewed text: `Ctrl+Enter` (`⌘Enter`), from anywhere in the window.
-- **Settings → Voice** has three tabs. *Output* picks the speech engine and voice, *Input* the transcription engine and microphone, *Behavior* the voice modes. The other panes are General, English coach, Usage and System.
+- **Settings → Voice** has three tabs. *Output* picks the speech engine and voice, *Input* the transcription engine and microphone, *Behavior* the voice modes. *Settings → Colors* changes the light of the sessions box, the open session and the activity panel. The other panes are General, English coach, Usage and System.
 - **API keys** (OpenAI, Gemini) are typed in Settings → Voice and stored encrypted by the OS (Keychain, keyring). They never go to the database, the logs or the agents. Costs shown are estimates; your provider's dashboard has the real bill.
 
 ## Optional: Chatterbox server

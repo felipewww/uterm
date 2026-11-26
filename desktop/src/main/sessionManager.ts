@@ -8,6 +8,7 @@ import type { SessionRepository } from './db/sessionStore'
 import type { EventBus } from './events/eventBus'
 import type { PtyManager } from './pty/ptyManager'
 import { searchPath } from './agents/exec'
+import { isBusy } from './busy'
 import { cwdOfPid } from './cwd'
 import { ReorderBuffer } from './hooks/reorderBuffer'
 import { nextState, needsAttention } from './sessionState'
@@ -21,6 +22,7 @@ interface Runtime {
   attention: boolean
   muted: boolean
   lastEventAt: number
+  busy?: boolean
 }
 
 export interface SessionManagerDeps {
@@ -36,6 +38,8 @@ export interface SessionManagerDeps {
   onSessionRemoved?(id: string): void
   /** where a process is (defaults to /proc or lsof); injectable for tests */
   cwdOf?(pid: number): Promise<string | null>
+  /** is a command running in this shell's foreground; injectable for tests */
+  busyOf?(pid: number): Promise<boolean>
   onPersistenceError(message: string): void
 }
 
@@ -69,7 +73,8 @@ export class SessionManager {
       running: !!rt && rt.state !== 'CLOSED',
       needsAttention: rt?.attention ?? false,
       muted: rt?.muted ?? false,
-      speaking: speakingId === id
+      speaking: speakingId === id,
+      busy: !!rt && rt.state !== 'CLOSED' && !!rt.busy
     }
   }
 
@@ -368,6 +373,19 @@ export class SessionManager {
     await this.safely('remember the terminal folder', () => this.d.repo.update(id, { lastCwd: cwd }))
   }
   async refreshAllCwds(): Promise<void> { for (const id of this.records.keys()) if (this.isRunning(id)) await this.refreshCwd(id) }
+
+  /** Which plain terminals are running something right now; publishes only the ones that changed. */
+  async refreshBusy(): Promise<void> {
+    for (const [id, rec] of this.records) {
+      const pid = rec.agentType === 'shell' && this.isRunning(id) ? this.d.pty.pidOf(id) : null
+      if (pid === null) continue
+      const busy = await (this.d.busyOf ?? isBusy)(pid)
+      const rt = this.runtime.get(id)
+      if (!rt || !!rt.busy === busy) continue
+      rt.busy = busy
+      this.publishView(id)
+    }
+  }
 
   /** Pastes a saved command into a plain terminal; `run` also presses Enter. The user asked for it with a click: nothing else ever does this. */
   runCommand(id: string, command: string, run: boolean): boolean {

@@ -329,7 +329,7 @@ onBeforeUnmount(() => { window.removeEventListener('click', closeMenu); window.r
         <svg v-else aria-hidden="true" viewBox="0 0 16 16"><path d="M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 6l3 4M13.75 6l-3 4" /></svg>
       </button>
       <button class="tool-btn" title="Settings" aria-label="Settings" @click="emit('settings')">
-        <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.25" /><path d="M8 1.75v1.6M8 12.65v1.6M1.75 8h1.6M12.65 8h1.6M3.6 3.6l1.15 1.15M11.25 11.25l1.15 1.15M3.6 12.4l1.15-1.15M11.25 4.75l1.15-1.15" /></svg>
+        <svg aria-hidden="true" viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.1" /><path d="M6.57 3.31 L6.85 1.50 L9.15 1.50 L9.43 3.31 L10.30 3.67 L11.79 2.59 L13.41 4.21 L12.33 5.70 L12.69 6.57 L14.50 6.85 L14.50 9.15 L12.69 9.43 L12.33 10.30 L13.41 11.79 L11.79 13.41 L10.30 12.33 L9.43 12.69 L9.15 14.50 L6.85 14.50 L6.57 12.69 L5.70 12.33 L4.21 13.41 L2.59 11.79 L3.67 10.30 L3.31 9.43 L1.50 9.15 L1.50 6.85 L3.31 6.57 L3.67 5.70 L2.59 4.21 L4.21 2.59 L5.70 3.67Z" /></svg>
       </button>
       </span>
     </div>

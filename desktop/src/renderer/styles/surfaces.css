@@ -1,0 +1,17 @@
+/* Shared by the tab strip, the sessions box and the side panel: the animatable sizes of the corner lights. */
+@property --lamp-w { syntax: '<percentage>'; inherits: false; initial-value: 85%; }
+@property --lamp-h { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
+/* strength of a light that fades in on hover */
+@property --lit { syntax: '<percentage>'; inherits: false; initial-value: 0%; }
+
+/* Surfaces of the sessions box and the side panel. Dark themes sink them towards black; the light theme needs its own. */
+:root {
+  --box-bg: color-mix(in srgb, var(--surface-sunken) 82%, #000);   /* the box itself */
+  --box-well: color-mix(in srgb, var(--surface-sunken) 42%, #000); /* folders, filter: sunk into the box */
+  --card-bg: var(--surface-sunken);                                /* lit cards */
+  --msg-bg: var(--surface-island);                                 /* the agent's messages */
+  --msg-own: color-mix(in srgb, var(--surface-sunken) 40%, #000);  /* yours */
+  --draft-bg: color-mix(in srgb, var(--surface-sunken) 60%, #000);
+  --soft-text: #9aa0ab;
+}
+:root[data-theme='islands-light'] { --box-bg: #ffffff; --box-well: #eef0f4; --card-bg: #f4f5f8; --msg-bg: #f3f4f7; --msg-own: #ece8fb; --draft-bg: #f3f4f7; --soft-text: #5b606a; }

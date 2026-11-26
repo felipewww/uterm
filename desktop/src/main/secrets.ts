@@ -3,9 +3,10 @@ import { dirname } from 'node:path'
 
 /** The encryption the operating system gives the app (Electron's safeStorage: Keychain on macOS, the keyring on Linux, DPAPI on Windows). */
 export interface Crypto {
-  available(): boolean
-  encrypt(plain: string): Buffer
-  decrypt(data: Buffer): string
+  available(): Promise<boolean>
+  encrypt(plain: string): Promise<Buffer>
+  /** `shouldReEncrypt`: the system rotated its key, so the stored value should be written again */
+  decrypt(data: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>
 }
 
 export type SecretName = 'openai' | 'gemini'
@@ -17,7 +18,8 @@ export const SECRET_NAMES: SecretName[] = ['openai', 'gemini']
  */
 export class SecretStore {
   private data: Partial<Record<SecretName, string>> = {} // base64 of the encrypted value
-  private session: Partial<Record<SecretName, string>> = {} // plain, memory only (no OS encryption available)
+  private plain: Partial<Record<SecretName, string>> = {} // memory of the main process only
+  private canPersist = false
 
   constructor(private file: string, private crypto: Crypto) {
     try {
@@ -28,32 +30,45 @@ export class SecretStore {
     } catch { /* unreadable file: start empty, the user can type the key again */ }
   }
 
-  /** Can keys be kept across restarts on this machine? */
-  persistent(): boolean { return this.crypto.available() }
-
-  get(name: SecretName): string | null {
-    const mem = this.session[name]
-    if (mem) return mem
-    const enc = this.data[name]
-    if (!enc || !this.crypto.available()) return null
-    try { return this.crypto.decrypt(Buffer.from(enc, 'base64')).trim() || null } catch { return null }
+  /** Asks the system for its encryption and opens the saved keys. Call once, before reading any. */
+  async load(): Promise<void> {
+    this.canPersist = await this.crypto.available().catch(() => false)
+    if (!this.canPersist) return
+    let renewed = false
+    for (const n of SECRET_NAMES) {
+      const enc = this.data[n]
+      if (!enc) continue
+      try {
+        const { result, shouldReEncrypt } = await this.crypto.decrypt(Buffer.from(enc, 'base64'))
+        const v = result.trim()
+        if (!v) continue
+        this.plain[n] = v
+        if (shouldReEncrypt) { this.data[n] = (await this.crypto.encrypt(v)).toString('base64'); renewed = true }
+      } catch { /* cannot be opened now: the stored value stays as it is */ }
+    }
+    if (renewed) this.flush()
   }
+
+  /** Can keys be kept across restarts on this machine? */
+  persistent(): boolean { return this.canPersist }
+
+  get(name: SecretName): string | null { return this.plain[name] ?? null }
 
   has(name: SecretName): boolean { return !!this.get(name) }
 
-  /** Returns false when the key could only be kept for this session. */
-  set(name: SecretName, value: string): boolean {
+  /** Resolves false when the key could only be kept for this session. */
+  async set(name: SecretName, value: string): Promise<boolean> {
     const v = value.trim()
     if (!v) { this.remove(name); return true }
-    if (!this.crypto.available()) { this.session[name] = v; return false }
-    this.data[name] = this.crypto.encrypt(v).toString('base64')
-    delete this.session[name]
+    if (!this.canPersist) { this.plain[name] = v; return false }
+    this.data[name] = (await this.crypto.encrypt(v)).toString('base64')
+    this.plain[name] = v
     this.flush()
     return true
   }
 
   remove(name: SecretName): void {
-    delete this.data[name]; delete this.session[name]
+    delete this.data[name]; delete this.plain[name]
     this.flush()
   }
 

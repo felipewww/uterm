@@ -8,6 +8,7 @@ import { playChime, playRecordingCue } from '../chime'
 import VoicePicker from './VoicePicker.vue'
 import { cloudVoiceLabel } from '@shared/voices'
 import UsagePane from './UsagePane.vue'
+import ColorsPane from './ColorsPane.vue'
 import { THEMES, TERMINAL_BACKGROUNDS, currentTerminalBackground, currentTheme, setTerminalBackground, setTheme } from '../design/theme'
 
 const props = defineProps<{ sessionId?: string | null; startPane?: string }>()
@@ -17,13 +18,14 @@ const sess = computed(() => (props.sessionId ? store.sessions.find((s) => s.id =
 const g = reactive<AppSettings>({ ...store.settings })
 /** Human name of a voice id, for "Use the default (…)". */
 const voiceName = (id: string) => store.voices.find((v) => v.id === id)?.name ?? cloudVoiceLabel(id) ?? id
-type Pane = 'general' | 'voice' | 'english' | 'usage' | 'system'
+type Pane = 'general' | 'colors' | 'voice' | 'english' | 'usage' | 'system'
 // "voice.input" opens the Voice pane on its Input tab
 const [wantedPane, wantedTab] = (props.startPane ?? '').split('.')
-const pane = ref<Pane>((['general', 'voice', 'english', 'usage', 'system'] as string[]).includes(wantedPane ?? '') ? wantedPane as Pane : 'general')
+const pane = ref<Pane>((['general', 'colors', 'voice', 'english', 'usage', 'system'] as string[]).includes(wantedPane ?? '') ? wantedPane as Pane : 'general')
 const voiceTab = ref(wantedTab ?? 'output')
 const panes: Array<{ id: Pane; label: string; icon: string }> = [
   { id: 'general', label: 'General', icon: 'M2.5 4.5h11M2.5 8h11M2.5 11.5h11M5.5 3v3M10.5 6.5v3M7 10v3' },
+  { id: 'colors', label: 'Colors', icon: 'M8 2a6 6 0 1 0 0 12c.9 0 1.4-.6 1.4-1.3 0-.9-.8-1.1-.8-1.9 0-.7.6-1.2 1.4-1.2h1.6c1.4 0 2.4-1 2.4-2.4C14 4.2 11.3 2 8 2zM5 7.5h.01M7 5h.01M10 5h.01' },
   { id: 'voice', label: 'Voice', icon: 'M2.5 6.25v3.5h2.5L8.5 12.5v-9L5 6.25zM10.75 5.75a3.25 3.25 0 0 1 0 4.5M12.5 3.75a6 6 0 0 1 0 8.5' },
   { id: 'english', label: 'English coach', icon: 'M2.5 4h6M5.5 4v1.5M3.5 9c1.6-.6 3-1.9 3.6-3.5M4.5 7.2c.7 1.4 1.9 2.4 3.3 2.9M9 13l2.5-6 2.5 6M9.8 11.2h3.4' },
   { id: 'usage', label: 'Usage', icon: 'M3 13V8.5M6.5 13V4M10 13V7M13.5 13V2.5' },
@@ -157,6 +159,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
               <select v-model="g.defaultAgent"><option v-for="t in CODING_AGENTS" :key="t" :value="t" :disabled="!!store.agents[t] && !store.agents[t]!.installed">{{ AGENT_LABELS[t].label }}{{ store.agents[t] && !store.agents[t]!.installed ? ' — not installed' : '' }}</option></select>
 </div>
           </template>
+
+          <ColorsPane v-else-if="pane === 'colors'" />
 
           <VoicePane v-else-if="pane === 'voice'" :key="voiceTab" :g="g" :tab="voiceTab" />
 

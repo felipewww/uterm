@@ -50,6 +50,8 @@ export interface FolderRecord { id: string; name: string; parentId: string | nul
 
 /** Persisted record + runtime-only state (never stored). */
 export interface SessionView extends SessionRecord {
+  /** plain terminals only: a command is running in the foreground */
+  busy?: boolean
   runtimeState: RuntimeState
   running: boolean
   needsAttention: boolean
